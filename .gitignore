@@ -1,0 +1,30 @@
+.DS_Store
+
+# Never commit agent runtime state or credentials.
+**/auth.json
+**/history.jsonl
+**/*.sqlite
+**/*.sqlite-*
+**/sessions/
+**/logs/
+**/log/
+**/cache/
+**/.cache/
+**/tmp/
+**/.tmp/
+**/shell_snapshots/
+**/shell-snapshots/
+**/paste-cache/
+**/file-history/
+**/stats-cache.json
+**/mcp-needs-auth-cache.json
+**/settings.local.json
+**/installation_id
+**/models_cache.json
+**/state_*.sqlite*
+**/logs_*.sqlite*
+**/plugins/installed_plugins.json
+**/plugins/known_marketplaces.json
+
+# Local backup output from install script.
+.backups/

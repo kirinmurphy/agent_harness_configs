@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$#" -eq 0 ]]; then
+  echo "usage: harness-run <command> [args...]" >&2
+  exit 2
+fi
+
+tmp="$(mktemp "${TMPDIR:-/tmp}/harness-run.XXXXXX")"
+status=0
+
+"$@" >"${tmp}" 2>&1 || status=$?
+
+if [[ "${status}" -eq 0 ]]; then
+  echo "ok: $*"
+  tail -n 40 "${tmp}"
+else
+  echo "fail(${status}): $*" >&2
+  tail -n 120 "${tmp}" >&2
+fi
+
+rm -f "${tmp}"
+exit "${status}"

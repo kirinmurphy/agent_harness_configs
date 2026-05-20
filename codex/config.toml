@@ -1,0 +1,81 @@
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+
+[notice.model_migrations]
+"gpt-5.2-codex" = "gpt-5.3-codex"
+"gpt-5.3-codex" = "gpt-5.4"
+
+[plugins."github@openai-curated"]
+enabled = true
+
+[plugins."caveman@caveman-repo"]
+enabled = true
+
+[features]
+js_repl = true
+prevent_idle_sleep = true
+hooks = true
+
+[mcp_servers.jcodemunch]
+command = "uvx"
+args = ["jcodemunch-mcp"]
+
+[mcp_servers.jcodemunch.tools.resolve_repo]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.search_text]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_file_outline]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_file_content]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.find_references]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.index_file]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.register_edit]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.search_symbols]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_context_bundle]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_symbol_source]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_repo_outline]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_file_tree]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.index_folder]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.plan_turn]
+approval_mode = "approve"
+
+[mcp_servers.jcodemunch.tools.get_ranked_context]
+approval_mode = "approve"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 4
+
+[projects."/Users/kirinmurphy/projects/clientwork/sembrando"]
+trust_level = "trusted"
+
+[projects."/Users/kirinmurphy/projects/live_projects/harness_configs"]
+trust_level = "trusted"
+
+[hooks.state]
+
+[hooks.state."/Users/kirinmurphy/.codex/hooks.json:session_start:0:0"]
+trusted_hash = "sha256:63c22d9bfcee2987188b0af23d9faa4c6c60dd113869faf0f529035b0659000c"
+enabled = true

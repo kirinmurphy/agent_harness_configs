@@ -1,0 +1,58 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"jcodemunch is available. Use resolve_repo, search_symbols, get_file_outline, find_references, get_context_bundle — NOT Grep/Read — for code exploration.\"}'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/minimize-bash-output.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"continue\": false, \"stopReason\": \"Grep and Glob are blocked. Use jcodemunch tools instead: search_symbols, get_file_outline, find_references, or get_context_bundle.\"}'"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"REMINDER: Prefer jcodemunch tools (search_symbols, get_file_outline, find_references, get_context_bundle) over Read for code exploration. Only use Read for targeted reads of known file locations or editing workflows.\"}}'"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "caveman@caveman": true,
+    "vercel@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": false,
+  "skipDangerousModePermissionPrompt": true,
+  "awaySummaryEnabled": false
+}

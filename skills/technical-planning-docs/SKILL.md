@@ -1,0 +1,219 @@
+---
+name: technical-planning-docs
+description: Use when creating or revising technical planning docs, architecture notes, implementation plans, migration docs, operational runbooks, design proposals, or repo documentation that must explain concepts, current behavior, happy path, edge cases, decisions, and implementation steps for future readers. Use for docs that need clear structure, newcomer-friendly explanations, and separation of facts, recommendations, risks, and open questions.
+---
+
+# Technical Planning Docs
+
+Use this skill to write or revise technical documentation that helps future readers understand a system, plan, migration, or operational workflow.
+
+## Core Goals
+
+- Make the doc useful to a new engineer who lacks the conversation context.
+- Separate current behavior from proposed behavior.
+- Put the happy path before edge cases.
+- Define domain terms before using them heavily.
+- Keep each section self-contained enough that it does not depend on later sections.
+- Preserve uncertainty as explicit open decisions, not buried caveats.
+- Prefer concrete examples over abstract explanation when data relationships matter.
+
+## Authoring Hygiene
+
+- Do not include process rules that only help the writer choose, split, or maintain the document structure.
+- Keep reader-facing docs focused on decisions, actions, evidence, workflows, and references.
+- Put maintenance or authoring rules in skills, contributor guidance, or agent instructions instead of project docs.
+- Avoid meta language like "keep X out of Y" unless the target reader must enforce that rule during normal project work.
+- For todo docs, prefer concise task titles plus exact owner/source links. Avoid explaining the taxonomy unless it changes how the reader acts.
+
+## Default Document Shape
+
+Use this shape unless the existing repo pattern strongly suggests another one:
+
+```md
+# Title
+
+## Purpose
+
+## Concept Model
+
+## Current Behavior
+
+## Happy Path
+
+## Required Rules
+
+## Operational Workflow
+
+## Data Integrity And Validation
+
+## Edge Cases
+
+## Implementation Checklist
+
+## Open Decisions
+
+## Success Criteria
+```
+
+Skip sections that truly do not apply. Rename sections to match local style.
+
+## Common Doc Shapes
+
+Pick the simplest shape that clearly fits the request. If none clearly fits, use the default shape. These are lightweight section-order hints, not rigid templates.
+
+### Implementation Plan
+
+```md
+# Title
+
+## Purpose
+
+## Current Behavior
+
+## Proposed Behavior
+
+## Happy Path
+
+## Edge Cases
+
+## Implementation Checklist
+
+## Open Decisions
+```
+
+### Migration Or Data Promotion Plan
+
+```md
+# Title
+
+## Purpose
+
+## Current State
+
+## Target State
+
+## Happy Path
+
+## Validation
+
+## Failure And Retry
+
+## Rollback
+
+## Implementation Checklist
+```
+
+### Runbook
+
+```md
+# Title
+
+## Purpose
+
+## When To Use
+
+## Preconditions
+
+## Steps
+
+## Verification
+
+## Failure Handling
+
+## Escalation
+```
+
+### Architecture Decision
+
+```md
+# Title
+
+## Context
+
+## Decision
+
+## Alternatives Considered
+
+## Consequences
+
+## Follow-ups
+```
+
+## Section Guidance
+
+### Purpose
+
+Explain why the doc exists in plain language. State the user-facing or operational problem being solved.
+
+Good:
+
+- "This table stores redirects from old menu item IDs to surviving menu item IDs. The goal is to promote those redirects without pointing production at missing items."
+
+Avoid:
+
+- vague architecture framing
+- unexplained acronyms
+- assuming prior meeting context
+
+### Concept Model
+
+Define the main nouns and relationships before workflow details.
+
+Include:
+
+- table/file/job names
+- what each object means
+- simple examples for relationships
+- what is source of truth vs derived/runtime data
+
+### Current Behavior
+
+Describe what the system does today before proposing changes.
+
+Include:
+
+- current creation/update path
+- important constraints and missing constraints
+- known gaps
+- code references when useful
+
+Keep this factual. Do not mix in recommendations unless clearly labeled.
+
+### Happy Path
+
+Describe the normal expected workflow first.
+
+Use numbered steps. Keep it free of rare failure branches. The goal is for a reader to understand the intended path before reading exceptions.
+
+### Required Rules
+
+List invariants that must always hold.
+
+Examples:
+
+- production must not publish dependent data before upstream data exists
+- retries must be idempotent
+- omitted records must not imply deletion unless explicit snapshot mode exists
+- manual and scheduled jobs should share one code path
+
+### Operational Workflow
+
+Explain scheduled jobs, manual actions, retry behavior, ownership, and audit trail.
+
+Keep commands exact. Prefer default command first, optional arguments after.
+
+### Data Integrity And Validation
+
+Explain DB constraints, app-level preflight, dependencies, and why each exists.
+
+Separate:
+
+- validation required before write
+- DB constraints that enforce integrity
+- future constraints that should be added after data is clean
+
+### Edge Cases
+
+Put complex cases after the normal model is established.
+
+Use examples. Explain mitigation, not just risk.
