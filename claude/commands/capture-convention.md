@@ -1,13 +1,13 @@
 ---
-description: Capture new conventions and behaviors from this session into project docs
+description: Capture new conventions and behaviors from this session into project docs. Trigger on /capture-convention, "capture this", "save that convention", "let's document that", "remember this", or any explicit user signal to persist something.
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(mkdir:*)
 ---
 
-# Capture & Clear
+# Capture Convention
 
-Review the current conversation to extract **new conventions and app behaviors** established during this session. Persist them into the **current repo's** documentation so they survive context clearing.
+Review the current conversation to extract **new conventions and app behaviors** established during this session. Persist them into the appropriate repo's documentation so they survive context clearing.
 
-**All output goes into the current repository. Never write to global/user-level files like `~/.claude/`.**
+**Route each item to the right repo** — local project conventions go into the current repo; harness-wide behaviors go into `harness_configs`. See Step 5.
 
 ## Step 1: Confirm project root
 
@@ -60,15 +60,22 @@ Compare every item against existing docs from Step 2. Drop anything already cove
 
 ## Step 5: Determine file placement
 
-**Bucket A (conventions):**
-- Add to the repo's existing `CLAUDE.md` if one exists, under a relevant section
-- Or add as a rule file in the repo's `.claude/rules/` if that pattern is already in use
+**First, classify scope:**
+
+> Does this rule apply only in this repo? → **local**
+> Does it describe how the agent should behave in *any* repo? → **global harness**
+
+Global harness items (caveman behavior, jcodemunch defaults, verification discipline, hook patterns) go into `~/projects/live_projects/harness_configs/claude/CLAUDE.md` or a new doc under `harness_configs/docs/`. Do not invent new global rules — only promote items explicitly confirmed as cross-repo behavior.
+
+**Bucket A (local conventions):**
+- Add to the current repo's `CLAUDE.md` under a relevant section
+- Or add as a rule file in `.claude/rules/` if that pattern is already in use
 - Match whichever pattern the project already uses
 
-**Bucket B (app behavior):**
-- Add to existing repo markdown docs if a relevant file exists (e.g., a feature doc)
-- Create a new markdown file in the repo's `docs/` or an appropriate project directory only if no suitable file exists and there is enough content to justify it
-- Name new files descriptively (e.g., `docs/authentication-flow.md`, `docs/order-processing.md`)
+**Bucket B (local app behavior):**
+- Add to existing repo markdown docs if a relevant file exists
+- Create a new file in `docs/` only if no suitable file exists and content justifies it
+- Name descriptively (e.g., `docs/authentication-flow.md`)
 
 ## Step 6: Present the plan
 

@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec uvx --with "jcodemunch-mcp[watch]" jcodemunch-mcp watch "${1:-$PWD}"
+dir="$(cd "${1:-$PWD}" && pwd)"
+hash="$(echo -n "$dir" | md5)"
+pidfile="/tmp/jcmwatch-${hash}.pid"
+
+start_time="$(ps -p $$ -o lstart= | tr -s ' ')"
+echo "$$ $start_time" > "$pidfile"
+trap 'rm -f "$pidfile"' EXIT
+
+uvx --with "jcodemunch-mcp[watch]" jcodemunch-mcp watch "$dir"

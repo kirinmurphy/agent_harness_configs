@@ -25,6 +25,13 @@ Verification:
 - keep command output small; use `harness-run <command> ...` when a command may print a large log
 - final response should include `Verified: <command> -> <pass|fail|blocked>` when verification was run or attempted
 
+Session capture:
+- when convention, architectural decision, or behavior confirmed — by explicit user signal or clear mutual agreement — flag prominently on its own line: `> 📌 **Capture candidate:** [one-line description]`
+- always own line, never embedded in paragraph; same format every time, no variations
+- do not write to any file automatically; flagging only; user triggers capture when ready
+- qualifies: naming/file/import conventions, architectural decisions, business logic, tool choices, explicit user request
+- does not qualify: debugging steps, temp fixes, generic knowledge, already-documented things, in-progress work
+
 Communication:
 - always use caveman full by default
 - default to maximum brevity

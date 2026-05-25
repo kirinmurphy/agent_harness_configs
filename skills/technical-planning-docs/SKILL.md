@@ -9,6 +9,7 @@ Use this skill to write or revise technical documentation that helps future read
 
 ## Core Goals
 
+- Establish why the system or behavior exists before describing how it works. A reader who understands the problem first can evaluate the solution; a reader who only sees mechanics cannot.
 - Make the doc useful to a new engineer who lacks the conversation context.
 - Separate current behavior from proposed behavior.
 - Put the happy path before edge cases.
@@ -217,3 +218,22 @@ Separate:
 Put complex cases after the normal model is established.
 
 Use examples. Explain mitigation, not just risk.
+
+## What Not To Document
+
+### Do not open with a refutation
+
+Never start a doc by explaining why an alternative approach was rejected. The reader has no context for what is being refuted, so the opening becomes a defense of a decision they did not question.
+
+Wrong:
+> "Automatic capture at session end isn't reliable: hooks run shell commands, not model reasoning; concurrent sessions cause write conflicts..."
+
+Right: explain what the system does, then let the reader encounter the happy path before any caveats.
+
+### Do not explain decisions to NOT do something
+
+Docs that describe behavior and implementation should not articulate discarded approaches unless the reader must understand the tradeoff to use the system correctly.
+
+Exception — architecture decision docs (`## Alternatives Considered`) are the correct home for rejected approaches. Even there, introduce the chosen approach first before listing alternatives.
+
+If a discarded approach must appear, put it at the end of the doc, never the introduction. Never present it without first establishing what the system actually does.

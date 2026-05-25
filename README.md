@@ -1,44 +1,56 @@
 # Harness Configs
 
-Version-controlled behavior for local AI agents. Goal: make Codex and Claude use the same habits for code lookup, testing, terse communication, and low-noise output.
+Version controlled codex & claude global harness configurations with the ability to symlink to local (Mac) file system.
+
+## Setup
 
 Install and symlink details: [docs/symlinking.md](docs/symlinking.md).
 
 ## Global Behavior
 
-Both harnesses use `jcodemunch-mcp` for code indexing (eliminates token waste from parsing unrelated files), default to caveman terse mode, share the same skill playbooks, and run only the narrowest verification command that proves an edit. Final answers include an explicit receipt like `Verified: npm run check -> pass`.
+Implemented across both Codex and Claude:
 
-## Codex
-
-- **MCP:** `jcodemunch-mcp` via `uvx`
-- **Plugins:** GitHub, caveman
-- **Hooks:** startup/resume activates caveman mode
-- **Rules:** pre-approved safe commands for test, build, dev, Docker/Colima, and local doctor checks — fewer approval prompts
-- **Model/features:** `gpt-5.5`, medium reasoning, hooks, JavaScript REPL, idle-sleep prevention
-
-## Claude
-
-- **Plugins:** caveman, Vercel
-- **Hooks:** session hook reminds to use jcodemunch; tool hooks block `Grep`/`Glob`, nudge broad reads, trim noisy Bash output
-- **Commands:** `/capture-and-clear` captures durable session learnings into repo docs after confirmation
-- **Behavior flags:** thinking/away-summary stay quiet; dangerous-mode prompt skipped
+- **[jcodemunch-mcp](docs/jcodemunch.md)** — indexes repo code to allow for easier access by agents. Eliminates token waste by providing a mapping for agents to find relevant code without excessive expensive grep/glog/read tool calls.
+- **Caveman plugin** — me make agent talk like caveman to reduce output token use
+- **Minimal verification** — run only the narrowest check that proves an edit; final answer includes receipt like `Verified: npm run check -> pass`
+- **[Convention capture](docs/chat-review.md)** — when a decision or pattern is surfaced from a chat, the agent uniquely highlights it in the response, allowing the user to trigger an instruction to write this new convention to a file for later review, to ultimately update agent rules. Updates can be saved to the local repo doc or the global test harness repo (this repo).
 
 ## Shared Skills
 
-`test-harness`, `technical-planning-docs`, and `frontend-design` live once in `skills/` and are symlinked into both harnesses — same playbooks, no duplicate files.
+Lives once in `/skills` and symlinked to `/[harness]/skills`.
+
+- **test-harness** — choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks
+- **technical-planning-docs** — recommendations for agents to write effective technical documentation, for architecture notes, migration docs, runbooks, design proposals; structured for future readers with facts/recommendations/risks/open-questions separated
+- **frontend-design** — production-grade UI components and pages; avoids generic AI aesthetics
+
+`claude/skills/` and `codex/skills/` are symlinks pointing back to `skills/` — not copies. Editing `skills/` is instantly visible to both harnesses; no sync step needed. See [docs/symlinking.md](docs/symlinking.md) for setup.
+
+## Codex Specifics
+
+- **Plugins:** GitHub
+- **[Hooks](docs/codex-hooks.md):** startup/resume activates caveman mode
+- **Rules:** pre-approved safe commands for test, build, dev, Docker/Colima, and local doctor checks — fewer approval prompts
+- **Model/features:** `gpt-5.5`, medium reasoning, hooks, JavaScript REPL, idle-sleep prevention
+
+## Claude Specifics
+
+- **[Hooks](docs/claude-hooks.md):** session hook detects jcmwatch + reminds to use jcodemunch; tool hooks block `Grep`/`Glob`, nudge broad reads, trim noisy Bash output
+- **Convention capture:** `/capture-convention` slash command (Codex: natural language only — "capture this", "remember this")
+- **Behavior flags:** thinking/away-summary stay quiet; dangerous-mode prompt skipped
 
 ## Tools & Scripts
 
 - `bin/harness-run` — runs noisy commands and prints only a useful tail
 - `bin/jcmindex` — one-shot jcodemunch index for a file or folder
+- `bin/jcmwatch` — continuous watch mode; writes a pidfile so the harness knows it's running and skips stale-index warnings
 - `shell/jcodemunch.zsh` — shell function version of the jcodemunch helper
 - `scripts/doctor.sh` — checks repo config health: key files, JSON, TOML, helpers, and `uvx`
 
-## Parity TODO
+## Config Files
 
-- Confirm whether Codex supports a stable shell `PreToolUse` hook; until then use `harness-run` for noisy commands
-- Watch whether Claude needs explicit safe allow rules for common test commands
-- Consider replacing duplicated user skill files with a generated or symlinked shared source
+- `~/.claude/CLAUDE.md` (symlinked from `claude/CLAUDE.md`) — global rules for all repos: caveman mode, jcodemunch, verification discipline, session capture
+- `CLAUDE.md` at repo root — harness-maintenance rules only; not symlinked globally
+- `~/.codex/AGENTS.md` (symlinked from `codex/AGENTS.md`) — equivalent global rules for Codex
 
 ## Not Tracked
 

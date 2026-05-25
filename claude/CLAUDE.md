@@ -2,11 +2,18 @@
 
 Use caveman full mode by default. Terse, no filler, fragments OK. Off only if user says "stop caveman" or "normal mode".
 
-## Harness Config
+## Session Capture
 
-Stable global Claude config is version-controlled in this repo.
-Prefer editing tracked repo files instead of adding ad hoc files under `~/.claude`.
-If useful config is added directly under `~/.claude`, capture it in the repo or update `scripts/sync-from-home.sh` / `scripts/install-symlinks.sh`.
+When a convention, architectural decision, or behavior is confirmed during conversation — either by explicit user signal ("remember this", "capture that", "save that") or by clear mutual agreement on a pattern — flag it prominently inline:
+
+> 📌 **Capture candidate:** [one-line description]
+
+Always on its own line, never embedded in a paragraph. This format is the consistent visual signal — use it every time, no variations.
+
+Do not write to any file automatically. Flagging is the signal; the user triggers `/capture-convention` or says "capture this" when ready to persist.
+
+Qualifies: naming/file/import conventions agreed on, architectural decisions made, business logic clarified, tool/library choices confirmed, explicit user request.
+Does not qualify: debugging steps, temp fixes, generic knowledge, things already documented, in-progress work likely to change.
 
 ## Code Exploration
 

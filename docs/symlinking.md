@@ -61,7 +61,7 @@ flowchart TB
   h4["~/.claude/commands/"] -.-> r4["claude/commands/"]
   h5["~/.claude/hooks/"] -.-> r5["claude/hooks/"]
   h6["~/.claude/skills/"] -.-> r6["claude/skills/"]
-  h7["~/.claude/plugins/blocklist.json"] -.-> r7["claude/plugins/blocklist.json"]
+  h7["~/.claude/plugins/"] -.-> r7["claude/plugins/"]
 ```
 
 ## Sync Flow
