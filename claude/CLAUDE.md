@@ -27,6 +27,14 @@ Use native read/search tools only for non-code files when appropriate.
 
 **If Glob or Grep is blocked mid-task:** treat it as a redirect, not a failure. Immediately retry the same lookup using jcodemunch (search_text, search_symbols, get_file_outline, etc.) and continue without stopping.
 
+## Doc Exploration
+
+Use jdocmunch-mcp for documentation exploration whenever available.
+Prefer search_sections, get_toc, get_section over reading full .md/.rst files.
+At session start, call list_repos to see what docs are already indexed.
+To index local docs: call index_local with the docs folder path.
+After editing doc files, the index updates passively via mtime detection — no manual reindex needed for edits. For new files or deleted files, call index_local again.
+
 ## Verification
 
 Before running lint, typecheck, test, or build, inspect the available package scripts or project tooling.

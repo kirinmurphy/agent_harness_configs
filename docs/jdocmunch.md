@@ -1,0 +1,75 @@
+# jdocmunch Implementation
+
+jdocmunch-mcp is a documentation intelligence MCP server. It indexes doc files into section-level chunks and exposes search, TOC, and targeted retrieval — so the model reads specific sections instead of full files.
+
+## Why
+
+Without it, the model reads entire `.md`/`.rst` files to find relevant content, burning tokens on everything except the one section it needs. jdocmunch answers "what does this doc say about X" with a targeted section excerpt. ~97% token savings vs naive file reads.
+
+Complements jcodemunch: jcodemunch handles code, jdocmunch handles docs.
+
+## Key Difference from jcodemunch: No Watch Mode
+
+jcodemunch has a continuous watch daemon (`jcmwatch`). jdocmunch does not — the index updates passively via `mtime`-based cache invalidation when tool calls are made. For new or deleted files, re-run `jdmindex`.
+
+## Components
+
+### MCP Server
+
+Configured in each harness's MCP settings. Claude and Codex both use `uvx jdocmunch-mcp` (no install needed).
+
+**Key tools the model uses:**
+- `list_repos` — show what doc sets are indexed; call at session start
+- `search_sections` — weighted search returning section summaries (not full content)
+- `get_toc` — flat section listing for a doc set
+- `get_toc_tree` — hierarchical section tree
+- `get_section` — full content of one section by ID
+- `get_sections` — batch section retrieval
+- `get_section_context` — section plus ancestor headings and child summaries
+- `index_local` — index a local docs folder
+- `delete_index` — remove an index
+
+### `bin/jdmindex`
+
+One-shot indexer. Takes a directory path (default: `$PWD`). Runs `jdocmunch-mcp index-local --path`. After a successful index, writes a `.jdm-indexed` marker file to the target directory so hooks can detect per-repo index state without calling the MCP server.
+
+```
+jdmindex docs/        # index a specific docs folder
+jdmindex              # indexes $PWD
+```
+
+### `shell/jdocmunch.zsh`
+
+Shell function `jdmindex()` — interactive equivalent of the bin script. Also writes `.jdm-indexed` marker on success.
+
+### Claude hooks (`claude/settings.json`)
+
+**SessionStart** — checks for `docs/.jdm-indexed` in the current repo. If `docs/` exists but marker is absent, injects a reminder to run `jdmindex docs/`. If marker is present, confirms docs are indexed and ready.
+
+**PreToolUse: Read** — soft nudge extended to mention jdocmunch for documentation files alongside jcodemunch for code.
+
+### Codex hooks (`codex/hooks.json`)
+
+**SessionStart** — same per-repo marker check as Claude. Prints status to session output.
+
+### CLAUDE.md / AGENTS.md rules
+
+Both files include a Doc Exploration section:
+- prefer `search_sections`, `get_toc`, `get_section` over reading full doc files
+- call `list_repos` at session start to see what's indexed
+- use `index_local` to index a new docs folder
+- mtime detection handles edits passively; `index_local` needed only for new/deleted files
+
+## Index Storage
+
+Index stored globally at `~/.doc-index/` — not per-repo. Once indexed, a doc set is queryable from any session regardless of current working directory.
+
+## Per-repo marker file
+
+`jdmindex` writes `.jdm-indexed` to the indexed directory after a successful run. Hooks check for this file to detect whether a repo's docs have been indexed — avoids MCP calls at session start. The marker is excluded from git via `~/.gitignore_global` (configured by `scripts/install-gitignore-globals.sh`, called automatically from `scripts/install-symlinks.sh`).
+
+## Notes
+
+- No pidfile mechanism — no watch process to detect
+- No CLI `delete-index` command; remove `~/.doc-index/<name>/` manually if needed
+- `GITHUB_TOKEN` needed only for `index_repo` against private repos

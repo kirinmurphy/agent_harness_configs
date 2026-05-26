@@ -6,11 +6,15 @@ Configured in `claude/settings.json` under `"hooks"`.
 
 **Trigger:** every new session or resume.
 
-**What it does:** checks whether `jcmwatch` is running for the current directory by looking for a pidfile at `/tmp/jcmwatch-<md5-of-pwd>.pid` and verifying the pid is alive. Injects a system message telling the model either:
+Two hooks run at session start:
+
+**jcodemunch status** — checks whether `jcmwatch` is running for the current directory by looking for a pidfile at `/tmp/jcmwatch-<md5-of-pwd>.pid` and verifying the pid is alive. Injects a system message telling the model either:
 - index is current (watch is running) — no manual reindex needed
 - watch is not running — suggests running `jcmindex` if index may be stale
 
 Also reminds the model to use jcodemunch tools (`resolve_repo`, `search_symbols`, etc.) for code exploration instead of `Grep`/`Read`.
+
+**jdocmunch index check** — checks for `docs/.jdm-indexed` marker in the current repo. If `docs/` exists but the marker is absent, injects a reminder to run `jdmindex docs/`. If marker present, confirms docs are indexed. Marker is written by `jdmindex` after a successful index run and excluded from git via global gitignore.
 
 ## PreToolUse: Grep|Glob
 
@@ -22,7 +26,7 @@ Also reminds the model to use jcodemunch tools (`resolve_repo`, `search_symbols`
 
 **Trigger:** model attempts to call `Read`.
 
-**What it does:** soft nudge — allows the call but injects a reminder to prefer jcodemunch for exploration. `Read` is still permitted for targeted reads (known file paths, editing workflows, non-code files).
+**What it does:** soft nudge — allows the call but injects a reminder to prefer jcodemunch for code exploration and jdocmunch for documentation files (`.md`, `.rst`, etc.). `Read` is still permitted for targeted reads (known file paths, editing workflows).
 
 ## PreToolUse: Bash
 

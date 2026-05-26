@@ -8,6 +8,10 @@
             "type": "command",
             "command": "echo 'CAVEMAN MODE ACTIVE. Rules: Drop articles/filler/pleasantries/hedging. Fragments OK. Short synonyms. Pattern: [thing] [action] [reason]. [next step]. Not: Sure! I would be happy to help you with that. Yes: Bug in auth middleware. Fix: Code/commits/security: write normal. User says stop caveman or normal mode to deactivate.'",
             "statusMessage": "Activating Caveman"
+          },
+          {
+            "type": "command",
+            "command": "if [ -d \"$(pwd)/docs\" ]; then if [ -f \"$(pwd)/docs/.jdm-indexed\" ]; then echo 'jdocmunch: docs indexed. Use search_sections, get_toc, get_section for doc exploration.'; else echo 'jdocmunch: docs/ exists but not indexed. Run: jdmindex docs/'; fi; fi"
           }
         ]
       }

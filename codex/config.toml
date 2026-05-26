@@ -20,6 +20,49 @@ hooks = true
 command = "uvx"
 args = ["jcodemunch-mcp"]
 
+[mcp_servers.jdocmunch]
+command = "uvx"
+args = ["jdocmunch-mcp"]
+
+[mcp_servers.jdocmunch.tools.index_local]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.index_repo]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.list_repos]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.delete_index]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_toc]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_toc_tree]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_document_outline]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.search_sections]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_section]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_sections]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_section_context]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_broken_links]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.get_doc_coverage]
+approval_mode = "approve"
+
 [mcp_servers.jcodemunch.tools.resolve_repo]
 approval_mode = "approve"
 

@@ -70,6 +70,7 @@ link_command() {
 
 link_command "jcmwatch"
 link_command "jcmindex"
+link_command "jdmindex"
 link_command "harness-run"
 
 profile_path="$(choose_profile)"

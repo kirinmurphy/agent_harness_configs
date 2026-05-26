@@ -76,6 +76,8 @@ remove_repo_link() {
   esac
 }
 
+"${repo_root}/scripts/install-gitignore-globals.sh"
+
 link_item "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
 link_item "codex/config.toml" "${HOME}/.codex/config.toml"
 link_item "codex/hooks.json" "${HOME}/.codex/hooks.json"
@@ -89,6 +91,5 @@ link_item "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HAR
 link_item "claude/commands" "${HOME}/.claude/commands"
 link_item "claude/hooks" "${HOME}/.claude/hooks"
 link_item "claude/skills" "${HOME}/.claude/skills"
-link_item "claude/plugins/blocklist.json" "${HOME}/.claude/plugins/blocklist.json"
 remove_repo_link "${HOME}/.claude/plugins/known_marketplaces.json"
 remove_repo_link "${HOME}/.claude/plugins/installed_plugins.json"

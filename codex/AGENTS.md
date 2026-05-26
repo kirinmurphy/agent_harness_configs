@@ -7,6 +7,13 @@ At session start, resolve_repo ".".
 If the repo is not indexed, index_folder ".".
 After meaningful file edits, re-index changed files before further analysis.
 
+Doc exploration:
+- use jdocmunch-mcp for documentation lookup whenever available
+- prefer search_sections, get_toc, get_section over reading full .md/.rst files
+- at session start, call list_repos to see what docs are already indexed
+- to index local docs: call index_local with the docs folder path
+- after editing doc files, index updates passively via mtime detection; for new/deleted files, call index_local again
+
 Harness config:
 - stable global Codex config is version-controlled in this repo
 - prefer editing tracked repo files instead of adding ad hoc files under `~/.codex`
