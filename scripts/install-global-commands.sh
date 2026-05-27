@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bin_dir="${HOME}/.local/bin"
 path_line='export PATH="${HOME}/.local/bin:${PATH}"'
-backup_root="${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)"
+backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
 
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)

@@ -12,6 +12,10 @@
 #
 # Less tested than macOS/Linux. Report issues or submit PRs.
 
+param(
+  [switch]$DryRun
+)
+
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
@@ -26,7 +30,11 @@ function Link-Item {
 
   $parentDir = Split-Path -Parent $HomePath
   if (-not (Test-Path $parentDir)) {
-    New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    if ($DryRun) {
+      Write-Host "would mkdir: $parentDir"
+    } else {
+      New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
   }
 
   if (Test-Path $HomePath) {
@@ -38,9 +46,16 @@ function Link-Item {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $backupRoot = Join-Path $env:USERPROFILE ".harness-configs-backups\$timestamp"
     $backupPath = Join-Path $backupRoot $HomePath.TrimStart('\').TrimStart('/')
-    New-Item -ItemType Directory -Path (Split-Path -Parent $backupPath) -Force | Out-Null
-    Move-Item -Path $HomePath -Destination $backupPath
+    if (-not $DryRun) {
+      New-Item -ItemType Directory -Path (Split-Path -Parent $backupPath) -Force | Out-Null
+      Move-Item -Path $HomePath -Destination $backupPath
+    }
     Write-Host "backup: $HomePath -> $backupPath"
+  }
+
+  if ($DryRun) {
+    Write-Host "link: $HomePath -> $src"
+    return
   }
 
   try {

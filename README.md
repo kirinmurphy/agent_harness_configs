@@ -4,7 +4,7 @@ Version controlled Codex & Claude global harness configurations that symlink to 
 
 ## Setup
 
-Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows support is available but less tested. See [docs/setup.md](docs/setup.md) for platform-specific instructions and details.
+Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows support is available but less tested. See [docs/setup-and-daily-use.md](docs/setup-and-daily-use.md) for platform-specific instructions and details.
 
 ## Global Behavior
 
@@ -24,7 +24,7 @@ Lives once in `./skills` and symlinked to `./[harness]/skills`.
 - **technical-planning-docs** — recommendations for agents to write effective technical documentation, for architecture notes, migration docs, runbooks, design proposals; structured for future readers with facts/recommendations/risks/open-questions separated
 - **frontend-design** — production-grade UI components and pages; avoids generic AI aesthetics
 
-`claude/skills/` and `codex/skills/` are symlinks pointing back to `skills/` — not copies. Editing `skills/` is instantly visible to both harnesses; no sync step needed. See [docs/symlinking.md](docs/symlinking.md) for setup.
+`claude/skills/` and `codex/skills/` are symlinks pointing back to `skills/` — not copies. Editing `skills/` is instantly visible to both harnesses; no sync step needed.
 
 ## Codex Specifics
 
@@ -38,27 +38,3 @@ Lives once in `./skills` and symlinked to `./[harness]/skills`.
 - **[Hooks](docs/claude-hooks.md):** session hooks detect jcmwatch status, auto-index `docs/` via jdocmunch, remind model to use jcodemunch/jdocmunch; tool hooks block `Grep`/`Glob`, nudge broad reads, trim noisy Bash output
 - **Convention capture:** `/capture-convention` slash command (Codex: natural language only — "capture this", "remember this")
 - **Behavior flags:** thinking/away-summary stay quiet; dangerous-mode prompt skipped
-
-## Tools & Scripts
-
-- `bin/harness-run` — runs noisy commands and prints only a useful tail
-- `bin/jcmindex` — one-shot jcodemunch index for a file or folder
-- `bin/jcmwatch` — continuous watch mode; writes a pidfile so the harness knows it's running and skips stale-index warnings
-- `bin/jdmindex` — one-shot jdocmunch index for a docs folder; writes `.jdm-indexed` marker so session hooks can detect per-repo index state
-- `shell/jcodemunch.zsh` — shell function version of jcmwatch/jcmindex helpers
-- `shell/jdocmunch.zsh` — shell function version of jdmindex helper
-- `scripts/install-claude.sh` — Claude-only symlinks (called by orchestrator or run standalone)
-- `scripts/install-codex.sh` — Codex-only symlinks (called by orchestrator or run standalone)
-- `scripts/install-windows.ps1` — Windows PowerShell symlink installer
-- `scripts/install-gitignore-globals.sh` — adds `.jdm-indexed` to `~/.gitignore_global` and sets `git core.excludesfile`; called automatically by `install-symlinks.sh`
-- `scripts/doctor.sh` — checks repo config health: key files, JSON, TOML, helpers, and `uvx`
-
-## Config Files
-
-- `~/.claude/CLAUDE.md` (symlinked from `claude/CLAUDE.md`) — global rules for all repos: caveman mode, jcodemunch, verification discipline, session capture
-- `CLAUDE.md` at repo root — harness-maintenance rules only; not symlinked globally
-- `~/.codex/AGENTS.md` (symlinked from `codex/AGENTS.md`) — equivalent global rules for Codex
-
-## Not Tracked
-
-Auth, logs, history, caches, sessions, SQLite state, local settings, generated plugin caches, and other runtime files stay outside git.
