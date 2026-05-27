@@ -62,7 +62,9 @@ These rules work alongside the hooks: hooks enforce at the tool level, CLAUDE.md
 
 ## Watch detection
 
-`bin/jcmwatch` writes a pidfile to `/tmp/jcmwatch-<md5-of-dir>.pid` on start and removes it on exit. The pidfile stores both the pid and the process start time (`ps -o lstart`). The SessionStart hook reads both values and verifies they match the live process — guarding against pid recycling after a crash. If the pidfile is missing, stale, or the start time doesn't match, the hook warns that `jcmwatch` is not running and suggests `jcmindex` if the index may be stale.
+`bin/jcmwatch` writes a pidfile to `/tmp/jcmwatch-<md5-of-dir>.pid` on start and removes it on exit. The pidfile stores both the pid and the process start time. The SessionStart hook reads both values and verifies they match the live process — guarding against pid recycling after a crash. If the pidfile is missing, stale, or the start time doesn't match, the hook warns that `jcmwatch` is not running and suggests `jcmindex` if the index may be stale.
+
+Cross-platform: the directory hash uses `md5sum` on Linux and `md5` on macOS (auto-detected). Process start time uses `ps -o lstart=` with a fallback to `ps -o start=` for Linux compatibility.
 
 ## Notes
 

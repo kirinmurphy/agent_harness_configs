@@ -122,3 +122,6 @@ trust_level = "trusted"
 [hooks.state."/Users/kirinmurphy/.codex/hooks.json:session_start:0:0"]
 trusted_hash = "sha256:63c22d9bfcee2987188b0af23d9faa4c6c60dd113869faf0f529035b0659000c"
 enabled = true
+
+[hooks.state."/Users/kirinmurphy/.codex/hooks.json:session_start:0:1"]
+trusted_hash = "sha256:49208f5f5f617ebf9b529b3f9dab15c3202f397694b47c0b118ed4023ee09e86"

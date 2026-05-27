@@ -1,4 +1,4 @@
-# Symlinking Model
+# Setup
 
 This repo owns stable harness config and exposes it at the paths agents already read:
 
@@ -6,6 +6,24 @@ This repo owns stable harness config and exposes it at the paths agents already 
 - `~/.claude`
 
 Runtime state, auth, logs, caches, histories, sessions, SQLite DBs, local settings, and generated plugin caches stay outside git.
+
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| macOS | Primary | Fully supported and tested |
+| Linux | Supported | Same scripts as macOS; see [Linux notes](#linux) |
+| Windows | Available | Less tested; requires Git for Windows for hooks — see [Windows notes](#windows) |
+
+## Harness Support
+
+Install scripts detect which harnesses are present and skip any that aren't installed. You can use this repo with:
+
+- **Claude Code only** — only `~/.claude` is symlinked
+- **Codex only** — only `~/.codex` is symlinked
+- **Both** — both are symlinked
+
+To add a harness later: install it, then re-run `./scripts/install-symlinks.sh`.
 
 ## Relationship
 
@@ -61,7 +79,6 @@ flowchart TB
   h4["~/.claude/commands/"] -.-> r4["claude/commands/"]
   h5["~/.claude/hooks/"] -.-> r5["claude/hooks/"]
   h6["~/.claude/skills/"] -.-> r6["claude/skills/"]
-  h7["~/.claude/plugins/"] -.-> r7["claude/plugins/"]
 ```
 
 ## Sync Flow
@@ -87,16 +104,13 @@ Run this after cloning the repo on a new machine:
 
 ```sh
 ./scripts/install-symlinks.sh
-./scripts/install-global-commands.sh
 ```
 
-`install-symlinks.sh` makes agents read config from this repo by replacing selected paths in `~/.codex` and `~/.claude` with symlinks.
-
-`install-global-commands.sh` exposes repo commands like `jcmwatch` through `~/.local/bin`.
+This detects which harnesses are installed, symlinks their config from this repo, installs global commands, and adds shell snippets to your profile.
 
 Existing live files/dirs are moved to `~/.harness-configs-backups/<timestamp>/` before symlinks are created.
 
-Preview symlink changes without modifying home config:
+Preview changes without modifying anything:
 
 ```sh
 ./scripts/install-symlinks.sh --dry-run
@@ -107,6 +121,17 @@ Verify the install:
 ```sh
 ./scripts/verify-install.sh
 ```
+
+### Install a single harness
+
+Run these directly if you only want to (re)link one harness:
+
+```sh
+./scripts/install-claude.sh
+./scripts/install-codex.sh
+```
+
+Both support `--dry-run`.
 
 ### Capture live config changes
 
@@ -120,33 +145,27 @@ This only copies selected stable config. Runtime files remain ignored.
 
 ### Reinstall agent symlinks
 
-Use this if a tool replaced a symlink with a real file or if the home-directory config needs to be pointed back at the repo:
+The script is idempotent — re-running it is safe:
 
 ```sh
 ./scripts/install-symlinks.sh
 ```
 
-The script is idempotent for symlinks that already point to this repo.
-
 ### Install shell snippets
-
-Use this if you want shell functions sourced directly from the repo:
 
 ```sh
 ./scripts/install-shell-snippets.sh
 ```
 
-This adds a source line for `shell/jcodemunch.zsh` to `~/.zshrc`.
+Adds source lines for `shell/jcodemunch.zsh` and `shell/jdocmunch.zsh` to `~/.zshrc`.
 
 ### Install global commands
-
-Use this on a new device when you want `jcmwatch` available as a normal command:
 
 ```sh
 ./scripts/install-global-commands.sh
 ```
 
-The installer updates the active POSIX shell profile:
+Symlinks `jcmwatch`, `jcmindex`, `jdmindex`, and `harness-run` into `~/.local/bin`. Updates the active POSIX shell profile:
 
 - zsh: `~/.zshrc`
 - bash: `~/.bashrc` or `~/.bash_profile`
@@ -158,12 +177,61 @@ Override the target profile with:
 HARNESS_CONFIG_SHELL_PROFILE=~/.profile ./scripts/install-global-commands.sh
 ```
 
-Windows shell profiles are not edited by this script. Use WSL/Git Bash, or add `bin/` to Windows `PATH` manually.
-
 ### jcmwatch
 
-`jcmwatch` is defined in `shell/jcodemunch.zsh` and runs:
+`jcmwatch` watches a repo and keeps the jcodemunch index current:
 
 ```sh
-uvx --with "jcodemunch-mcp[watch]" jcodemunch-mcp watch "${1:-$PWD}"
+jcmwatch              # watch $PWD
+jcmwatch path/to/dir
 ```
+
+---
+
+## Linux
+
+Same scripts as macOS. The scripts handle the platform difference (`md5sum` vs `md5`) automatically.
+
+No additional setup required.
+
+---
+
+## Windows
+
+**Requirements:**
+- **Git for Windows** (https://git-scm.com) — provides Git Bash, which runs the `.sh` install scripts and hook scripts at runtime. This is standard for Windows developers.
+- **Windows Developer Mode** or **admin PowerShell** — required for creating symlinks (`Settings > System > For Developers > Developer Mode`)
+
+**Install from Git Bash:**
+
+```bash
+./scripts/install-symlinks.sh
+```
+
+Git Bash is detected automatically. The script calls `install-windows.ps1` via `powershell.exe` to create symlinks, then continues with bash-specific steps.
+
+**Install from PowerShell (symlinks only):**
+
+```powershell
+.\scripts\install-windows.ps1
+```
+
+Then open Git Bash and run:
+
+```bash
+./scripts/install-global-commands.sh
+./scripts/install-shell-snippets.sh
+```
+
+**Windows limitations:**
+- Hook scripts (`jcmwatch`, `jcmindex`, `jdmindex`) require Git Bash or WSL to run — they are bash scripts
+- Claude Code on Windows uses Git Bash for shell commands when Git for Windows is installed
+- Windows support is less tested — report issues or submit PRs
+
+**Config paths on Windows:**
+
+| Item | Path |
+|------|------|
+| Claude config | `%APPDATA%\Claude\` |
+| Codex config | `%USERPROFILE%\.codex\` |
+| Global commands | Add `bin/` to Windows `PATH` manually, or use Git Bash |

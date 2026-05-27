@@ -1,10 +1,10 @@
 # Harness Configs
 
-Version controlled codex & claude global harness configurations with the ability to symlink to local (Mac) file system.
+Version controlled Codex & Claude global harness configurations that symlink to local file system. Primary focus on optimizing token efficiency and implementing tool/resource/skill parity across harnesses.
 
 ## Setup
 
-Install and symlink details: [docs/symlinking.md](docs/symlinking.md).
+Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows support is available but less tested. See [docs/setup.md](docs/setup.md) for platform-specific instructions and details.
 
 ## Global Behavior
 
@@ -12,13 +12,13 @@ Implemented across both Codex and Claude:
 
 - **[jcodemunch-mcp](docs/jcodemunch.md)** — indexes repo code to allow for easier access by agents. Eliminates token waste by providing a mapping for agents to find relevant code without excessive expensive grep/glob/read tool calls.
 - **[jdocmunch-mcp](docs/jdocmunch.md)** — section-based documentation indexer. Same token-efficiency principle as jcodemunch but for `.md`/`.rst`/etc. files. Agents query sections by heading instead of reading full doc files.
-- **Caveman plugin** — me make agent talk like caveman to reduce output token use
+- **Caveman plugin** — me make agent talk like caveman to no make big output tokens
 - **Minimal verification** — run only the narrowest check that proves an edit; final answer includes receipt like `Verified: npm run check -> pass`
-- **[Convention capture](docs/convention-capture.md)** — when a decision or pattern is surfaced from a chat, the agent uniquely highlights it in the response, allowing the user to trigger an instruction to write this new convention to a file for later review, to ultimately update agent rules. Updates can be saved to the local repo doc or the global test harness repo (this repo).
+- **[Convention capture](docs/convention-capture.md)** — when a decision or pattern is surfaced from a chat, the agent uniquely highlights it in the response, allowing the user to trigger an instruction to write this new convention to agent rules, skills or a file for later review. Updates can be saved to the local repo doc or the global test harness repo (this repo).
 
 ## Shared Skills
 
-Lives once in `/skills` and symlinked to `/[harness]/skills`.
+Lives once in `./skills` and symlinked to `./[harness]/skills`.
 
 - **test-harness** — choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks
 - **technical-planning-docs** — recommendations for agents to write effective technical documentation, for architecture notes, migration docs, runbooks, design proposals; structured for future readers with facts/recommendations/risks/open-questions separated
@@ -47,6 +47,9 @@ Lives once in `/skills` and symlinked to `/[harness]/skills`.
 - `bin/jdmindex` — one-shot jdocmunch index for a docs folder; writes `.jdm-indexed` marker so session hooks can detect per-repo index state
 - `shell/jcodemunch.zsh` — shell function version of jcmwatch/jcmindex helpers
 - `shell/jdocmunch.zsh` — shell function version of jdmindex helper
+- `scripts/install-claude.sh` — Claude-only symlinks (called by orchestrator or run standalone)
+- `scripts/install-codex.sh` — Codex-only symlinks (called by orchestrator or run standalone)
+- `scripts/install-windows.ps1` — Windows PowerShell symlink installer
 - `scripts/install-gitignore-globals.sh` — adds `.jdm-indexed` to `~/.gitignore_global` and sets `git core.excludesfile`; called automatically by `install-symlinks.sh`
 - `scripts/doctor.sh` — checks repo config health: key files, JSON, TOML, helpers, and `uvx`
 

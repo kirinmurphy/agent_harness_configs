@@ -2,94 +2,74 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-backup_root="${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)"
 dry_run=0
 
 case "${1:-}" in
-  --dry-run)
-    dry_run=1
-    ;;
-  "")
-    ;;
-  *)
-    echo "usage: $0 [--dry-run]" >&2
-    exit 2
+  --dry-run) dry_run=1 ;;
+  "") ;;
+  *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
+esac
+
+# Windows: delegate to PowerShell installer, then continue for bash-specific steps
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "Windows + bash detected (Git Bash or similar)."
+    if command -v powershell.exe &>/dev/null; then
+      echo "Running PowerShell installer for symlinks..."
+      powershell.exe -ExecutionPolicy Bypass \
+        -File "${repo_root}/scripts/install-windows.ps1"
+    else
+      echo "powershell.exe not found. Run scripts/install-windows.ps1 from PowerShell manually."
+    fi
+    # Shell snippets and global commands still need bash — continue below
+    "${repo_root}/scripts/install-gitignore-globals.sh"
+    "${repo_root}/scripts/install-global-commands.sh"
+    "${repo_root}/scripts/install-shell-snippets.sh"
+    exit 0
     ;;
 esac
 
-link_item() {
-  local repo_rel="$1"
-  local home_path="$2"
-  local src="${repo_root}/${repo_rel}"
+# Detect which harnesses are present
+has_claude=0
+has_codex=0
+[[ -d "${HOME}/.claude" ]] && has_claude=1
+[[ -d "${HOME}/.codex" ]]  && has_codex=1
 
-  if [[ ! -e "${src}" ]]; then
-    echo "missing source: ${src}" >&2
-    return 1
-  fi
+if [[ $has_claude -eq 0 && $has_codex -eq 0 ]]; then
+  echo "error: neither ~/.claude nor ~/.codex found." >&2
+  echo "Install Claude Code (https://claude.ai/code) or Codex before running this script." >&2
+  exit 1
+fi
 
-  if [[ "${dry_run}" -eq 0 ]]; then
-    mkdir -p "$(dirname "${home_path}")"
-  fi
-
-  if [[ -L "${home_path}" ]]; then
-    local current
-    current="$(readlink "${home_path}")"
-    if [[ "${current}" == "${src}" ]]; then
-      echo "ok: ${home_path}"
-      return 0
-    fi
-  fi
-
-  if [[ -e "${home_path}" || -L "${home_path}" ]]; then
-    local backup_path="${backup_root}${home_path}"
-    if [[ "${dry_run}" -eq 0 ]]; then
-      mkdir -p "$(dirname "${backup_path}")"
-      mv "${home_path}" "${backup_path}"
-    fi
-    echo "backup: ${home_path} -> ${backup_path}"
-  fi
-
-  if [[ "${dry_run}" -eq 0 ]]; then
-    ln -s "${src}" "${home_path}"
-  fi
-  echo "link: ${home_path} -> ${src}"
-}
-
-remove_repo_link() {
-  local home_path="$1"
-
-  if [[ ! -L "${home_path}" ]]; then
-    return 0
-  fi
-
-  local current
-  current="$(readlink "${home_path}")"
-  case "${current}" in
-    "${repo_root}"/*)
-      local backup_path="${backup_root}${home_path}"
-      if [[ "${dry_run}" -eq 0 ]]; then
-        mkdir -p "$(dirname "${backup_path}")"
-        mv "${home_path}" "${backup_path}"
-      fi
-      echo "cleanup: ${home_path} -> ${backup_path}"
-      ;;
-  esac
-}
-
+# Harness-agnostic setup
 "${repo_root}/scripts/install-gitignore-globals.sh"
 
-link_item "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
-link_item "codex/config.toml" "${HOME}/.codex/config.toml"
-link_item "codex/hooks.json" "${HOME}/.codex/hooks.json"
-link_item "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
-link_item "codex/rules" "${HOME}/.codex/rules"
-link_item "codex/skills" "${HOME}/.codex/skills"
+# Harness-specific symlinks
+dry_flag=""
+[[ $dry_run -eq 1 ]] && dry_flag="--dry-run"
 
-link_item "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-link_item "claude/settings.json" "${HOME}/.claude/settings.json"
-link_item "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
-link_item "claude/commands" "${HOME}/.claude/commands"
-link_item "claude/hooks" "${HOME}/.claude/hooks"
-link_item "claude/skills" "${HOME}/.claude/skills"
-remove_repo_link "${HOME}/.claude/plugins/known_marketplaces.json"
-remove_repo_link "${HOME}/.claude/plugins/installed_plugins.json"
+if [[ $has_claude -eq 1 ]]; then
+  "${repo_root}/scripts/install-claude.sh" ${dry_flag}
+else
+  echo "skip: Claude — ~/.claude not found"
+fi
+
+if [[ $has_codex -eq 1 ]]; then
+  "${repo_root}/scripts/install-codex.sh" ${dry_flag}
+else
+  echo "skip: Codex — ~/.codex not found"
+fi
+
+# Shell and PATH setup (harness-agnostic, bash only)
+if [[ $dry_run -eq 0 ]]; then
+  "${repo_root}/scripts/install-global-commands.sh"
+  "${repo_root}/scripts/install-shell-snippets.sh"
+fi
+
+# Post-install summary
+echo ""
+echo "Install complete."
+echo "  Claude: $([ $has_claude -eq 1 ] && echo 'linked' || echo 'skipped — not installed')"
+echo "  Codex:  $([ $has_codex  -eq 1 ] && echo 'linked' || echo 'skipped — not installed')"
+echo ""
+echo "To add the other harness later: install it, then re-run this script."

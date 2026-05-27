@@ -2,10 +2,21 @@
 set -euo pipefail
 
 dir="$(cd "${1:-$PWD}" && pwd)"
-hash="$(echo -n "$dir" | md5)"
+
+# Cross-platform md5: Linux uses md5sum, macOS uses md5
+_md5() { echo -n "$1" | md5sum 2>/dev/null | cut -c1-32 || echo -n "$1" | md5; }
+
+hash="$(_md5 "$dir")"
 pidfile="/tmp/jcmwatch-${hash}.pid"
 
-start_time="$(ps -p $$ -o lstart= | tr -s ' ')"
+# Cross-platform process start time: guards against pid recycling
+_proc_start() {
+  ps -p "$1" -o lstart= 2>/dev/null | tr -s ' ' \
+    || ps -p "$1" -o start= 2>/dev/null | tr -s ' ' \
+    || echo ""
+}
+
+start_time="$(_proc_start $$)"
 echo "$$ $start_time" > "$pidfile"
 trap 'rm -f "$pidfile"' EXIT
 
