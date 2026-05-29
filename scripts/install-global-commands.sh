@@ -5,6 +5,13 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bin_dir="${HOME}/.local/bin"
 path_line='export PATH="${HOME}/.local/bin:${PATH}"'
 backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
+dry_run=0
+
+case "${1:-}" in
+  --dry-run) dry_run=1 ;;
+  "") ;;
+  *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
+esac
 
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)
@@ -44,7 +51,61 @@ choose_profile() {
   esac
 }
 
-mkdir -p "${bin_dir}"
+print_command_conflict_prompt() {
+  local name="$1"
+  local target="$2"
+  local source_path="$3"
+
+  echo "conflict: ${target} already exists and is not managed by this repo." >&2
+  echo "  command: ${name}" >&2
+  echo "  repo source: ${source_path}" >&2
+  echo "Agent merge prompt:" >&2
+  echo "  Default stance: preserve the existing local command as source of truth." >&2
+  echo "  Required first step: compute your own complete comparison of both paths. Do not rely on this prompt as an exhaustive conflict summary." >&2
+  echo "  Add repo command behavior only if it does not conflict with the local command. Flag conflicts instead of guessing." >&2
+}
+
+check_command_target() {
+  local name="$1"
+  local target="${bin_dir}/${name}"
+  local source_path="${repo_root}/bin/${name}"
+  local current
+
+  if [[ ! -e "${target}" && ! -L "${target}" ]]; then
+    return 0
+  fi
+
+  current="$(readlink "${target}" 2>/dev/null || true)"
+  if [[ "${current}" == "${source_path}" ]]; then
+    return 0
+  fi
+
+  print_command_conflict_prompt "${name}" "${target}" "${source_path}"
+  return 1
+}
+
+preflight_commands() {
+  local conflict=0
+
+  check_command_target "jcmwatch" || conflict=1
+  check_command_target "jcmindex" || conflict=1
+  check_command_target "jdmindex" || conflict=1
+  check_command_target "harness-run" || conflict=1
+
+  if [[ "${conflict}" -eq 1 ]]; then
+    echo "Install has global command conflicts. No command links were changed." >&2
+    echo "Use the agent prompt above, or move/merge these commands before re-running." >&2
+    exit 1
+  fi
+}
+
+preflight_commands
+
+if [[ "${dry_run}" -eq 1 ]]; then
+  [[ -d "${bin_dir}" ]] || echo "would mkdir: ${bin_dir}"
+else
+  mkdir -p "${bin_dir}"
+fi
 
 link_command() {
   local name="$1"
@@ -52,17 +113,21 @@ link_command() {
   local source_path="${repo_root}/bin/${name}"
 
   if [[ -e "${target}" || -L "${target}" ]]; then
+    local current
     current="$(readlink "${target}" 2>/dev/null || true)"
     if [[ "${current}" != "${source_path}" ]]; then
-      mkdir -p "${backup_root}${bin_dir}"
-      mv "${target}" "${backup_root}${target}"
-      echo "backup: ${target} -> ${backup_root}${target}"
+      print_command_conflict_prompt "${name}" "${target}" "${source_path}"
+      exit 1
     else
       echo "ok: ${target}"
     fi
   fi
 
   if [[ ! -L "${target}" ]]; then
+    if [[ "${dry_run}" -eq 1 ]]; then
+      echo "link: ${target} -> ${source_path}"
+      return
+    fi
     ln -s "${source_path}" "${target}"
     echo "link: ${target} -> ${source_path}"
   fi
@@ -74,14 +139,22 @@ link_command "jdmindex"
 link_command "harness-run"
 
 profile_path="$(choose_profile)"
-touch "${profile_path}"
+if [[ "${dry_run}" -eq 1 ]]; then
+  [[ -e "${profile_path}" ]] || echo "would touch: ${profile_path}"
+else
+  touch "${profile_path}"
+fi
 
-if ! grep -Fqx "${path_line}" "${profile_path}"; then
+if [[ -e "${profile_path}" ]] && grep -Fqx "${path_line}" "${profile_path}"; then
+  echo "ok: ${profile_path} already includes ${bin_dir}"
+else
+  if [[ "${dry_run}" -eq 1 ]]; then
+    echo "path: ${path_line}"
+    exit 0
+  fi
   mkdir -p "${backup_root}$(dirname "${profile_path}")"
   cp -p "${profile_path}" "${backup_root}${profile_path}"
   printf '\n# Harness config global commands\n%s\n' "${path_line}" >> "${profile_path}"
   echo "backup: ${profile_path} -> ${backup_root}${profile_path}"
   echo "path: ${path_line}"
-else
-  echo "ok: ${profile_path} already includes ${bin_dir}"
 fi

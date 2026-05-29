@@ -20,7 +20,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
 function Link-Item {
-  param($RepoRel, $HomePath)
+  param($RepoRel, $HomePath, [switch]$AllowReplace)
   $src = Join-Path $repoRoot $RepoRel
 
   if (-not (Test-Path $src)) {
@@ -42,6 +42,11 @@ function Link-Item {
     if ($existing.LinkType -eq "SymbolicLink" -and $existing.Target -eq $src) {
       Write-Host "ok: $HomePath"
       return
+    }
+    if (-not $AllowReplace) {
+      Write-Warning "conflict: $HomePath already exists; not replacing it"
+      Write-AgentMergePrompt "install" "resolve local path conflict" $RepoRel $HomePath
+      throw "install has non-root config conflicts; no replacement was made for $HomePath"
     }
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $backupRoot = Join-Path $env:USERPROFILE ".harness-configs-backups\$timestamp"
@@ -68,6 +73,242 @@ function Link-Item {
   }
 }
 
+function Write-AgentMergePrompt {
+  param($Harness, $Mode, $RepoRel, $HomePath)
+  $src = Join-Path $repoRoot $RepoRel
+  Write-Host ""
+  Write-Host "Agent merge prompt:"
+  Write-Host "-----"
+  Write-Host @"
+Compare harness config at:
+  $src
+
+With local user config at:
+  $HomePath
+
+Default stance: adopt the local user config as source of truth. Preserve existing local behavior unless you can prove a harness change can be added safely.
+
+Selected install direction: $Mode.
+
+Required first step: compute your own complete comparison of both paths. Do not rely on this prompt as an exhaustive conflict summary. For directories, inspect the full recursive file list and content diffs. For structured files, parse the format when possible and identify all changed keys/tables/arrays/sections before editing.
+
+Merge instructions:
+- Keep local-only behavior by default.
+- Add repo-only harness behavior only when it does not conflict with local behavior.
+- If both sides edit the same setting, hook, rule, command, skill, or MCP/server entry, explain the conflict and stop for user choice.
+- Do not delete, replace, or move the local path unless the user explicitly approves that exact action.
+- Report the files changed and the conflicts left unresolved.
+Harness: $Harness
+"@
+  Write-Host "-----"
+  Write-Host ""
+}
+
+function Confirm-Choice {
+  param($Prompt)
+  $answer = Read-Host "$Prompt [Y/n]"
+  return ($answer -eq "" -or $answer -eq "y" -or $answer -eq "Y" -or $answer -eq "yes" -or $answer -eq "YES")
+}
+
+function Link-UserConfig {
+  param($Harness, $RepoRel, $HomePath)
+  $src = Join-Path $repoRoot $RepoRel
+
+  if (-not (Test-Path $src)) {
+    Write-Warning "missing source: $src"
+    return
+  }
+
+  if (Test-Path $HomePath) {
+    $existing = Get-Item $HomePath -Force
+    if ($existing.LinkType -eq "SymbolicLink" -and $existing.Target -eq $src) {
+      Write-Host "ok: $HomePath"
+      return
+    }
+  } else {
+    Link-Item $RepoRel $HomePath
+    return
+  }
+
+  if ($DryRun) {
+    Write-Host "collision: $HomePath"
+    Write-Host "dry-run: would ask whether to adopt existing config or print agent merge prompt"
+    return
+  }
+
+  if (-not [Environment]::UserInteractive) {
+    throw "$HomePath exists and PowerShell is not interactive. Run interactively or use -DryRun to inspect collisions."
+  }
+
+  while ($true) {
+    Write-Host ""
+    Write-Host "User-owned $Harness config exists:"
+    Write-Host "  local:   $HomePath"
+    Write-Host "  harness: $src"
+    Write-Host ""
+    Write-Host "Choose:"
+    Write-Host "  1) adopt         keep local root config; install only clean harness links"
+    Write-Host "  2) agent prompt  print merge prompt; leave root config unchanged"
+    Write-Host "  q) quit"
+    $choice = Read-Host "Selection [1/2/q]"
+
+    switch ($choice) {
+      { $_ -in @("1", "adopt") } {
+        Write-Host ""
+        Write-Host "Keeping local $HomePath. Harness defaults will not be installed for this file."
+        Write-AgentMergePrompt $Harness "adopt existing" $RepoRel $HomePath
+        if (Confirm-Choice "Continue by adopting existing local config?") {
+          Write-Host "skip: $HomePath left in place"
+          return
+        }
+      }
+      { $_ -in @("2", "agent", "prompt") } {
+        Write-AgentMergePrompt $Harness "manual agent merge before install" $RepoRel $HomePath
+        if (Confirm-Choice "Skip this config symlink for now?") {
+          Write-Host "skip: $HomePath left in place"
+          return
+        }
+      }
+      { $_ -in @("q", "Q", "quit", "exit") } {
+        throw "install canceled by user"
+      }
+      default {
+        Write-Host "Invalid selection."
+      }
+    }
+  }
+}
+
+function Resolve-UserConfigCollision {
+  param($Harness, $RepoRel, $HomePath)
+  $src = Join-Path $repoRoot $RepoRel
+
+  if (-not (Test-Path $src)) {
+    Write-Warning "missing source: $src"
+    return $false
+  }
+
+  if (Test-Path $HomePath) {
+    $existing = Get-Item $HomePath -Force
+    if ($existing.LinkType -eq "SymbolicLink" -and $existing.Target -eq $src) {
+      return $false
+    }
+  } else {
+    return $false
+  }
+
+  if ($DryRun) {
+    Write-Host "collision: $HomePath"
+    Write-Host "dry-run: would ask whether to adopt existing config or print agent merge prompt"
+    return $false
+  }
+
+  if (-not [Environment]::UserInteractive) {
+    throw "$HomePath exists and PowerShell is not interactive. Run interactively or use -DryRun to inspect collisions."
+  }
+
+  while ($true) {
+    Write-Host ""
+    Write-Host "User-owned $Harness config exists:"
+    Write-Host "  local:   $HomePath"
+    Write-Host "  harness: $src"
+    Write-Host ""
+    Write-Host "Choose:"
+    Write-Host "  1) adopt         keep local root config; install only clean harness links"
+    Write-Host "  2) agent prompt  print merge prompt; leave root config unchanged"
+    Write-Host "  q) quit"
+    $choice = Read-Host "Selection [1/2/q]"
+
+    switch ($choice) {
+      { $_ -in @("1", "adopt") } {
+        Write-Host ""
+        Write-Host "Keeping local $HomePath. Harness defaults will not be installed for this file."
+        Write-AgentMergePrompt $Harness "adopt existing" $RepoRel $HomePath
+        if (Confirm-Choice "Continue by adopting existing local config?") {
+          Write-Host "skip: $HomePath left in place"
+          return $true
+        }
+      }
+      { $_ -in @("2", "agent", "prompt") } {
+        Write-AgentMergePrompt $Harness "manual agent merge before install" $RepoRel $HomePath
+        if (Confirm-Choice "Skip this config symlink for now?") {
+          Write-Host "skip: $HomePath left in place"
+          return $true
+        }
+      }
+      { $_ -in @("q", "Q", "quit", "exit") } {
+        throw "install canceled by user"
+      }
+      default {
+        Write-Host "Invalid selection."
+      }
+    }
+  }
+}
+
+function Test-CleanTarget {
+  param($RepoRel, $HomePath)
+  $src = Join-Path $repoRoot $RepoRel
+
+  if (-not (Test-Path $HomePath)) {
+    return $true
+  }
+
+  $existing = Get-Item $HomePath -Force
+  if ($existing.LinkType -eq "SymbolicLink" -and $existing.Target -eq $src) {
+    return $true
+  }
+
+  Write-Warning "conflict: $HomePath already exists and is not managed by this repo."
+  Write-AgentMergePrompt "install" "resolve local path conflict" $RepoRel $HomePath
+  return $false
+}
+
+function Invoke-CleanTargetPreflight {
+  $conflict = $false
+
+  if ($hasClaude) {
+    $claudeHome = Join-Path $env:APPDATA "Claude"
+    if (-not (Test-CleanTarget "claude/CLAUDE.md" (Join-Path $claudeHome "CLAUDE.md"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "claude/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $claudeHome "MANAGED_BY_HARNESS_CONFIGS.md"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "claude/commands" (Join-Path $claudeHome "commands"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "claude/hooks" (Join-Path $claudeHome "hooks"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "claude/skills" (Join-Path $claudeHome "skills"))) { $conflict = $true }
+  }
+
+  if ($hasCodex) {
+    $codexHome = Join-Path $env:USERPROFILE ".codex"
+    if (-not (Test-CleanTarget "codex/AGENTS.md" (Join-Path $codexHome "AGENTS.md"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "codex/hooks.json" (Join-Path $codexHome "hooks.json"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "codex/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $codexHome "MANAGED_BY_HARNESS_CONFIGS.md"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "codex/rules" (Join-Path $codexHome "rules"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "codex/skills" (Join-Path $codexHome "skills"))) { $conflict = $true }
+  }
+
+  if ($conflict) {
+    throw "install has non-root config conflicts; no files were changed"
+  }
+}
+
+function Invoke-RootConfigPreflight {
+  $script:adoptClaudeConfig = $false
+  $script:adoptCodexConfig = $false
+
+  if ($hasClaude) {
+    $claudeHome = Join-Path $env:APPDATA "Claude"
+    if (Resolve-UserConfigCollision "claude" "claude/settings.json" (Join-Path $claudeHome "settings.json")) {
+      $script:adoptClaudeConfig = $true
+    }
+  }
+
+  if ($hasCodex) {
+    $codexHome = Join-Path $env:USERPROFILE ".codex"
+    if (Resolve-UserConfigCollision "codex" "codex/config.toml" (Join-Path $codexHome "config.toml")) {
+      $script:adoptCodexConfig = $true
+    }
+  }
+}
+
 # Detect which harnesses are present
 $hasClaude = Test-Path (Join-Path $env:APPDATA "Claude")
 $hasCodex  = Test-Path (Join-Path $env:USERPROFILE ".codex")
@@ -78,13 +319,18 @@ if (-not $hasClaude -and -not $hasCodex) {
   exit 1
 }
 
+Invoke-CleanTargetPreflight
+Invoke-RootConfigPreflight
+
 # Claude symlinks
 if ($hasClaude) {
   Write-Host ""
   Write-Host "--- Claude ---"
   $claudeHome = Join-Path $env:APPDATA "Claude"
+  if (-not $adoptClaudeConfig) {
+    Link-UserConfig "claude" "claude/settings.json"  (Join-Path $claudeHome "settings.json")
+  }
   Link-Item "claude/CLAUDE.md"                     (Join-Path $claudeHome "CLAUDE.md")
-  Link-Item "claude/settings.json"                 (Join-Path $claudeHome "settings.json")
   Link-Item "claude/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $claudeHome "MANAGED_BY_HARNESS_CONFIGS.md")
   Link-Item "claude/commands"                      (Join-Path $claudeHome "commands")
   Link-Item "claude/hooks"                         (Join-Path $claudeHome "hooks")
@@ -98,8 +344,10 @@ if ($hasCodex) {
   Write-Host ""
   Write-Host "--- Codex ---"
   $codexHome = Join-Path $env:USERPROFILE ".codex"
+  if (-not $adoptCodexConfig) {
+    Link-UserConfig "codex" "codex/config.toml"     (Join-Path $codexHome "config.toml")
+  }
   Link-Item "codex/AGENTS.md"                     (Join-Path $codexHome "AGENTS.md")
-  Link-Item "codex/config.toml"                   (Join-Path $codexHome "config.toml")
   Link-Item "codex/hooks.json"                    (Join-Path $codexHome "hooks.json")
   Link-Item "codex/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $codexHome "MANAGED_BY_HARNESS_CONFIGS.md")
   Link-Item "codex/rules"                         (Join-Path $codexHome "rules")

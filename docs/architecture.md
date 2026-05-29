@@ -15,8 +15,8 @@ flowchart LR
   repo --> codexRepo
   repo --> claudeRepo
 
-  codexRepo -. symlinked config .-> codexHome
-  claudeRepo -. symlinked config .-> claudeHome
+  codexRepo -. managed config symlinks .-> codexHome
+  claudeRepo -. managed config symlinks .-> claudeHome
 
   codexRuntime --- codexHome
   claudeRuntime --- claudeHome
@@ -32,10 +32,12 @@ flowchart LR
 
 ## Symlink Map
 
+Most files are symlinked directly from the repo into the tool home directory. Root config files are conditional: `~/.claude/settings.json` and `~/.codex/config.toml` may be user-owned, so the installer asks before replacing them.
+
 Codex (`~/.codex/` ← `codex/`):
 
 - `AGENTS.md`
-- `config.toml`
+- `config.toml` when managed
 - `hooks.json`
 - `MANAGED_BY_HARNESS_CONFIGS.md`
 - `rules/`
@@ -44,7 +46,7 @@ Codex (`~/.codex/` ← `codex/`):
 Claude (`~/.claude/` ← `claude/`):
 
 - `CLAUDE.md`
-- `settings.json`
+- `settings.json` when managed
 - `MANAGED_BY_HARNESS_CONFIGS.md`
 - `commands/`
 - `hooks/`
@@ -58,9 +60,9 @@ sequenceDiagram
   participant Repo as harness_configs repo
   participant Backup as ~/.harness-configs-backups
 
-  Home->>Repo: ./scripts/sync-from-home.sh copies selected live config
+  Home->>Repo: ./scripts/sync-from-home.sh reviews diffs before copying selected live config
   Repo->>Home: ./scripts/install-symlinks.sh installs repo-owned config
-  Home->>Backup: existing paths moved before replacement
-  Repo-->>Home: symlinks created for tracked config
+  Home-->>Home: user-owned config collisions are preserved for adopt/agent merge
+  Repo-->>Home: symlinks created for tracked or managed config
   Home-->>Home: runtime files remain local and ignored
 ```

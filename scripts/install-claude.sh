@@ -19,11 +19,26 @@ if [[ ! -d "${HOME}/.claude" ]]; then
   exit 0
 fi
 
-link_item "claude/CLAUDE.md"                    "${HOME}/.claude/CLAUDE.md"
-link_item "claude/settings.json"                "${HOME}/.claude/settings.json"
-link_item "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
-link_item "claude/commands"                     "${HOME}/.claude/commands"
-link_item "claude/hooks"                        "${HOME}/.claude/hooks"
-link_item "claude/skills"                       "${HOME}/.claude/skills"
+conflict=0
+preflight_clean_item "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md" || conflict=1
+preflight_clean_item "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md" || conflict=1
+preflight_clean_item "claude/commands" "${HOME}/.claude/commands" || conflict=1
+preflight_clean_item "claude/hooks" "${HOME}/.claude/hooks" || conflict=1
+preflight_clean_item "claude/skills" "${HOME}/.claude/skills" || conflict=1
+if [[ "${conflict}" -eq 1 ]]; then
+  echo "Install has non-root Claude conflicts. No files were changed." >&2
+  exit 1
+fi
+
+if [[ "${HARNESS_ADOPT_CLAUDE_CONFIG:-0}" == "1" ]]; then
+  echo "skip: ${HOME}/.claude/settings.json left in place"
+else
+  link_user_config "claude" "claude/settings.json" "${HOME}/.claude/settings.json"
+fi
+link_item_clean "claude/CLAUDE.md"                    "${HOME}/.claude/CLAUDE.md"
+link_item_clean "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
+link_item_clean "claude/commands"                     "${HOME}/.claude/commands"
+link_item_clean "claude/hooks"                        "${HOME}/.claude/hooks"
+link_item_clean "claude/skills"                       "${HOME}/.claude/skills"
 remove_repo_link "${HOME}/.claude/plugins/known_marketplaces.json"
 remove_repo_link "${HOME}/.claude/plugins/installed_plugins.json"

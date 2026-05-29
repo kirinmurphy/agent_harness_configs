@@ -24,9 +24,16 @@ View [this doc](architecture.md) for more details on how it works.
 ./scripts/install-symlinks.sh
 ```
 
-This detects which harnesses are installed (Claude Code, Codex, or both), symlinks their config from this repo, installs global commands, and adds shell snippets to your profile. Existing files are backed up to `~/.harness-configs-backups/<timestamp>/` before replacement.
+This detects which harnesses are installed (Claude Code, Codex, or both), installs clean repo-managed symlinks, installs global commands, and adds shell snippets to your profile.
 
-**The script is idempotent** — re-run it any time: new machine, broken symlink, added a harness, new commands or snippets added to the repo.
+If `~/.claude/settings.json` or `~/.codex/config.toml` already exists and is not managed by this repo, the installer treats it as a collision and asks what to do:
+
+- `adopt`: keep the local root config file as the source of truth. The installer still installs other harness-managed files only when their target paths are missing or already managed by this repo.
+- `agent prompt`: print a merge prompt for a coding agent and leave the root config unchanged.
+
+Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge user config or silently replace non-root conflicts. If another harness file or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. See [Config Collision Handling](config-collision-handling.md) for the full workflow.
+
+**The script is safe to re-run** — managed links are left alone, fresh paths are linked, and user-owned root config files are preserved unless you explicitly merge them later. Re-run it for a new machine, broken symlink, added harness, or new commands/snippets added to the repo.
 
 ### Preview without modifying anything:
 
@@ -40,19 +47,35 @@ This detects which harnesses are installed (Claude Code, Codex, or both), symlin
 ./scripts/verify-install.sh
 ```
 
+### Test installer collision behavior:
+
+```sh
+./scripts/test-install-collisions.sh
+```
+
+This runs against temporary `HOME` directories only. See [Config Collision Handling](config-collision-handling.md#validation) for what it covers.
+
 ---
 
 ## Maintenance
 
 ### Sync live config changes back to the repo
 
-Claude Code and Codex sometimes write directly to `~/.claude` or `~/.codex` during a session — for example, when you approve a new permission, it updates `settings.json` in place. Use this to pull those changes back into the repo so they're versioned and portable.
+Claude Code and Codex sometimes write directly to managed files under `~/.claude` or `~/.codex` during a session. Use this to review those live changes and selectively copy them back into the repo.
 
 ```sh
 ./scripts/sync-from-home.sh
 ```
 
-> **Always run `git diff` after** — the script overwrites repo files with live state. Review the diff before committing to avoid silently regressing intentional repo edits.
+For each changed item, the script shows a diff before writing to the repo. Choose `keep repo`, `overwrite repo`, or `agent prompt`.
+
+By default, sync skips user-owned root config files: `~/.claude/settings.json` and `~/.codex/config.toml`. Those files are user-owned when you chose `adopt`, or when they are regular local files instead of symlinks to this repo. Use `--include-root-config` only when you intentionally want to review and promote those local root config files into the repo baseline:
+
+```sh
+./scripts/sync-from-home.sh --include-root-config
+```
+
+For the decision model, see [Config Collision Handling](config-collision-handling.md#sync-workflow).
 
 ---
 

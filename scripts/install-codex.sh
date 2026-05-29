@@ -19,9 +19,24 @@ if [[ ! -d "${HOME}/.codex" ]]; then
   exit 0
 fi
 
-link_item "codex/AGENTS.md"                     "${HOME}/.codex/AGENTS.md"
-link_item "codex/config.toml"                   "${HOME}/.codex/config.toml"
-link_item "codex/hooks.json"                    "${HOME}/.codex/hooks.json"
-link_item "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
-link_item "codex/rules"                         "${HOME}/.codex/rules"
-link_item "codex/skills"                        "${HOME}/.codex/skills"
+conflict=0
+preflight_clean_item "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md" || conflict=1
+preflight_clean_item "codex/hooks.json" "${HOME}/.codex/hooks.json" || conflict=1
+preflight_clean_item "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md" || conflict=1
+preflight_clean_item "codex/rules" "${HOME}/.codex/rules" || conflict=1
+preflight_clean_item "codex/skills" "${HOME}/.codex/skills" || conflict=1
+if [[ "${conflict}" -eq 1 ]]; then
+  echo "Install has non-root Codex conflicts. No files were changed." >&2
+  exit 1
+fi
+
+if [[ "${HARNESS_ADOPT_CODEX_CONFIG:-0}" == "1" ]]; then
+  echo "skip: ${HOME}/.codex/config.toml left in place"
+else
+  link_user_config "codex" "codex/config.toml" "${HOME}/.codex/config.toml"
+fi
+link_item_clean "codex/AGENTS.md"                     "${HOME}/.codex/AGENTS.md"
+link_item_clean "codex/hooks.json"                    "${HOME}/.codex/hooks.json"
+link_item_clean "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
+link_item_clean "codex/rules"                         "${HOME}/.codex/rules"
+link_item_clean "codex/skills"                        "${HOME}/.codex/skills"
