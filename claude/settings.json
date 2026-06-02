@@ -34,6 +34,7 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -42,6 +43,7 @@
         ]
       },
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -77,6 +79,15 @@
             "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"REMINDER: Prefer jcodemunch tools (search_symbols, get_file_outline, find_references, get_context_bundle) over Read for code exploration. For documentation files (.md, .rst, etc.), prefer jdocmunch tools (search_sections, get_toc, get_section). Only use Read for targeted reads of known file locations or editing workflows.\"}}'"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/harness-config-write-guard.mjs\""
+          }
+        ]
       }
     ]
   },
@@ -92,6 +103,7 @@
     }
   },
   "alwaysThinkingEnabled": false,
+  "awaySummaryEnabled": false,
   "skipDangerousModePermissionPrompt": true,
-  "awaySummaryEnabled": false
+  "model": "opus"
 }

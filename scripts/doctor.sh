@@ -94,18 +94,26 @@ check_file "codex/AGENTS.md"
 check_file "codex/config.toml"
 check_file "codex/hooks.json"
 check_file "codex/rules/default.rules"
-check_file "skills/test-harness/SKILL.md"
-check_file "skills/technical-planning-docs/SKILL.md"
-check_file "skills/frontend-design/SKILL.md"
-check_repo_symlink "codex/skills/test-harness" "../../skills/test-harness"
-check_repo_symlink "codex/skills/technical-planning-docs" "../../skills/technical-planning-docs"
-check_repo_symlink "codex/skills/frontend-design" "../../skills/frontend-design"
-check_repo_symlink "claude/skills/test-harness" "../../skills/test-harness"
-check_repo_symlink "claude/skills/technical-planning-docs" "../../skills/technical-planning-docs"
-check_repo_symlink "claude/skills/frontend-design" "../../skills/frontend-design"
+check_file "scripts/render-rules.sh"
+check_file "rules/shared/00-communication.md"
+check_file "rules/shared/10-exploration.md"
+check_file "rules/shared/20-verification.md"
+check_file "rules/shared/30-session-capture.md"
+check_file "rules/claude/90-claude-specific.md"
+check_file "rules/codex/90-codex-specific.md"
+# Derive the shared-skill list from skills/*/SKILL.md so this never goes stale.
+# Each skill must have a per-harness symlink in claude/ and codex/.
+for skill_src in "${repo_root}"/skills/*/SKILL.md; do
+  [[ -e "${skill_src}" ]] || continue
+  skill_name="$(basename "$(dirname "${skill_src}")")"
+  check_file "skills/${skill_name}/SKILL.md"
+  check_repo_symlink "claude/skills/${skill_name}" "../../skills/${skill_name}"
+  check_repo_symlink "codex/skills/${skill_name}" "../../skills/${skill_name}"
+done
 check_file "bin/harness-run"
 check_file "bin/jcmwatch"
 check_file "bin/jcmindex"
+check_file "scripts/normalize-claude-settings.mjs"
 check_json "codex/hooks.json"
 check_json "claude/settings.json"
 check_toml "codex/config.toml"
@@ -116,13 +124,31 @@ else
   fail "uvx missing"
 fi
 
+if command -v node >/dev/null 2>&1; then
+  node "${repo_root}/scripts/normalize-claude-settings.mjs" --check "${repo_root}/claude/settings.json" >/dev/null \
+    && ok "claude/settings.json hook schema valid" \
+    || fail "claude/settings.json hook schema invalid"
+else
+  ok "node unavailable; skipped Claude hook schema check"
+fi
+
+"${repo_root}/scripts/render-rules.sh" --check || failed=1
+
 if [[ "${check_installed}" -eq 1 ]]; then
   check_link "skills/test-harness" "${HOME}/.codex/skills/test-harness"
   check_link "skills/technical-planning-docs" "${HOME}/.codex/skills/technical-planning-docs"
   check_link "skills/frontend-design" "${HOME}/.codex/skills/frontend-design"
+  check_link "skills/code-style" "${HOME}/.codex/skills/code-style"
+  check_link "skills/react" "${HOME}/.codex/skills/react"
+  check_link "skills/javascript-typescript" "${HOME}/.codex/skills/javascript-typescript"
+  check_link "skills/supabase-integration-testing" "${HOME}/.codex/skills/supabase-integration-testing"
   check_link "skills/test-harness" "${HOME}/.claude/skills/test-harness"
   check_link "skills/technical-planning-docs" "${HOME}/.claude/skills/technical-planning-docs"
   check_link "skills/frontend-design" "${HOME}/.claude/skills/frontend-design"
+  check_link "skills/code-style" "${HOME}/.claude/skills/code-style"
+  check_link "skills/react" "${HOME}/.claude/skills/react"
+  check_link "skills/javascript-typescript" "${HOME}/.claude/skills/javascript-typescript"
+  check_link "skills/supabase-integration-testing" "${HOME}/.claude/skills/supabase-integration-testing"
   check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
   check_link "codex/config.toml" "${HOME}/.codex/config.toml"
   check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"

@@ -37,7 +37,7 @@ approval_mode = "approve"
 approval_mode = "auto"
 
 [mcp_servers.jdocmunch.tools.get_toc]
-approval_mode = "auto"
+approval_mode = "approve"
 
 [mcp_servers.jdocmunch.tools.get_toc_tree]
 approval_mode = "auto"
@@ -52,7 +52,7 @@ approval_mode = "approve"
 approval_mode = "auto"
 
 [mcp_servers.jdocmunch.tools.get_sections]
-approval_mode = "auto"
+approval_mode = "approve"
 
 [mcp_servers.jdocmunch.tools.get_section_context]
 approval_mode = "auto"
@@ -66,11 +66,17 @@ approval_mode = "auto"
 [mcp_servers.jdocmunch.tools.doc_list_repos]
 approval_mode = "approve"
 
+[mcp_servers.jdocmunch.tools.list_repo_groups]
+approval_mode = "approve"
+
+[mcp_servers.jdocmunch.tools.list_docs]
+approval_mode = "approve"
+
 [mcp_servers.jcodemunch.tools.resolve_repo]
 approval_mode = "approve"
 
 [mcp_servers.jcodemunch.tools.search_text]
-approval_mode = "auto"
+approval_mode = "approve"
 
 [mcp_servers.jcodemunch.tools.get_file_outline]
 approval_mode = "approve"
@@ -94,7 +100,7 @@ approval_mode = "auto"
 approval_mode = "approve"
 
 [mcp_servers.jcodemunch.tools.get_symbol_source]
-approval_mode = "auto"
+approval_mode = "approve"
 
 [mcp_servers.jcodemunch.tools.get_repo_outline]
 approval_mode = "auto"
@@ -109,7 +115,7 @@ approval_mode = "approve"
 approval_mode = "auto"
 
 [mcp_servers.jcodemunch.tools.get_ranked_context]
-approval_mode = "auto"
+approval_mode = "approve"
 
 [mcp_servers.jcodemunch.tools.list_repos]
 approval_mode = "approve"

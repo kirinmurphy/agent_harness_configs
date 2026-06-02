@@ -26,10 +26,11 @@ View [this doc](architecture.md) for more details on how it works.
 
 This detects which harnesses are installed (Claude Code, Codex, or both), installs clean repo-managed symlinks, installs global commands, and adds shell snippets to your profile.
 
-If `~/.claude/settings.json` or `~/.codex/config.toml` already exists and is not managed by this repo, the installer treats it as a collision and asks what to do:
+The installer has three workflows:
 
-- `adopt`: keep the local root config file as the source of truth. The installer still installs other harness-managed files only when their target paths are missing or already managed by this repo.
-- `agent prompt`: print a merge prompt for a coding agent and leave the root config unchanged.
+- `managed`: target path is missing or already points to this repo. The installer creates or keeps the symlink.
+- `adopt`: a user-owned root config exists, so the installer leaves it in place and installs only other clean harness links.
+- `agent prompt`: a user-owned root config exists and needs manual comparison, so the installer prints a merge prompt and leaves it unchanged.
 
 Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge user config or silently replace non-root conflicts. If another harness file or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. See [Config Collision Handling](config-collision-handling.md) for the full workflow.
 
@@ -100,9 +101,44 @@ jdmindex              # index docs/ in $PWD
 jdmindex path/to/dir
 ```
 
+### Add a shared skill
+
+A shared skill's content lives once in `skills/<name>/`, but each harness reaches it
+through a per-skill symlink (see [architecture.md](architecture.md#shared-skills-use-two-symlink-levels)).
+After creating `skills/<name>/SKILL.md`, run the linker — it creates any missing
+per-harness symlinks and prunes orphaned ones, deriving everything from `skills/`:
+
+```sh
+scripts/link-skills.sh          # create/prune links for all skills
+scripts/link-skills.sh --check  # verify only, non-zero exit if out of sync
+```
+
+The source folder alone is not enough; without the symlinks the harnesses won't see the
+skill (and the active skill list only refreshes on harness reload).
+
+### Edit global rules
+
+Global instruction files are generated tracked outputs:
+
+- `claude/CLAUDE.md`
+- `codex/AGENTS.md`
+
+Edit source fragments instead:
+
+- `rules/shared/` for behavior shared by Claude and Codex
+- `rules/claude/` for Claude-only behavior
+- `rules/codex/` for Codex-only behavior
+
+Then render and check:
+
+```sh
+./scripts/render-rules.sh
+./scripts/render-rules.sh --check
+```
+
 ### Check harness health
 
-Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies.
+Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies. The skill checks are derived from `skills/`, so adding a skill needs no edit here.
 
 ```sh
 doctor.sh

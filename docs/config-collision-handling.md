@@ -9,17 +9,24 @@ The harness owns shared Claude Code and Codex defaults, but `~/.claude/settings.
 - **Managed config**: a home config file is a symlink to this repo. Repo changes flow into the tool automatically.
 - **User-owned config**: a home config file is a regular file, or a symlink somewhere other than this repo.
 - **Collision**: the installer finds a user-owned `~/.claude/settings.json` or `~/.codex/config.toml` where it would normally create a harness symlink.
+- **Non-root harness target**: a harness path such as skills, hooks, commands, rules, or managed marker files. These are not merged by the installer.
 
 ## Installer Choices
 
-When a collision is found, the installer asks for one of these choices:
+The installer has three different workflows:
 
-- `adopt`: keep the local root config file as the source of truth. The installer still installs other harness-managed files only when their target paths are missing or already managed by this repo.
-- `agent prompt`: print a merge prompt for a coding agent and leave the root config unchanged.
+- `managed`: target path is missing or already symlinked to this repo. The installer creates or keeps the symlink. Repo defaults are the active source.
+- `adopt`: root config exists outside this repo. The installer leaves the local root config in place, marks that harness as adopted for this install run, and still installs other clean harness links.
+- `agent prompt`: root config exists outside this repo and needs manual comparison. The installer prints a merge prompt, leaves the root config unchanged, and continues only after user confirmation.
+
+Root config collisions are interactive because root config files are likely to contain personal settings:
+
+- `~/.claude/settings.json`
+- `~/.codex/config.toml`
 
 Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge config or silently replace non-root conflicts. Claude and Codex do not have identical layering behavior, and MCP/server settings can include machine-specific assumptions.
 
-If any other harness target or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. This keeps `managed` and `adopt` limited to clean installs instead of forcing the user to recover from backups.
+If any non-root harness target or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. This keeps `managed` and `adopt` limited to clean installs instead of forcing the user to recover from backups.
 
 ## Agent Prompt Behavior
 
@@ -43,8 +50,10 @@ If the preview reports no collisions, run:
 
 If a collision is reported, choose:
 
-- `adopt` when the existing local root config should remain the source of truth.
-- `agent prompt` when the two configs need a manual merge before either source can safely win.
+- `adopt` when the existing local root config should remain the active source for now.
+- `agent prompt` when the repo config and local config need manual comparison before any merge.
+
+For non-root conflicts, resolve or move the local path first, then rerun the installer.
 
 ## Backups
 

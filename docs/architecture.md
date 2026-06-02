@@ -52,6 +52,27 @@ Claude (`~/.claude/` ← `claude/`):
 - `hooks/`
 - `skills/`
 
+### Shared skills use two symlink levels
+
+`skills/` above is not a passthrough — it is a two-level structure:
+
+1. **Home → repo (install-time).** `~/.claude/skills` and `~/.codex/skills` are
+   symlinks to the real directories `claude/skills/` and `codex/skills/`. Created once
+   by `install-symlinks.sh`.
+2. **Per-harness → shared source (in-repo).** Each shared skill's content lives once in
+   `skills/<name>/`. Inside `claude/skills/` and `codex/skills/`, each skill is an
+   individual symlink `<name> -> ../../skills/<name>`.
+
+Per-skill symlinks (rather than one folder symlink to `skills/`) let each harness share
+the common skills while keeping its own — for example Codex's `codex/skills/.system/`
+skills, which are real files that exist only on that side.
+
+A skill's source folder alone is therefore not enough; without the per-harness symlinks
+the harnesses do not see it. `scripts/link-skills.sh` derives the per-skill symlinks from
+`skills/` — it creates any missing links and prunes orphaned ones (symlinks whose source
+is gone), and is idempotent. `scripts/doctor.sh` verifies the same set, also derived from
+`skills/`, so neither needs editing when a skill is added or removed.
+
 ## Sync Flow
 
 ```mermaid
