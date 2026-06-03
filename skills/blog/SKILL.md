@@ -134,6 +134,39 @@ A sentence passes if removing every adjective and adverb leaves the same factual
 intact. If removing them changes the meaning, the modifiers were probably coloring, not
 information — cut them.
 
+## Pruning pass (run after the draft reads well)
+
+Once the draft is complete and coherent, do a separate pass whose only goal is fewer
+words with zero context lost. Editing for concision is a distinct task from drafting —
+do not try to do both at once. The rule for this pass: condense the *wording*, never
+remove the *information*. A technical identifier, a number, a named mechanism, a tradeoff,
+a caveat — all stay. Only the words spent explaining them shrink.
+
+- **Cut duplicate references across sections.** The strongest source of bloat in a
+  structured piece is the same fact stated in two sibling sections. If a "what it does"
+  section and a "how it works" section both spell out the same detail, state it once in
+  the section that owns it and let the other point to it. Example from practice: a
+  use-case section said "tracking tokens and call count per phase" and the adjacent
+  architecture section said "token counts and a `call_count`" — the same fact twice.
+  Keep it in the one whose job it is; delete it from the other.
+- **Give each labeled section one job.** When the format uses repeated labels (e.g.
+  *What it does* / *How it's built* / *When to apply*), police the boundary: the "what"
+  section describes observable behavior, the "how" section describes mechanism. A detail
+  that belongs to one should not also appear in the other. This both shortens the piece
+  and sharpens what each section is for.
+- **Don't re-explain a cross-referenced concept.** When a later section reuses a
+  mechanism already explained earlier, name it and link the idea ("the same read-only
+  file access as differential context") instead of re-describing how it works. One full
+  explanation, referenced thereafter.
+- **Trim connective and hedging filler that survived drafting.** "has a cost shape worth
+  examining" → "accumulates cost worth examining"; "A crude estimate suffices to start"
+  → "A crude estimate suffices"; "but deliberately leaves that disconnected" →
+  "but leaves that disconnected". Each removal must leave the claim identical.
+
+Make these as small surgical edits, not a rewrite — a rewrite risks dropping context the
+prune pass is meant to preserve. After the pass, the word count should drop while every
+identifier, number, and tradeoff from the previous version is still present.
+
 ## Tone & structure
 
 - **Storyline first.** Narrate how the decision unfolded, not a static description.
