@@ -157,6 +157,15 @@ SHELL=/bin/zsh HOME="${zhome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/d
 assert "install: PATH line not duplicated on re-run" \
   bash -c "test \"\$(grep -c 'export PATH=\"\${HOME}/.local/bin' '${zhome}/.zshrc')\" = 1"
 
+# bash: the PATH line lands in the file the current OS's login/interactive shell actually reads —
+# ~/.bash_profile on macOS, ~/.bashrc on Linux. Test the OS-appropriate target.
+bhome="${work}/home-bash"
+mkdir -p "${bhome}"
+if [[ "$(uname -s)" == "Darwin" ]]; then bash_profile="${bhome}/.bash_profile"; else bash_profile="${bhome}/.bashrc"; fi
+SHELL=/bin/bash HOME="${bhome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
+assert "install: bash PATH line lands in the OS-correct profile" \
+  grep -q ".local/bin" "${bash_profile}"
+
 # Unknown shell (fish) with no ~/.profile: warn + don't write a profile file.
 fhome="${work}/home-fish"
 mkdir -p "${fhome}"
@@ -166,6 +175,50 @@ assert "install: unknown shell warns instead of guessing" \
   grep -qi "could not determine a shell profile" "${fish_out}"
 assert "install: unknown shell does not create ~/.zshrc" \
   bash -c "! test -e '${fhome}/.zshrc'"
+
+# ---------------------------------------------------------------------------
+# Prune passes: a prior install left stale ~/.local/bin command symlinks and stale ~/.zshrc
+# `source` lines for removed helpers. Re-running the installers should remove them, and never
+# touch roborepo or unrelated entries. Isolated via a fake HOME.
+# ---------------------------------------------------------------------------
+phome="${work}/home-prune"
+mkdir -p "${phome}/.local/bin"
+# Stale managed command symlinks (point into this repo's bin/, removed from managed set).
+ln -s "${repo_root}/bin/jcmindex" "${phome}/.local/bin/jcmindex"
+ln -s "${repo_root}/bin/jcmwatch" "${phome}/.local/bin/jcmwatch"
+# An unrelated symlink that must NOT be pruned (points outside this repo).
+ln -s /usr/bin/true "${phome}/.local/bin/some-other-tool"
+SHELL=/bin/zsh HOME="${phome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
+assert "prune: stale jcmindex symlink removed" \
+  bash -c "! test -e '${phome}/.local/bin/jcmindex'"
+assert "prune: stale jcmwatch symlink removed" \
+  bash -c "! test -e '${phome}/.local/bin/jcmwatch'"
+assert "prune: roborepo symlink kept" \
+  test -L "${phome}/.local/bin/roborepo"
+assert "prune: unrelated symlink left intact" \
+  test -L "${phome}/.local/bin/some-other-tool"
+
+# Stale ~/.zshrc snippet source lines for removed helpers.
+iss="${repo_root}/scripts/install-shell-snippets.sh"
+shome="${work}/home-snip"
+mkdir -p "${shome}"
+{
+  echo "# my own stuff"
+  echo "alias ll='ls -la'"
+  echo ""
+  echo "# Harness config shell helpers"
+  echo "source \"${repo_root}/shell/jcodemunch.zsh\""
+  echo ""
+  echo "# Harness config shell helpers"
+  echo "source \"${repo_root}/shell/jdocmunch.zsh\""
+} > "${shome}/.zshrc"
+HOME="${shome}" bash "${iss}" >/dev/null 2>&1 || true
+assert "prune: stale jcodemunch.zsh source line removed" \
+  bash -c "! grep -q 'shell/jcodemunch.zsh' '${shome}/.zshrc'"
+assert "prune: stale jdocmunch.zsh source line removed" \
+  bash -c "! grep -q 'shell/jdocmunch.zsh' '${shome}/.zshrc'"
+assert "prune: user's own .zshrc content preserved" \
+  grep -q "alias ll='ls -la'" "${shome}/.zshrc"
 
 # ---------------------------------------------------------------------------
 echo ""

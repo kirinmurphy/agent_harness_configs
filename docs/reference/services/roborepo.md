@@ -22,11 +22,18 @@ Bash, call the Node entry directly: `node <repo>/scripts/roborepo.mjs <args>`.
 Open a new shell (or `source` your profile) after the first install, then `roborepo` resolves from
 anywhere.
 
-The installer picks the profile from your `$SHELL`: `~/.zshrc` for zsh; `~/.bashrc` (or
-`~/.bash_profile`) for bash; `~/.profile` otherwise. A missing profile file is created. For an
-unknown / non-POSIX shell (e.g. fish) with no `~/.profile`, the installer does **not** guess — it
-prints the exact line to add (e.g. `fish_add_path ~/.local/bin`) rather than writing a file the
-shell never reads. Set `HARNESS_CONFIG_SHELL_PROFILE=/path/to/profile` to override the choice.
+The installer picks the profile from your `$SHELL`, choosing the file your shell actually sources
+on a new terminal:
+
+- **zsh** → `~/.zshrc`
+- **bash** → `~/.bash_profile` on macOS (Terminal launches login shells), `~/.bashrc` on Linux
+  (interactive shells); prefers whichever already exists
+- **other** → `~/.profile` if it exists; otherwise the installer does **not** guess — it prints the
+  exact line to add (e.g. `fish_add_path ~/.local/bin`) rather than writing a file the shell never
+  reads
+
+A missing profile file is created. Set `HARNESS_CONFIG_SHELL_PROFILE=/path/to/profile` to override
+the choice.
 
 Windows + PowerShell is the one case that needs a manual PATH addition (the POSIX installer cannot
 edit a PowerShell profile): add `~/.local/bin` via System Environment Variables or your
