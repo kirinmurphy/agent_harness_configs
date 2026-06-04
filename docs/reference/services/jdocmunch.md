@@ -10,7 +10,7 @@ Complements jcodemunch: jcodemunch handles code, jdocmunch handles docs.
 
 ## Key Difference from jcodemunch: No Watch Mode
 
-jcodemunch has a continuous watch daemon (`jcmwatch`). jdocmunch does not — the index updates passively via `mtime`-based cache invalidation when tool calls are made. For new or deleted files, re-run `jdmindex`.
+jcodemunch has a continuous watch daemon (`roborepo watch code`). jdocmunch does not — the index updates passively via `mtime`-based cache invalidation when tool calls are made. For new or deleted files, re-run `roborepo index docs`.
 
 ## Components
 
@@ -29,22 +29,21 @@ Configured in each harness's MCP settings. Claude and Codex both use `uvx jdocmu
 - `index_local` — index a local docs folder
 - `delete_index` — remove an index
 
-### `bin/jdmindex`
+### `roborepo index docs`
 
-One-shot indexer. Takes a directory path (default: `$PWD`). Runs `jdocmunch-mcp index-local --path`. After a successful index, writes a `.jdm-indexed` marker file to the target directory so hooks can detect per-repo index state without calling the MCP server.
+One-shot indexer. Takes an optional directory path (default: current dir, relative or absolute).
+Runs `jdocmunch-mcp index-local --path`. After a successful index, writes a `.jdm-indexed` marker
+file to the target directory so hooks can detect per-repo index state without calling the MCP
+server.
 
 ```
-jdmindex docs/        # index a specific docs folder
-jdmindex              # indexes $PWD
+roborepo index docs docs/   # index a specific docs folder
+roborepo index docs         # indexes the current dir
 ```
-
-### `shell/jdocmunch.zsh`
-
-Shell function `jdmindex()` — interactive equivalent of the bin script. Also writes `.jdm-indexed` marker on success.
 
 ### Claude hooks (`claude/settings.json`)
 
-**SessionStart** — checks for `docs/.jdm-indexed` in the current repo. If `docs/` exists but marker is absent, injects a reminder to run `jdmindex docs/`. If marker is present, confirms docs are indexed and ready.
+**SessionStart** — checks for `docs/.jdm-indexed` in the current repo. If `docs/` exists but marker is absent, injects a reminder to run `roborepo index docs docs/`. If marker is present, confirms docs are indexed and ready.
 
 **PreToolUse: Read** — soft nudge extended to mention jdocmunch for documentation files alongside jcodemunch for code.
 
@@ -66,7 +65,7 @@ Index stored globally at `~/.doc-index/` — not per-repo. Once indexed, a doc s
 
 ## Per-repo marker file
 
-`jdmindex` writes `.jdm-indexed` to the indexed directory after a successful run. Hooks check for this file to detect whether a repo's docs have been indexed — avoids MCP calls at session start. The marker is excluded from git via `~/.gitignore_global` (configured by `scripts/install-gitignore-globals.sh`, called automatically from `scripts/install-symlinks.sh`).
+`roborepo index docs` writes `.jdm-indexed` to the indexed directory after a successful run. Hooks check for this file to detect whether a repo's docs have been indexed — avoids MCP calls at session start. The marker is excluded from git via `~/.gitignore_global` (configured by `scripts/install-gitignore-globals.sh`, called automatically from `scripts/install-symlinks.sh`).
 
 ## Notes
 

@@ -82,14 +82,20 @@ For the decision model, see [Config Collision Handling](../reference/internal/co
 
 ## Daily Use
 
+Everything below is driven by one command, **`roborepo`** — the single front door for setup,
+indexing, skills, and maintenance. It is installed and added to your `PATH` automatically by the
+installer (no manual PATH step on macOS/Linux); open a new shell after the first install so it
+resolves. Run `roborepo` with no arguments for an interactive menu, or call a subcommand directly
+as shown below. Full reference: [roborepo CLI](../reference/services/roborepo.md).
+
 ### Index and watch a repo
 
 Keep the jcodemunch index current so Claude can navigate your codebase. Start this when opening a project you'll be actively coding in. The watcher runs continuously — edits are picked up automatically within the session.
 
 ```sh
-jcmwatch              # watch $PWD (runs continuously)
-jcmwatch path/to/dir
-jcmindex path/to/dir  # one-shot index instead of watching
+roborepo watch code               # watch the current dir (runs continuously)
+roborepo watch code path/to/dir
+roborepo index code path/to/dir   # one-shot index instead of watching
 ```
 
 ### Index docs
@@ -97,8 +103,8 @@ jcmindex path/to/dir  # one-shot index instead of watching
 Index a project's documentation so Claude can search sections and headings rather than reading full files. Run once per project to initialize. After that, edits to existing files are picked up automatically via mtime detection — no manual reindex needed. Re-run only when doc files are added or deleted.
 
 ```sh
-jdmindex              # index docs/ in $PWD
-jdmindex path/to/dir
+roborepo index docs               # index docs in the current dir
+roborepo index docs path/to/dir
 ```
 
 ### Add a shared skill
@@ -141,7 +147,7 @@ Then render and check:
 Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies. The skill checks are derived from `skills/`, so adding a skill needs no edit here.
 
 ```sh
-doctor.sh
+roborepo doctor        # (dispatches to scripts/doctor.sh)
 ```
 
 ### Run noisy commands with trimmed output
@@ -149,7 +155,7 @@ doctor.sh
 Some commands flood the terminal. Wrap them to get only the useful tail.
 
 ```sh
-harness-run <command> [args]
+roborepo run <command> [args]
 ```
 
 ---

@@ -13,7 +13,7 @@ Keep verification small, native to the repo, and explicit.
 2. Choose the smallest check that proves touched behavior.
 3. Prefer scoped format/lint/type/test commands when available.
 4. Run full checks only for shared app code, build/tooling config, dependency changes, generated types, auth/payments/data migrations, CI scripts, broad refactors, cross-cutting types/config, CI risk, or explicit user request.
-5. If output may be large, use `harness-run <command> ...` or redirect to `/tmp` and show only useful failure/pass lines.
+5. If output may be large, use `roborepo run <command> ...` or redirect to `/tmp` and show only useful failure/pass lines.
 6. Final response includes `Verified: <command> -> <pass|fail|blocked>`.
 
 ## Test Design

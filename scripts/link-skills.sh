@@ -7,7 +7,7 @@ set -euo pipefail
 #   skills/<name>  ->  claude/skills/<name>  and  codex/skills/<name>   (../../skills/<name>)
 #   claude/skills and codex/skills are symlinked into ~/.claude and ~/.codex by
 #   install-symlinks.sh, so these reach the global harnesses and are exported to client
-#   repos by `harness_helper --export-skill`.
+#   repos by `roborepo skill export`.
 #
 # INTERNAL layer (repo-only firewall, NEVER global, NEVER exported):
 #   skills-local/<name>  ->  .claude/skills/<name>  and  .codex/skills/<name>

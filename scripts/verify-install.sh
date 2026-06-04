@@ -79,11 +79,7 @@ check_link "skills/code-style" "${HOME}/.claude/skills/code-style"
 check_link "skills/react" "${HOME}/.claude/skills/react"
 check_link "skills/javascript-typescript" "${HOME}/.claude/skills/javascript-typescript"
 check_link "skills/supabase-integration-testing" "${HOME}/.claude/skills/supabase-integration-testing"
-check_link "bin/jcmwatch" "${HOME}/.local/bin/jcmwatch"
-check_link "bin/jcmindex" "${HOME}/.local/bin/jcmindex"
-check_link "bin/harness-run" "${HOME}/.local/bin/harness-run"
-check_link "bin/harness_helper" "${HOME}/.local/bin/harness_helper"
-check_link "bin/harness-install-local-skills" "${HOME}/.local/bin/harness-install-local-skills"
+check_link "bin/roborepo" "${HOME}/.local/bin/roborepo"
 
 if command -v node >/dev/null 2>&1; then
   node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${HOME}/.codex/hooks.json"

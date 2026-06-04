@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve this script's real location (it is symlinked into ~/.local/bin), then exec the
-# Node implementation in the repo. Works from any cwd, on macOS/Linux/Git Bash.
+# Resolve this script's real location (symlinked into ~/.local/bin), then exec the Node
+# implementation in the repo. roborepo subcommands operate on the CURRENT working dir, so
+# exec preserves cwd. Works from any cwd, on macOS/Linux/Git Bash.
 source_path="${BASH_SOURCE[0]}"
 while [[ -L "${source_path}" ]]; do
   dir="$(cd "$(dirname "${source_path}")" && pwd)"
@@ -13,8 +14,8 @@ bin_dir="$(cd "$(dirname "${source_path}")" && pwd)"
 repo_root="$(cd "${bin_dir}/.." && pwd)"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "harness_helper requires Node.js (node not found on PATH)." >&2
+  echo "roborepo requires Node.js (node not found on PATH)." >&2
   exit 1
 fi
 
-exec node "${repo_root}/scripts/harness_helper.mjs" "$@"
+exec node "${repo_root}/scripts/roborepo.mjs" "$@"

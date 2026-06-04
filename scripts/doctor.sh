@@ -90,6 +90,53 @@ check_repo_symlink() {
   [[ "${target}" == "${expected}" ]] && ok "${path} -> ${expected}" || fail "${path} -> ${target}; expected ${expected}"
 }
 
+# Verify the `roborepo` command actually resolves on PATH — not just that the symlink exists.
+# This catches the case (common on Windows/PowerShell, or before a new shell is opened) where
+# ~/.local/bin/roborepo is installed but ~/.local/bin is not yet on PATH. Does not set `failed`
+# on its own: a missing symlink is already a fail above; here we only guide the user to PATH.
+check_roborepo_on_path() {
+  local bin_dir="${HOME}/.local/bin"
+  if command -v roborepo >/dev/null 2>&1; then
+    ok "roborepo resolves on PATH ($(command -v roborepo))"
+    return 0
+  fi
+  # Symlink present but not callable -> PATH problem, not an install problem.
+  if [[ -e "${bin_dir}/roborepo" || -L "${bin_dir}/roborepo" ]]; then
+    echo "warn: roborepo is installed at ${bin_dir}/roborepo but is not on PATH yet."
+    echo "      Add ${bin_dir} to PATH, then open a new shell:"
+    echo "        export PATH=\"\${HOME}/.local/bin:\${PATH}\"   # bash/zsh"
+    echo "      (Windows PowerShell: add ${bin_dir} via System Environment Variables or"
+    echo "       \$PROFILE, then restart the shell. Re-run 'roborepo doctor' to confirm.)"
+  else
+    fail "roborepo not found on PATH and no symlink at ${bin_dir}/roborepo — run roborepo install"
+  fi
+}
+
+# The "what is a skill folder" rule is implemented twice — list_source_skills (skill-lib.sh)
+# and listSourceSkills (skill-lib.mjs). Parity is the whole point of this repo, so verify the
+# two agree on skills/ rather than letting them drift silently.
+check_skill_lib_parity() {
+  if ! command -v node >/dev/null 2>&1; then
+    ok "node unavailable; skipped skill-lib parity check"
+    return 0
+  fi
+  local bash_out node_out
+  bash_out="$(
+    source "${repo_root}/scripts/skill-lib.sh"
+    list_source_skills "${repo_root}/skills" | sort
+  )"
+  node_out="$(node -e '
+    const [mod, dir] = process.argv.slice(1);
+    import(mod).then((m) => console.log(m.listSourceSkills(dir).sort().join("\n")));
+  ' "${repo_root}/scripts/skill-lib.mjs" "${repo_root}/skills" 2>/dev/null)"
+  if [[ "${bash_out}" == "${node_out}" ]]; then
+    ok "skill-lib.sh and skill-lib.mjs agree on skills/"
+  else
+    fail "skill-lib parity: bash and node disagree on skills/ (diff below)"
+    diff <(echo "${bash_out}") <(echo "${node_out}") >&2 || true
+  fi
+}
+
 check_file "codex/AGENTS.md"
 check_file "codex/config.toml"
 check_file "codex/hooks.json"
@@ -119,16 +166,13 @@ for skill_src in "${repo_root}"/skills-local/*/SKILL.md; do
   check_repo_symlink ".claude/skills/${skill_name}" "../../skills-local/${skill_name}"
   check_repo_symlink ".codex/skills/${skill_name}" "../../skills-local/${skill_name}"
 done
-check_file "bin/harness-run"
-check_file "bin/jcmwatch"
-check_file "bin/jcmindex"
-check_file "bin/harness_helper"
-check_file "bin/harness-install-local-skills"
+check_file "bin/roborepo"
 check_file "scripts/skill-lib.sh"
 check_file "scripts/skill-lib.mjs"
-check_file "scripts/harness_helper.mjs"
-check_file "scripts/install-local-skills.mjs"
+check_file "scripts/roborepo.mjs"
+check_file "scripts/test-roborepo.sh"
 check_file "scripts/normalize-claude-settings.mjs"
+check_skill_lib_parity
 check_json "codex/hooks.json"
 check_json "claude/settings.json"
 check_toml "codex/config.toml"
@@ -173,11 +217,8 @@ if [[ "${check_installed}" -eq 1 ]]; then
   check_link "claude/settings.json" "${HOME}/.claude/settings.json"
   check_link "claude/hooks" "${HOME}/.claude/hooks"
   check_link "claude/skills" "${HOME}/.claude/skills"
-  check_link "bin/jcmwatch" "${HOME}/.local/bin/jcmwatch"
-  check_link "bin/jcmindex" "${HOME}/.local/bin/jcmindex"
-  check_link "bin/harness-run" "${HOME}/.local/bin/harness-run"
-  check_link "bin/harness_helper" "${HOME}/.local/bin/harness_helper"
-  check_link "bin/harness-install-local-skills" "${HOME}/.local/bin/harness-install-local-skills"
+  check_link "bin/roborepo" "${HOME}/.local/bin/roborepo"
+  check_roborepo_on_path
 fi
 
 if [[ "${failed}" -ne 0 ]]; then

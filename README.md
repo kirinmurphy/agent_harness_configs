@@ -22,6 +22,8 @@ Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows suppor
 
 No option should delete existing user config. Conflicted files are preserved either as active local files, archived files, staged repo candidates, or agent-review input. Non-root conflicts, such as existing hooks, skills, commands, rules, or global command targets, stop install before changes in the current implementation. See [docs/guides/install-workflows.md](docs/guides/install-workflows.md) for tradeoffs and [docs/reference/internal/config-collision-handling.md](docs/reference/internal/config-collision-handling.md) for exact behavior.
 
+For filesystem diagrams showing what lives in the repo vs `~/.claude`/`~/.codex` under managed and adopt modes, see [docs/reference/services/architecture.md#install-workflow-filesystem-shapes](docs/reference/services/architecture.md#install-workflow-filesystem-shapes).
+
 ## Global Behavior
 
 Implemented across both Codex and Claude:
@@ -52,14 +54,33 @@ Verify with `scripts/link-skills.sh --check` or `scripts/doctor.sh` — both der
 
 Skills that describe how to develop/maintain **this repo itself** live in `skills-local/<name>/`, a separate layer that is **never** symlinked to global config and **never** exported to client repos. `scripts/link-skills.sh` runs a second pass linking `skills-local/<name>` into this repo's own project-scope dotdirs (`.claude/skills/`, `.codex/skills/`), so they auto-load only when an agent works inside harness_configs. The firewall is structural: the export/installer tools read only `skills/`. The `harness-platform-dev` skill (the platform mechanic's manual) lives here.
 
-## Client utilities
+## The `roborepo` CLI
 
-This repo ships two cross-platform (Node) commands for use **inside other repos** (installed to `~/.local/bin` by `scripts/install-global-commands.sh`):
+One command, installed to `~/.local/bin` by `scripts/install-global-commands.sh`, is the single front door for everything a consumer of this repo does. Run `roborepo` with no arguments for an interactive menu (arrow keys, or a numbered fallback on non-interactive terminals), or call a subcommand directly:
 
-- **`harness_helper --export-skill`** — bundles the shared skills into a timestamped `.zip` (shareable artifact) and copies them into the current repo's `.claude/skills` (+ `.codex/skills`), prompting override/skip per skill (override backs the old one up to `archived/<name>_backup_<ts>`). Run from the target repo root.
-- **`harness-install-local-skills`** — symlinks a client repo's own `.claude/skills/<name>` into the installed global harnesses (and mirrors into the repo's `.codex/skills`), so app-specific skills get the same dual-harness treatment. Flags: `--dry-run`, `--uninstall`, `--no-mirror-codex`. **Reminder:** after creating a new local skill, re-run it so both harnesses pick the skill up.
+```
+roborepo skill export          bundle shared skills into a .zip + copy into this repo
+roborepo skill link            symlink this repo's skills/ into .claude/skills + .codex/skills
+roborepo index code [path]     jcodemunch index   (path optional, defaults to cwd)
+roborepo index docs [path]     jdocmunch index
+roborepo watch code [path]     jcodemunch live watch
+roborepo run <cmd> [args...]   run a command, capturing + truncating noisy output
+roborepo install [--dry-run]   set up harness config on this machine
+roborepo update  [--dry-run]   re-apply the install
+roborepo sync                  pull live config back into the repo
+roborepo doctor  [--installed] health check
+roborepo verify                post-install verification
+```
 
-Both share `scripts/skill-lib.mjs` and operate only on the shared / client-local layer — never `skills-local/`. Windows without Git Bash: invoke the Node core directly, e.g. `node <repo>/scripts/harness_helper.mjs --export-skill`.
+`[path]` is optional everywhere it appears (defaults to the current directory) and may be relative or absolute — roborepo resolves it to an absolute path.
+
+Consumer-facing notes:
+
+- **`skill export`** copies the shared skills into the current repo's `.claude/skills` (+ `.codex/skills`), prompting override/skip per skill (override backs the old one up to `archived/<name>_backup_<ts>`) and leaving a shareable `.zip`. Refuses to run inside harness_configs itself.
+- **`skill link`** symlinks each `<repo>/skills/<name>` into that repo's own `.claude/skills` + `.codex/skills` (the same two-level layout harness_configs uses). **Purely in-repo — never touches `~/.claude`/`~/.codex`.** Re-run after adding a skill; it also prunes links whose source is gone.
+- **`install`/`update`/`sync`/`doctor`/`verify`** dispatch to the existing repo scripts; they are the lifecycle verbs for setting up and maintaining the install on this machine.
+
+Maintainer-only scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) are deliberately not exposed through `roborepo`. Cross-platform: pure `node:` built-ins, no external `zip`/`unzip`/`ln`. Windows without Git Bash: `node <repo>/scripts/roborepo.mjs <args>`.
 
 ## Shared Rules
 
@@ -79,6 +100,6 @@ Edit source fragments under `rules/shared/`, `rules/claude/`, and `rules/codex/`
 
 ## Claude Specifics
 
-- **[Hooks](docs/reference/services/claude-hooks.md):** session hooks detect jcmwatch status, auto-index `docs/` via jdocmunch, remind model to use jcodemunch/jdocmunch; tool hooks block `Grep`/`Glob`, nudge broad reads, trim noisy Bash output
+- **[Hooks](docs/reference/services/claude-hooks.md):** session hooks detect code-watcher status, auto-index `docs/` via jdocmunch, remind model to use jcodemunch/jdocmunch; tool hooks block `Grep`/`Glob`, nudge broad reads, trim noisy Bash output
 - **Convention capture:** `/capture-convention` slash command (Codex: natural language only — "capture this", "remember this")
 - **Behavior flags:** thinking/away-summary stay quiet; dangerous-mode prompt skipped

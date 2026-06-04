@@ -14,6 +14,7 @@ Use these when setting up, operating, or deciding what to do:
 Use these when inspecting installed behavior available in repos where this harness is active:
 
 - [Architecture](reference/services/architecture.md)
+- [roborepo CLI](reference/services/roborepo.md)
 - [Claude Hooks](reference/services/claude-hooks.md)
 - [Codex Hooks](reference/services/codex-hooks.md)
 - [Convention Capture](reference/services/convention-capture.md)
@@ -32,4 +33,5 @@ Use these when changing this harness repo itself:
 Use these for active work and future implementation:
 
 - [Harness Parity Todo](plans/harness-parity-todo.md)
+- [Managed/Adopt/Update Installer](plans/managed-adopt-update-installer.md)
 - [Per-Repo Skill Installer](plans/per-repo-skill-installer.md)

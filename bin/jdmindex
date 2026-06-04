@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-target="${1:-$PWD}"
-
-uvx jdocmunch-mcp index-local --path "$target"
-touch "$target/.jdm-indexed"

@@ -1,0 +1,68 @@
+# Managed/Adopt/Update Installer Plan
+
+## Goal
+
+Design and implement the next installer model for managed/adopt/update behavior.
+
+## Context
+
+- This repo installs global Claude/Codex harness config.
+- Current root config model is binary:
+  - `managed`: `~/.codex/config.toml` or `~/.claude/settings.json` is symlinked to repo file.
+  - adopted/user-owned: local root config remains a regular file; repo root config is skipped.
+- Desired mental model:
+  - `managed`: repo-hosted logic; global config observes repo through symlinks.
+  - `adopt`: copy/replicate/merge repo defaults into user-owned global config.
+  - `agent prompt`: sub-option of `adopt`, not a top-level mode.
+
+## Important Files
+
+- `docs/plans/harness-parity-todo.md`
+- `docs/guides/install-workflows.md`
+- `docs/reference/services/architecture.md`
+- `docs/reference/internal/config-collision-handling.md`
+- `scripts/install-symlinks.sh`
+- `scripts/install-lib.sh`
+- `scripts/sync-from-home.sh`
+- `scripts/test-install-collisions.sh`
+
+## Work Items
+
+1. Inspect current installer flow and collision tests.
+2. Propose and implement a v2 model with:
+   - `managed`
+   - `adopt`: replace existing files
+   - `adopt`: keep existing files
+   - `adopt`: agent prompt
+   - future update behavior
+3. Define archive/staging layout:
+   - `archived/` for local files replaced by repo candidates
+   - `not_adopted/` for repo candidates staged while local files remain active
+4. Define idempotency:
+   - repeated adopt-replace should not endlessly archive files
+   - repeated adopt-keep should refresh or stabilize staged repo candidates
+   - agent prompt should be non-mutating except output
+5. Define update behavior:
+   - decide whether `install-symlinks.sh` handles updates or a separate update command/script is needed
+   - account for repo updates after initial adopt
+6. Explore true layered root-config inheritance:
+   - desired: harness repo baseline -> user global overlay -> local repo overlay
+   - research whether Claude/Codex support native include/import/layering for root config
+   - if not supported, design generated/merged config with source ownership and drift checks
+7. Update docs to match actual behavior.
+8. Add or adjust tests.
+
+## Verification
+
+Run the smallest checks that prove changed behavior:
+
+- `scripts/test-install-collisions.sh` if installer behavior or tests are touched
+- `./scripts/doctor.sh`
+- `./scripts/verify-install.sh` if install behavior changed
+
+## Working Notes
+
+- Check git status before editing.
+- Do not revert unrelated dirty files.
+- After meaningful doc edits, re-index docs with jdocmunch.
+- After meaningful script edits, re-index changed code with jcodemunch.

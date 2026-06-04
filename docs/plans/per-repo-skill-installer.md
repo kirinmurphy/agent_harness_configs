@@ -1,12 +1,14 @@
 # Per-Repo Skill Installer
 
-> **Status: IMPLEMENTED.** Shipped as `bin/harness-install-local-skills`
-> (Node core `scripts/install-local-skills.mjs`, shared logic in `scripts/skill-lib.mjs`).
-> The implementation is **Node, not bash** (chosen for cross-platform reach incl. Windows; the
-> bash skeleton below is kept for historical context only). Canonical client source/dest is
-> `.claude/skills/` + `.codex/skills/`, consistent with `harness_helper --export-skill`. The
-> installer also mirrors each skill into the client repo's own `.codex/skills` so the client gets
-> the same two-level layout. See the `harness-platform-dev` internal skill for the full map.
+> **Status: IMPLEMENTED** (revised from this plan). Shipped as the
+> `harness_helper --symlink-local-skills` subcommand (Node, `scripts/harness_helper.mjs` +
+> shared `scripts/skill-lib.mjs::linkLocalSkills`), chosen Node-over-bash for cross-platform
+> reach incl. Windows. **Scope was corrected during implementation:** the tool is *purely
+> in-repo* — it symlinks `<repo>/skills/<name>` into that repo's own `.claude/skills` +
+> `.codex/skills` and does NOT touch the global `~/.claude`/`~/.codex` (this plan's original
+> "symlink into `~/.claude/skills`" wording was the wrong scope). Source convention is a
+> top-level `skills/` in the client repo, matching how harness_configs treats itself. The bash
+> skeleton below is historical context only.
 
 ## Problem
 

@@ -19,22 +19,25 @@ Configured in each harness's MCP settings. Claude uses `uvx jcodemunch-mcp` (no 
 - `find_references` — all usages of a symbol
 - `get_context_bundle` — focused excerpt around a symbol or line range
 
-### `bin/jcmindex`
+### `roborepo index code`
 
-One-shot indexer. Accepts a file or directory; runs `jcodemunch-mcp index` (or `index-file`) with `--no-ai-summaries` for speed. Use after cloning a new repo or after a large branch change.
-
-```
-jcmindex path/to/dir
-jcmindex path/to/file.ts
-```
-
-### `bin/jcmwatch` / `shell/jcodemunch.zsh`
-
-Continuous watch mode. Wraps `jcodemunch-mcp watch` via `uvx --with "jcodemunch-mcp[watch]"`. Run once per project in a terminal; keeps the index current as files change. The shell function `jcmwatch` in `jcodemunch.zsh` is the interactive equivalent.
+One-shot indexer. Accepts an optional file or directory (defaults to the current dir, relative or
+absolute); runs `jcodemunch-mcp index` (or `index-file`) with `--no-ai-summaries` for speed. Use
+after cloning a new repo or after a large branch change.
 
 ```
-jcmwatch              # watch $PWD
-jcmwatch path/to/dir
+roborepo index code path/to/dir
+roborepo index code path/to/file.ts
+```
+
+### `roborepo watch code`
+
+Continuous watch mode. Wraps `jcodemunch-mcp watch` via `uvx --with "jcodemunch-mcp[watch]"`. Run
+once per project in a terminal; keeps the index current as files change.
+
+```
+roborepo watch code               # watch the current dir
+roborepo watch code path/to/dir
 ```
 
 When the watch script is running, manual reindex calls inside the harness are unnecessary — the index is already fresh.
@@ -62,7 +65,7 @@ These rules live in `rules/shared/` fragments and render into `claude/CLAUDE.md`
 
 ## Watch detection
 
-`bin/jcmwatch` writes a pidfile to `/tmp/jcmwatch-<md5-of-dir>.pid` on start and removes it on exit. The pidfile stores both the pid and the process start time. The SessionStart hook reads both values and verifies they match the live process — guarding against pid recycling after a crash. If the pidfile is missing, stale, or the start time doesn't match, the hook warns that `jcmwatch` is not running and suggests `jcmindex` if the index may be stale.
+`roborepo watch code` writes a pidfile to `/tmp/jcmwatch-<md5-of-dir>.pid` on start and removes it on exit. The pidfile stores both the pid and the process start time. The SessionStart hook reads both values and verifies they match the live process — guarding against pid recycling after a crash. If the pidfile is missing, stale, or the start time doesn't match, the hook warns that the code watcher is not running and suggests `roborepo index code` if the index may be stale. (The pidfile name keeps the `jcmwatch-` prefix for compatibility with the existing hook; the md5 is computed over the absolute watched dir, matching `claude/settings.json`.)
 
 Cross-platform: the directory hash uses `md5sum` on Linux and `md5` on macOS (auto-detected). Process start time uses `ps -o lstart=` with a fallback to `ps -o start=` for Linux compatibility.
 

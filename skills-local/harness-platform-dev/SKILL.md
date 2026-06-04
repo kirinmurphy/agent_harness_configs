@@ -3,10 +3,10 @@ name: harness-platform-dev
 description: >
   INTERNAL to the harness_configs repo. Use when developing or maintaining the platform
   ITSELF — its install pipeline, symlink model, skill-linking machinery, rules generation,
-  sync/verify scripts, bin/ commands, and the client-facing utilities (harness_helper,
-  harness-install-local-skills). This is the mechanic's manual: how the machine works under
-  the hood. Triggers: "how does this repo work", "harness_configs architecture", "install
-  scripts", "add an install step", "the symlink model", working on scripts/ or bin/.
+  sync/verify scripts, bin/ commands, and the consumer CLI (roborepo). This is
+  the mechanic's manual: which doc answers which question, plus the operational judgment that
+  is NOT in the docs. Triggers: "how does this repo work", "harness_configs architecture",
+  "install scripts", "add an install step", "the symlink model", working on scripts/ or bin/.
   SKIP for ordinary skill/rule CONTENT authoring — use harness-config for that instead.
   This skill is never shared globally or exported to client repos.
 ---
@@ -14,93 +14,89 @@ description: >
 # Harness Platform Development (internal)
 
 Mechanic's manual for developing **harness_configs** itself. Distinct from `harness-config`
-(which is for authoring shared skill/rule *content*). This one is about the *machinery* and is
-firewalled to this repo — it loads only when an agent works inside harness_configs.
+(authoring shared skill/rule *content*). This skill is firewalled to this repo — it loads only
+when an agent works inside harness_configs.
 
-**Source of truth docs** (read when relevant — these reorganized; current paths):
-- `docs/reference/services/architecture.md` — Relationship, Symlink Map, Sync Flow.
-- `docs/reference/internal/config-collision-handling.md` — conflict rules.
-- `docs/reference/internal/rules-parity-and-layering.md` — rules generation/layering.
-- `docs/reference/services/claude-hooks.md`, `docs/reference/services/codex-hooks.md` — hooks.
-- `docs/guides/setup-and-daily-use.md`, `docs/guides/install-workflows.md` — install UX.
+**This file does NOT restate the docs.** The docs are the source of truth; this skill is a map
+to them plus the judgment that isn't written down. Read the doc, then apply the gotchas below.
 
-## Two repo dir conventions (get this right first)
+## Which doc answers which question
 
-- `claude/` and `codex/` = the SOURCE that is symlinked into the user's GLOBAL `~/.claude`
-  and `~/.codex` by `scripts/install-symlinks.sh`. Editing these changes every machine that
-  installs this repo.
-- `.claude/` and `.codex/` (dotdirs) = THIS repo's own PROJECT-SCOPE config. Not symlinked to
-  global. Claude Code auto-loads `<repo>/.claude/skills/` as project skills when working here.
+| Question | Doc |
+|----------|-----|
+| Symlink map, sync flow, two skill layers, client utilities | `docs/reference/services/architecture.md` |
+| The `roborepo` CLI — subcommands, menu, install/PATH | `docs/reference/services/roborepo.md` |
+| Conflict / collision behavior on install | `docs/reference/internal/config-collision-handling.md` |
+| Rules generation + layering | `docs/reference/internal/rules-parity-and-layering.md` |
+| Hook behavior (Claude / Codex) | `docs/reference/services/{claude,codex}-hooks.md` |
+| Install UX + daily commands | `docs/guides/setup-and-daily-use.md`, `docs/guides/install-workflows.md` |
+| Skills, two layers, client utilities (user-facing) | `README.md` |
 
-## Two skill layers (the firewall)
+## Repo dir convention (the one thing to internalize first)
 
-| Layer | Source | Linked into | Reaches | Exported to clients? |
-|-------|--------|-------------|---------|----------------------|
-| **Shared** (advisory) | `skills/<name>/` | `claude/skills/<name>`, `codex/skills/<name>` (`../../skills/<name>`) | global `~/.claude`/`~/.codex` | **Yes** (via `harness_helper`) |
-| **Internal** (repo-only) | `skills-local/<name>/` | `.claude/skills/<name>`, `.codex/skills/<name>` (`../../skills-local/<name>`) | this repo only | **No** |
+- `claude/` + `codex/` = SOURCE symlinked into the user's GLOBAL `~/.claude`/`~/.codex`.
+- `.claude/` + `.codex/` (dotdirs) = THIS repo's own PROJECT-SCOPE config, NOT global.
+- `skills/` = shared/advisory layer (global + exportable). `skills-local/` = internal layer
+  (this repo only). The firewall between them is structural — see below.
 
-The firewall is **structural**: `scripts/link-skills.sh` runs two independent passes, and the
-export/installer tools read only `skills/` — there is no code path from `skills-local/` to global
-config or to a client repo. To add an internal skill: create `skills-local/<name>/SKILL.md`, then
-run `scripts/link-skills.sh`. The source folder alone is not enough.
+Everything else (the two symlink levels, the layer table) lives in
+`docs/reference/services/architecture.md`. Read it there.
 
-`scripts/skill-lib.sh` (`list_source_skills`) and `scripts/skill-lib.mjs` (`listSourceSkills`)
-hold the single "what is a real skill folder" rule (dir with `SKILL.md`, not a symlink) for bash
-and Node respectively. Reuse them; don't re-derive the rule.
+## Operational judgment (not in the docs)
 
-## Install pipeline map
+- **Adding any skill:** create the source folder, then ALWAYS run `scripts/link-skills.sh` —
+  never hand-write `ln`. It derives links from source and is idempotent, so it can't drift.
+  Shared skill → `skills/`. Internal/repo-only skill → `skills-local/`. The script's two passes
+  handle each. Source folder alone is never enough; the active skill list refreshes only on
+  harness reload.
+- **The firewall is code, not convention.** `link-skills.sh` runs one pass per layer;
+  `roborepo` reads only `skills/`. There is no code path from `skills-local/` to global
+  config or to a client export. Don't add one.
+- **Reuse the link/conflict primitives.** Bash: `scripts/install-lib.sh` (`link_item`,
+  `link_item_clean`, collision prompts) and `scripts/skill-lib.sh` (`list_source_skills`). Node:
+  `scripts/skill-lib.mjs` (`listSourceSkills`, `ensureSymlink`, `linkLocalSkills`, `writeZip`).
+  Don't re-derive the "what is a skill" rule or hand-roll `ln`/`symlink` logic.
+- **Generated outputs are not editable.** `claude/CLAUDE.md` and `codex/AGENTS.md` are rendered
+  from `rules/{shared,claude,codex}/` by `scripts/render-rules.sh`. Edit fragments, re-render.
+  `doctor.sh` flags drift.
+- **Adding global commands:** there is now ONE global command (`roborepo`); prefer adding a
+  `roborepo` subcommand over a new `bin/` entry. If you ever DO add a `bin/` command, wire it in
+  three places — `install-global-commands.sh` (preflight + `link_command`), `doctor.sh` (file +
+  link check), `verify-install.sh` (link check) — or it's half-installed.
+- **Script conventions:** idempotent; `--dry-run`; verifiers take `--check`. Collisions warn,
+  preserve the local copy, print an agent merge prompt — never clobber.
+- **Cross-platform floor:** Node cores use only `node:` built-ins (no shelling to
+  `zip`/`unzip`/`ln`), so the same code runs on macOS/Linux/Windows. Keep it that way.
+- **Codex project-skill discovery is UNVERIFIED.** Claude Code auto-loads `<repo>/.claude/skills/`
+  as project skills (confirmed). Whether Codex auto-loads `<repo>/.codex/skills/` the same way
+  is not yet verified; the link is harmless if Codex ignores it. Don't assert parity you haven't
+  tested.
 
-`scripts/install-symlinks.sh` is the orchestrator:
+## The `roborepo` CLI (the single consumer front door)
 
-- sources `scripts/install-lib.sh` — the link primitives: `link_item`, `link_item_clean`,
-  `link_user_config`, `config_collision_action`, backup helpers. **Reuse these**; don't write
-  ad-hoc `ln` logic.
-- preflights clean targets + root-config collisions (never clobbers user-owned
-  `~/.claude/settings.json` / `~/.codex/config.toml` — prompts adopt/agent-merge).
-- delegates to `install-claude.sh`, `install-codex.sh`, `install-global-commands.sh`,
-  `install-shell-snippets.sh`, `install-gitignore-globals.sh`.
-- Windows path: `scripts/install-windows.ps1` (PowerShell), invoked from the bash orchestrator
-  under MINGW/MSYS/CYGWIN.
+`roborepo` (Node core `scripts/roborepo.mjs` + `scripts/skill-lib.mjs`, bash shim `bin/roborepo`)
+is the ONE command a consumer runs. No-arg = interactive menu (arrow keys + numbered fallback via
+`selectMenu` in `skill-lib.mjs`). Subcommands, grouped by category:
 
-`scripts/install-global-commands.sh` symlinks `bin/*` into `~/.local/bin` (with conflict
-preflight) and ensures `~/.local/bin` is on PATH. New `bin/` commands must be wired here AND in
-`doctor.sh` / `verify-install.sh`.
+- `skill export` / `skill link` — the dual-harness skill tools (export bundles + copies; link is
+  purely in-repo `skills/` → `.claude/skills` + `.codex/skills`, with prune). Read only the
+  shared / client-local layer — never `skills-local/`.
+- `index code|docs [path]`, `watch code [path]` — jcodemunch/jdocmunch wrappers. `[path]` optional,
+  defaults to cwd, resolved to absolute. `watch code` writes the pidfile
+  `/tmp/jcmwatch-<md5(absdir)>.pid` that the Claude SessionStart hook reads — keep that in sync
+  with `claude/settings.json` if you change it.
+- `run <cmd>` — capture + truncate noisy output.
+- `install`/`update`/`sync`/`doctor`/`verify` — lifecycle verbs that DISPATCH to the existing bash
+  scripts (`install-symlinks.sh`, `sync-from-home.sh`, `doctor.sh`, `verify-install.sh`). `install`
+  and `update` map to the same script today; separate verbs keep the CLI stable if they diverge.
 
-## bin/ commands
+Adding a new `roborepo` subcommand: add the case in `dispatch()`, the usage line, and a menu
+item. Only ONE global command exists now (`roborepo`), so the old per-command 3-place wiring is
+gone — `install-global-commands.sh`, `doctor.sh`, `verify-install.sh` each reference only
+`roborepo`. MAINTAINER scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) stay OUT of
+`roborepo`.
 
-`bin/` entries become global commands via `~/.local/bin`. Bash shims that exec a Node impl in
-`scripts/` (e.g. `harness_helper`, `harness-install-local-skills`) resolve their own symlinked
-path back to the repo, so they work from any cwd. Node cores live in `scripts/*.mjs`; Windows
-fallback is `node scripts/<name>.mjs`.
-
-## Rules generation
-
-Global instruction files `claude/CLAUDE.md` and `codex/AGENTS.md` are GENERATED. Edit fragments
-under `rules/shared/`, `rules/claude/`, `rules/codex/`, then run `scripts/render-rules.sh`. Never
-hand-edit the generated outputs. `scripts/doctor.sh` checks for generated-output drift.
-
-## Sync / verify loop
-
-- `scripts/sync-from-home.sh` — review diffs, pull selected live config back into the repo.
-- `scripts/doctor.sh` — health checks (skill links, generated-rule drift, bin links).
-- `scripts/verify-install.sh` — post-install verification of the global symlink set.
-- `scripts/test-install-collisions.sh` — exercises the collision-handling paths.
-
-## Conventions for scripts here
-
-- Idempotent; support `--dry-run`; verification scripts support `--check`.
-- Collisions: warn, preserve the local/user copy, print an agent merge prompt — never clobber.
-  Follow `docs/reference/internal/config-collision-handling.md`.
-- Cross-platform: Node cores use only `node:` built-ins (no shelling to `zip`/`unzip`/`ln`).
-- Keep Claude/Codex in parity unless a difference is intentional — say so explicitly.
-
-## Client-facing utilities (live here, run in client repos)
-
-- `harness_helper --export-skill` — bundle SHARED skills into a `.zip` and copy into a client
-  repo's `.claude/skills` (+ `.codex/skills`) with override/skip/backup. Core:
-  `scripts/harness_helper.mjs` + `scripts/skill-lib.mjs`.
-- `harness-install-local-skills` — symlink a client repo's own `.claude/skills/<name>` into the
-  global harnesses (and mirror into the client's `.codex/skills`). Core:
-  `scripts/install-local-skills.mjs` + `scripts/skill-lib.mjs`.
-
-Both read only the SHARED layer / client-local skills — never `skills-local/`.
+**Tests:** `scripts/test-roborepo.sh` smoke-tests the subcommands (skill link/prune/uninstall/
+conflict, export/override/firewall/self-pollution guard, run, lifecycle dispatch, menu fallback)
+against throwaway temp repos. Run it after touching `roborepo.mjs` or `skill-lib.mjs`. `doctor.sh`
+also asserts `skill-lib.sh` and `skill-lib.mjs` agree on the skill list (parity guard).

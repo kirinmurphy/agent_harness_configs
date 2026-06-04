@@ -2,11 +2,18 @@
 
 ## Todo
 
-1. Implement per-repo skill installer.
+1. Design true layered root-config inheritance.
+   - Priority: high.
+   - Current model is binary for root config: symlink to repo means `managed`; local file means adopted/user-owned.
+   - Desired model: harness repo provides baseline config, user global config can inherit/add/override it, and local repo context can overlay project-specific instructions/config where harnesses support it.
+   - Research whether Claude/Codex support native include/import/layering for `~/.claude/settings.json` and `~/.codex/config.toml`; if not, design generated/merged config with clear source ownership and drift checks.
+   - Define how this interacts with `managed`, `adopt`, future update command, secrets/local machine config, and repo-local `CLAUDE.md`/`AGENTS.md`.
+
+2. Implement per-repo skill installer.
    - Existing plan: `docs/plans/per-repo-skill-installer.md`.
    - Goal: install repo-local skills into both Claude and Codex without losing global skill parity.
 
-2. Decide placement for global coding conventions.
+3. Decide placement for global coding conventions.
    - Candidate rule topics:
      - pure utilities use `function`
      - named exports preferred
@@ -16,7 +23,7 @@
      - no emoji in UI; use icons where appropriate
    - Open question: compact global rules only, expanded skill references, or both.
 
-3. Redesign managed/adopt/update installer model.
+4. Redesign managed/adopt/update installer model.
    - Clarify top-level choices: `managed` as repo-hosted symlink logic; `adopt` as copy/replicate/merge into user-owned global config.
    - Treat `agent prompt` as an adopt sub-option, alongside replace-existing-files and keep-existing-files behavior.
    - Define archive/not-adopted folder layout, idempotency rules for repeated adopt runs, and whether repo updates use `adopt` again or a separate update command.

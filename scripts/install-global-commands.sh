@@ -42,10 +42,13 @@ choose_profile() {
       fi
       ;;
     *)
+      # Unknown / non-POSIX shell (e.g. fish). Use ~/.profile if it exists (most shells read
+      # it on login), otherwise DON'T guess — writing ~/.zshrc that the shell never reads would
+      # silently fail. Return empty + non-zero so the caller prints manual instructions instead.
       if [[ -f "${HOME}/.profile" ]]; then
         echo "${HOME}/.profile"
       else
-        echo "${HOME}/.zshrc"
+        return 1
       fi
       ;;
   esac
@@ -87,12 +90,7 @@ check_command_target() {
 preflight_commands() {
   local conflict=0
 
-  check_command_target "jcmwatch" || conflict=1
-  check_command_target "jcmindex" || conflict=1
-  check_command_target "jdmindex" || conflict=1
-  check_command_target "harness-run" || conflict=1
-  check_command_target "harness_helper" || conflict=1
-  check_command_target "harness-install-local-skills" || conflict=1
+  check_command_target "roborepo" || conflict=1
 
   if [[ "${conflict}" -eq 1 ]]; then
     echo "Install has global command conflicts. No command links were changed." >&2
@@ -135,14 +133,19 @@ link_command() {
   fi
 }
 
-link_command "jcmwatch"
-link_command "jcmindex"
-link_command "jdmindex"
-link_command "harness-run"
-link_command "harness_helper"
-link_command "harness-install-local-skills"
+link_command "roborepo"
 
-profile_path="$(choose_profile)"
+profile_path="$(choose_profile || true)"
+if [[ -z "${profile_path}" ]]; then
+  # Unknown shell with no ~/.profile — do not guess a file the shell won't read. Tell the
+  # user exactly what to add. roborepo is already symlinked into ${bin_dir} at this point.
+  echo "note: could not determine a shell profile for SHELL='${SHELL:-unknown}'."
+  echo "      Add ${bin_dir} to your shell's PATH manually. For most shells:"
+  echo "        ${path_line}"
+  echo "      (fish: fish_add_path ${bin_dir})"
+  echo "      Then open a new shell and run 'roborepo doctor' to confirm."
+  exit 0
+fi
 if [[ "${dry_run}" -eq 1 ]]; then
   [[ -e "${profile_path}" ]] || echo "would touch: ${profile_path}"
 else

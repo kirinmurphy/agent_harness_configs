@@ -8,13 +8,13 @@ Configured in `claude/settings.json` under `"hooks"`.
 
 Two hooks run at session start:
 
-**jcodemunch status** — checks whether `jcmwatch` is running for the current directory by looking for a pidfile at `/tmp/jcmwatch-<md5-of-pwd>.pid` and verifying the pid is alive. Injects a system message telling the model either:
+**jcodemunch status** — checks whether the code watcher (`roborepo watch code`) is running for the current directory by looking for a pidfile at `/tmp/jcmwatch-<md5-of-pwd>.pid` and verifying the pid is alive. Injects a system message telling the model either:
 - index is current (watch is running) — no manual reindex needed
-- watch is not running — suggests running `jcmindex` if index may be stale
+- watch is not running — suggests running `roborepo index code` if index may be stale
 
 Also reminds the model to use jcodemunch tools (`resolve_repo`, `search_symbols`, etc.) for code exploration instead of `Grep`/`Read`.
 
-**jdocmunch index check** — checks for `docs/.jdm-indexed` marker in the current repo. If `docs/` exists but the marker is absent, injects a reminder to run `jdmindex docs/`. If marker present, confirms docs are indexed. Marker is written by `jdmindex` after a successful index run and excluded from git via global gitignore.
+**jdocmunch index check** — checks for `docs/.jdm-indexed` marker in the current repo. If `docs/` exists but the marker is absent, injects a reminder to run `roborepo index docs docs/`. If marker present, confirms docs are indexed. Marker is written by `roborepo index docs` after a successful index run and excluded from git via global gitignore.
 
 ## PreToolUse: Grep|Glob
 

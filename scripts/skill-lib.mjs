@@ -1,15 +1,16 @@
-// Shared Node core for skill tooling (per-repo installer + harness_helper CLI).
+// Shared Node core for skill tooling, used by the roborepo CLI (scripts/roborepo.mjs).
 //
-// Cross-platform by design: uses only node: built-ins (fs, path, os, zlib, readline).
+// Cross-platform by design: uses only node: built-ins (fs, path, zlib, readline).
 // No shelling out to `zip`/`unzip`/`ln`, so the same code runs on macOS, Linux, and
-// Windows (Git Bash or PowerShell) wherever `node` is available.
+// Windows (Git Bash or PowerShell) wherever `node` is available. Note: symlink creation on
+// Windows requires Developer Mode or an elevated shell; ensureSymlink() degrades gracefully
+// (returns "denied" instead of throwing) when the OS refuses.
 //
 // The "what is a real skill folder" rule mirrors scripts/skill-lib.sh:
 //   a child directory containing a SKILL.md, that is not itself a symlink, not a dotfolder.
 
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import zlib from "node:zlib";
 import readline from "node:readline";
 
@@ -32,18 +33,6 @@ export function listSourceSkills(srcDir) {
     names.push(ent.name);
   }
   return names.sort();
-}
-
-/** Absolute path to a harness home skills dir, e.g. ~/.claude/skills. */
-export function homeSkillsDir(harness) {
-  return path.join(os.homedir(), `.${harness}`, "skills");
-}
-
-/** Which global harnesses are present on this machine (have a ~/.claude / ~/.codex). */
-export function detectHomeHarnesses() {
-  return ["claude", "codex"].filter((h) =>
-    fs.existsSync(path.join(os.homedir(), `.${h}`)),
-  );
 }
 
 /**
@@ -79,7 +68,9 @@ export function readlinkSafe(p) {
 
 /**
  * Ensure target is a symlink -> srcAbs. Non-destructive on conflict.
- * Returns "ok" | "linked" | "conflict" | "unlinked" | "skip".
+ * Returns "ok" | "linked" | "conflict" | "unlinked" | "skip" | "denied".
+ * "denied" means the OS refused symlink creation (e.g. Windows without Developer Mode/admin);
+ * the caller reports it and continues rather than aborting the whole run.
  */
 export function ensureSymlink(srcAbs, target, { dryRun = false, uninstall = false } = {}) {
   const current = readlinkSafe(target);
@@ -99,8 +90,13 @@ export function ensureSymlink(srcAbs, target, { dryRun = false, uninstall = fals
   }
 
   if (!dryRun) {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.symlinkSync(srcAbs, target);
+    try {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.symlinkSync(srcAbs, target);
+    } catch (err) {
+      if (err?.code === "EPERM" || err?.code === "EACCES") return "denied";
+      throw err;
+    }
   }
   return "linked";
 }
@@ -108,6 +104,74 @@ export function ensureSymlink(srcAbs, target, { dryRun = false, uninstall = fals
 /** Recursively copy a directory (dereferencing symlinks into real files). */
 export function copyDir(src, dest) {
   fs.cpSync(src, dest, { recursive: true, dereference: true });
+}
+
+// The symlink target prefix used for in-repo client skill links: ../../skills/<name>.
+const LOCAL_LINK_PREFIX = path.join("..", "..", "skills");
+
+/**
+ * In-repo skill linking for a CLIENT repo: source <repoRoot>/skills/<name> becomes a
+ * per-harness symlink in <repoRoot>/.claude/skills and <repoRoot>/.codex/skills, each
+ * pointing at ../../skills/<name>. Purely local — never touches ~/.claude or ~/.codex.
+ *
+ * This is the same two-level model harness_configs uses for itself (see link-skills.sh),
+ * built on the shared ensureSymlink primitive so there is no duplicated link/conflict logic.
+ * Like link-skills.sh, it also PRUNES orphaned links — symlinks this tool owns whose source
+ * skill no longer exists — so deleting a skill and re-running cleans up the dead link.
+ *
+ * Returns a tally { linked, ok, conflicts, unlinked, denied, pruned, skills }.
+ */
+export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false } = {}) {
+  const srcDir = path.join(repoRoot, "skills");
+  const harnessDirs = [
+    path.join(repoRoot, ".claude", "skills"),
+    path.join(repoRoot, ".codex", "skills"),
+  ];
+  const names = listSourceSkills(srcDir);
+  const tally = { linked: 0, ok: 0, conflicts: 0, unlinked: 0, denied: 0, pruned: 0, skills: names.length };
+
+  for (const name of names) {
+    // Relative target keeps the client repo portable: ../../skills/<name>.
+    const relTarget = path.join(LOCAL_LINK_PREFIX, name);
+    for (const hdir of harnessDirs) {
+      const target = path.join(hdir, name);
+      const result = ensureSymlink(relTarget, target, { dryRun, uninstall });
+      tally[
+        { linked: "linked", unlinked: "unlinked", conflict: "conflicts", denied: "denied" }[result] ?? "ok"
+      ]++;
+      if (result === "linked") console.log(`link: ${target} -> ${relTarget}`);
+      else if (result === "unlinked") console.log(`unlink: ${target}`);
+      else if (result === "conflict") console.warn(`conflict: ${target} exists and points elsewhere — skipped`);
+      else if (result === "denied")
+        console.warn(`denied: ${target} — OS refused symlink (Windows: enable Developer Mode or run elevated)`);
+    }
+  }
+
+  // Prune pass (skip during uninstall — that already removes our links by ownership).
+  if (!uninstall) {
+    const live = new Set(names);
+    for (const hdir of harnessDirs) {
+      let entries;
+      try {
+        entries = fs.readdirSync(hdir, { withFileTypes: true });
+      } catch {
+        continue; // dir doesn't exist — nothing to prune
+      }
+      for (const ent of entries) {
+        const link = path.join(hdir, ent.name);
+        const tgt = readlinkSafe(link);
+        if (tgt === null) continue; // only symlinks; never touch real files/dirs
+        // Only links we own: target shaped like ../../skills/<name>.
+        if (path.dirname(tgt) !== LOCAL_LINK_PREFIX) continue;
+        if (live.has(ent.name)) continue; // source still exists — keep
+        if (!dryRun) fs.rmSync(link);
+        console.log(`prune: ${link} (source gone)`);
+        tally.pruned++;
+      }
+    }
+  }
+
+  return tally;
 }
 
 /** Timestamp suffix for backups/exports: YYYYMMDD-HHMMSS (local time). */
@@ -152,6 +216,119 @@ export async function askOverrideSkip(prompter, name, fallback = "skip") {
     if (a === "" || a === "s" || a === "skip") return "skip";
     if (a === "o" || a === "override") return "override";
   }
+}
+
+/**
+ * Interactive single-choice menu with optional section headers and per-item descriptions.
+ * items: a flat list of either
+ *   { header: "SECTION NAME" }                         non-selectable section divider, or
+ *   { label, value, desc? }                            a selectable action.
+ * On an interactive TTY: arrow up/down (skipping headers), Enter to select, Esc/q/Ctrl-C cancel.
+ * Otherwise (pipe, dumb terminal): a numbered list (headers shown, only actions numbered).
+ * Returns the chosen item's `value`, or null if cancelled.
+ */
+export async function selectMenu(title, items) {
+  const isHeader = (it) => Object.prototype.hasOwnProperty.call(it, "header");
+  const selectable = items.map((it, i) => (isHeader(it) ? -1 : i)).filter((i) => i >= 0);
+  const labelWidth = Math.max(...items.filter((it) => !isHeader(it)).map((it) => it.label.length));
+
+  const tty = process.stdin.isTTY && process.stdout.isTTY;
+  if (!tty) return numberedFallback(title, items, isHeader);
+
+  return new Promise((resolve) => {
+    let pos = 0; // index into `selectable`
+    const out = process.stdout;
+
+    const line = (it, sel) => {
+      if (isHeader(it)) return `\x1b[2K\x1b[2m${it.header}\x1b[0m\n`; // dim header
+      const pad = it.label.padEnd(labelWidth);
+      const desc = it.desc ? `  \x1b[2m${it.desc}\x1b[0m` : "";
+      return sel
+        ? `\x1b[2K\x1b[36m> ${pad}\x1b[0m${desc}\n`
+        : `\x1b[2K  ${pad}${desc}\n`;
+    };
+
+    const render = (first) => {
+      if (!first) out.write(`\x1b[${items.length + 1}A`);
+      out.write(`\x1b[2K${title}\n`);
+      items.forEach((it, i) => out.write(line(it, i === selectable[pos])));
+    };
+
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    render(true);
+
+    const cleanup = () => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdin.removeListener("keypress", onKey);
+    };
+
+    const onKey = (_str, key) => {
+      if (!key) return;
+      if (key.name === "up" || key.name === "k") {
+        pos = (pos - 1 + selectable.length) % selectable.length;
+        render(false);
+      } else if (key.name === "down" || key.name === "j") {
+        pos = (pos + 1) % selectable.length;
+        render(false);
+      } else if (key.name === "return" || key.name === "enter") {
+        cleanup();
+        out.write("\n");
+        resolve(items[selectable[pos]].value);
+      } else if (key.name === "escape" || key.name === "q" || (key.ctrl && key.name === "c")) {
+        cleanup();
+        out.write("\n");
+        resolve(null);
+      }
+    };
+
+    process.stdin.on("keypress", onKey);
+  });
+}
+
+function numberedFallback(title, items, isHeader) {
+  console.log(title);
+  // Number only selectable actions; render headers as plain dividers. Map the printed number
+  // back to the item via `order`.
+  const order = [];
+  for (const it of items) {
+    if (isHeader(it)) {
+      console.log(`\n  ${it.header}`);
+    } else {
+      order.push(it);
+      const desc = it.desc ? `  — ${it.desc}` : "";
+      console.log(`  ${order.length}) ${it.label}${desc}`);
+    }
+  }
+  process.stdout.write("Select a number (or blank to cancel): ");
+
+  // Read from stdin directly — works for both a piped stream and an interactive terminal,
+  // unlike makePrompter() which requires an attached TTY. We capture the first line and
+  // resolve a TTY immediately; for a piped stream (no TTY) we resolve on "close" using the
+  // captured line, because readline may deliver "close" in the same tick as "line".
+  const interactive = process.stdin.isTTY;
+  const rl = readline.createInterface({ input: process.stdin });
+  return new Promise((resolve) => {
+    let captured = null;
+    let settled = false;
+    const toValue = (l) => {
+      const n = Number.parseInt(l, 10);
+      return Number.isInteger(n) && n >= 1 && n <= order.length ? order[n - 1].value : null;
+    };
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      rl.close();
+      resolve(val);
+    };
+    rl.once("line", (l) => {
+      captured = l;
+      if (interactive) finish(toValue(l));
+    });
+    rl.once("close", () => finish(captured === null ? null : toValue(captured)));
+  });
 }
 
 // ---------------------------------------------------------------------------

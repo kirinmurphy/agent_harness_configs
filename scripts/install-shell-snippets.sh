@@ -18,14 +18,13 @@ else
   touch "${zshrc}"
 fi
 
-source_snippets=(
-  "shell/jcodemunch.zsh"
-  "shell/jdocmunch.zsh"
-)
+# No shell snippets are wired today — jcmwatch/jdmindex were folded into the `roborepo`
+# command. This array is intentionally empty; add entries here to source future helpers.
+source_snippets=()
 
 needs_backup=true
 
-for snippet in "${source_snippets[@]}"; do
+for snippet in "${source_snippets[@]+"${source_snippets[@]}"}"; do
   source_line="source \"${repo_root}/${snippet}\""
   if [[ -e "${zshrc}" ]] && grep -Fqx "${source_line}" "${zshrc}"; then
     echo "ok: ${zshrc} already sources ${snippet}"

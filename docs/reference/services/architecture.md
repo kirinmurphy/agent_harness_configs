@@ -52,6 +52,91 @@ Claude (`~/.claude/` ← `claude/`):
 - `hooks/`
 - `skills/`
 
+## Install Workflow Filesystem Shapes
+
+Root config files have two possible ownership shapes today: managed from this repo, or adopted into user-owned global config. A future layered model is still open work.
+
+### Managed
+
+Repo file is the source of truth. The global harness path observes it through a symlink.
+
+```text
+harness_configs/
+  codex/config.toml
+  claude/settings.json
+        ▲
+        │ symlink target
+        │
+~/.codex/config.toml      -> harness_configs/codex/config.toml
+~/.claude/settings.json   -> harness_configs/claude/settings.json
+```
+
+Implication: updates in this repo become active globally. User edits at the global path edit the repo file through the symlink.
+
+### Adopt: replace existing files
+
+Repo version becomes active in the global config location. Existing local files are preserved in an archive folder.
+
+```text
+~/.codex/
+  config.toml                    # copied/adopted repo version, active
+  archived/
+    config_archived_<timestamp>.toml
+
+~/.claude/
+  settings.json                  # copied/adopted repo version, active
+  archived/
+    settings_archived_<timestamp>.json
+```
+
+Implication: user does not lose old config, but must merge wanted local settings back from `archived/`.
+
+### Adopt: keep existing files
+
+User-owned config remains active. Repo candidates are preserved in a staging folder for later merge.
+
+```text
+~/.codex/
+  config.toml                    # existing local version, active
+  not_adopted/
+    config_repo_<timestamp>.toml
+
+~/.claude/
+  settings.json                  # existing local version, active
+  not_adopted/
+    settings_repo_<timestamp>.json
+```
+
+Implication: user keeps current behavior, but must merge wanted repo defaults from `not_adopted/`.
+
+### Adopt: agent prompt
+
+User-owned config remains active. The installer prints an agent prompt that points at both local and repo paths.
+
+```text
+harness_configs/codex/config.toml       # repo candidate
+~/.codex/config.toml                    # existing local version, active
+
+harness_configs/claude/settings.json    # repo candidate
+~/.claude/settings.json                 # existing local version, active
+```
+
+Implication: no automatic merge. The agent/user compares both sides and applies intentional edits.
+
+### Future layered model
+
+Desired but not implemented:
+
+```text
+harness_configs baseline
+        ↓ inherited by
+user global config overlay
+        ↓ refined by
+local repo context
+```
+
+This needs either native harness include support or a generated/merged config pipeline. Track this in [../../plans/harness-parity-todo.md](../../plans/harness-parity-todo.md).
+
 ### Shared skills use two symlink levels
 
 `skills/` above is not a passthrough — it is a two-level structure:
@@ -88,11 +173,13 @@ There are two distinct, firewalled skill layers:
 
 ### Client utilities (same model, for other repos)
 
-Two Node commands give other repos the same dual-harness skill model:
-`harness_helper --export-skill` (bundle shared skills into a `.zip` + copy into a target repo) and
-`harness-install-local-skills` (symlink a client repo's own `.claude/skills` into the installed
-global harnesses). Both share `scripts/skill-lib.mjs`; canonical client dirs are `.claude/skills`
-+ `.codex/skills`.
+One Node command, `roborepo`, is the consumer front door (see the README for the full subcommand
+list). For the dual-harness skill model it offers `skill export` (bundle shared skills into a
+`.zip` + copy into a target repo's `.claude/skills` + `.codex/skills`) and `skill link` (in the
+target repo, symlink its own `skills/<name>` into `.claude/skills` + `.codex/skills` — purely
+in-repo, never global). It also folds in `index`/`watch`/`run` and dispatches the lifecycle verbs
+`install`/`update`/`sync`/`doctor`/`verify` to the existing bash scripts. Shared skill logic lives
+in `scripts/skill-lib.mjs`.
 
 ## Sync Flow
 
