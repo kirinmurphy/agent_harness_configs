@@ -49,16 +49,16 @@ Three hooks enforce jcodemunch usage in Claude:
 
 **PreToolUse: Read** — soft nudge. Allows the Read call but injects a reminder to prefer jcodemunch for exploration. Read is still permitted for targeted reads (editing workflows, non-code files, known paths).
 
-### CLAUDE.md rules
+### Generated global rules
 
-The global `CLAUDE.md` codifies the behavioral contract:
+Generated global rules codify the behavioral contract for Claude and Codex:
 - prefer jcodemunch tools over brute-force reads
 - call `resolve_repo "."` at session start
 - index before deeper analysis if needed
 - refresh index after edits or branch changes
 - if Glob/Grep is blocked mid-task, treat it as a redirect and retry with jcodemunch
 
-These rules work alongside the hooks: hooks enforce at the tool level, CLAUDE.md shapes intent earlier in the reasoning chain.
+These rules live in `rules/shared/` fragments and render into `claude/CLAUDE.md` and `codex/AGENTS.md`. They work alongside hooks: hooks enforce at the tool level, rules shape intent earlier in the reasoning chain.
 
 ## Watch detection
 
@@ -68,4 +68,4 @@ Cross-platform: the directory hash uses `md5sum` on Linux and `md5` on macOS (au
 
 ## Notes
 
-Codex `PreToolUse` hook support is not confirmed stable. jcodemunch enforcement in Codex relies on rules in `AGENTS.md` rather than tool-level hooks.
+Codex `PreToolUse` hook support is not confirmed stable. jcodemunch enforcement in Codex relies on generated rules in `AGENTS.md` rather than tool-level hooks.

@@ -6,9 +6,9 @@ Claude and Codex should share the same global behavior defaults without hand-mai
 
 ## Current Behavior
 
-- `claude/CLAUDE.md` and `codex/AGENTS.md` are separate tracked files.
-- Both files express the same core behavior: caveman mode, code/doc exploration, verification, and session capture.
-- Formatting differs because Claude and Codex read different instruction file conventions.
+- `claude/CLAUDE.md` and `codex/AGENTS.md` are generated tracked files.
+- Both files express the same core behavior through shared fragments: caveman mode, code/doc exploration, verification, and session capture.
+- Harness-specific fragments hold Claude-only or Codex-only differences.
 - Root harness config files are conditional defaults:
   - `~/.claude/settings.json`
   - `~/.codex/config.toml`

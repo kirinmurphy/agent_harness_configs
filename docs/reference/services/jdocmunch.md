@@ -52,9 +52,9 @@ Shell function `jdmindex()` — interactive equivalent of the bin script. Also w
 
 **SessionStart** — same per-repo marker check as Claude. Prints status to session output.
 
-### CLAUDE.md / AGENTS.md rules
+### Generated global rules
 
-Both files include a Doc Exploration section:
+Generated `claude/CLAUDE.md` and `codex/AGENTS.md` include a Doc Exploration section:
 - prefer `search_sections`, `get_toc`, `get_section` over reading full doc files
 - call `list_repos` at session start to see what's indexed
 - use `index_local` to index a new docs folder

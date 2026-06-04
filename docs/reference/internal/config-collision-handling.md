@@ -4,6 +4,8 @@
 
 The harness owns shared Claude Code and Codex defaults, but `~/.claude/settings.json` and `~/.codex/config.toml` can also contain personal config. The installer protects those files from silent replacement when they already exist outside this repo.
 
+For user-facing tradeoffs between `managed`, `adopt`, and `agent prompt`, start with [../../guides/install-workflows.md](../../guides/install-workflows.md). This internal reference documents exact collision behavior.
+
 ## Concept Model
 
 - **Managed config**: a home config file is a symlink to this repo. Repo changes flow into the tool automatically.

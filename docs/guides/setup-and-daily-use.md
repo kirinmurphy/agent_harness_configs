@@ -2,7 +2,7 @@
 
 This repo owns your agent harness config (Claude Code, Codex) and exposes it at the paths agents already read. One install script wires everything up.
 
-View [this doc](architecture.md) for more details on how it works.
+For install workflow tradeoffs, see [install-workflows.md](install-workflows.md). For system details, see [../reference/services/architecture.md](../reference/services/architecture.md).
 
 ---
 
@@ -26,13 +26,13 @@ View [this doc](architecture.md) for more details on how it works.
 
 This detects which harnesses are installed (Claude Code, Codex, or both), installs clean repo-managed symlinks, installs global commands, and adds shell snippets to your profile.
 
-The installer has three workflows:
+The installer has three workflows. See [install-workflows.md](install-workflows.md) for what each option offers, what it hinders, and how local user config can live alongside downloaded repo defaults.
 
 - `managed`: target path is missing or already points to this repo. The installer creates or keeps the symlink.
 - `adopt`: a user-owned root config exists, so the installer leaves it in place and installs only other clean harness links.
 - `agent prompt`: a user-owned root config exists and needs manual comparison, so the installer prints a merge prompt and leaves it unchanged.
 
-Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge user config or silently replace non-root conflicts. If another harness file or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. See [Config Collision Handling](config-collision-handling.md) for the full workflow.
+Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge user config or silently replace non-root conflicts. If another harness file or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. See [Config Collision Handling](../reference/internal/config-collision-handling.md) for exact behavior.
 
 **The script is safe to re-run** — managed links are left alone, fresh paths are linked, and user-owned root config files are preserved unless you explicitly merge them later. Re-run it for a new machine, broken symlink, added harness, or new commands/snippets added to the repo.
 
@@ -54,7 +54,7 @@ Managed root config is only automatic when the target path is missing or already
 ./scripts/test-install-collisions.sh
 ```
 
-This runs against temporary `HOME` directories only. See [Config Collision Handling](config-collision-handling.md#validation) for what it covers.
+This runs against temporary `HOME` directories only. See [Config Collision Handling](../reference/internal/config-collision-handling.md#validation) for what it covers.
 
 ---
 
@@ -76,7 +76,7 @@ By default, sync skips user-owned root config files: `~/.claude/settings.json` a
 ./scripts/sync-from-home.sh --include-root-config
 ```
 
-For the decision model, see [Config Collision Handling](config-collision-handling.md#sync-workflow).
+For the decision model, see [Config Collision Handling](../reference/internal/config-collision-handling.md#sync-workflow).
 
 ---
 
@@ -104,7 +104,7 @@ jdmindex path/to/dir
 ### Add a shared skill
 
 A shared skill's content lives once in `skills/<name>/`, but each harness reaches it
-through a per-skill symlink (see [architecture.md](architecture.md#shared-skills-use-two-symlink-levels)).
+through a per-skill symlink (see [architecture.md](../reference/services/architecture.md#shared-skills-use-two-symlink-levels)).
 After creating `skills/<name>/SKILL.md`, run the linker — it creates any missing
 per-harness symlinks and prunes orphaned ones, deriving everything from `skills/`:
 

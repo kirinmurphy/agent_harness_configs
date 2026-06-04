@@ -33,18 +33,18 @@ Each item gets classified at capture time:
 | Scope                                 | Destination                                                   |
 | ------------------------------------- | ------------------------------------------------------------- |
 | Applies only in this repo             | current repo's `CLAUDE.md` or `.claude/rules/`                |
-| Applies to agent behavior in any repo | `harness_configs/claude/CLAUDE.md` or `harness_configs/docs/` |
+| Applies to agent behavior in any repo | shared rules in `rules/`, shared skills in `skills/`, or docs under `docs/` |
 
 Global items: caveman behavior, jcodemunch defaults, verification discipline, hook patterns.
 Local items: naming conventions, component patterns, data-fetching rules, testing approach, business logic.
 
 ### Codex parity
 
-Same inline flagging rule lives in `codex/AGENTS.md`. Codex has no slash command equivalent — user triggers capture by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
+Same inline flagging rule lives in generated `codex/AGENTS.md` and `claude/CLAUDE.md`. Codex has no slash command equivalent — user triggers capture by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
 
-## docs/convention-capture/ directory
+## Scratch directory
 
-Not used in current design. If you want an ephemeral scratch space for capture candidates mid-session, create files here manually. Not tracked in git by default — add to `.gitignore` if created.
+No scratch directory is used in current design. If you want ephemeral capture-candidate files mid-session, create a clearly named scratch folder manually and add it to `.gitignore`.
 
 ## Why not automatic
 

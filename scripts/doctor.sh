@@ -110,9 +110,24 @@ for skill_src in "${repo_root}"/skills/*/SKILL.md; do
   check_repo_symlink "claude/skills/${skill_name}" "../../skills/${skill_name}"
   check_repo_symlink "codex/skills/${skill_name}" "../../skills/${skill_name}"
 done
+# Internal (repo-only) skills: source in skills-local/, linked into THIS repo's project-scope
+# dotdirs (.claude/skills, .codex/skills) — never global, never exported.
+for skill_src in "${repo_root}"/skills-local/*/SKILL.md; do
+  [[ -e "${skill_src}" ]] || continue
+  skill_name="$(basename "$(dirname "${skill_src}")")"
+  check_file "skills-local/${skill_name}/SKILL.md"
+  check_repo_symlink ".claude/skills/${skill_name}" "../../skills-local/${skill_name}"
+  check_repo_symlink ".codex/skills/${skill_name}" "../../skills-local/${skill_name}"
+done
 check_file "bin/harness-run"
 check_file "bin/jcmwatch"
 check_file "bin/jcmindex"
+check_file "bin/harness_helper"
+check_file "bin/harness-install-local-skills"
+check_file "scripts/skill-lib.sh"
+check_file "scripts/skill-lib.mjs"
+check_file "scripts/harness_helper.mjs"
+check_file "scripts/install-local-skills.mjs"
 check_file "scripts/normalize-claude-settings.mjs"
 check_json "codex/hooks.json"
 check_json "claude/settings.json"
@@ -161,6 +176,8 @@ if [[ "${check_installed}" -eq 1 ]]; then
   check_link "bin/jcmwatch" "${HOME}/.local/bin/jcmwatch"
   check_link "bin/jcmindex" "${HOME}/.local/bin/jcmindex"
   check_link "bin/harness-run" "${HOME}/.local/bin/harness-run"
+  check_link "bin/harness_helper" "${HOME}/.local/bin/harness_helper"
+  check_link "bin/harness-install-local-skills" "${HOME}/.local/bin/harness-install-local-skills"
 fi
 
 if [[ "${failed}" -ne 0 ]]; then

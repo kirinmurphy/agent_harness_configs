@@ -91,6 +91,8 @@ preflight_commands() {
   check_command_target "jcmindex" || conflict=1
   check_command_target "jdmindex" || conflict=1
   check_command_target "harness-run" || conflict=1
+  check_command_target "harness_helper" || conflict=1
+  check_command_target "harness-install-local-skills" || conflict=1
 
   if [[ "${conflict}" -eq 1 ]]; then
     echo "Install has global command conflicts. No command links were changed." >&2
@@ -137,6 +139,8 @@ link_command "jcmwatch"
 link_command "jcmindex"
 link_command "jdmindex"
 link_command "harness-run"
+link_command "harness_helper"
+link_command "harness-install-local-skills"
 
 profile_path="$(choose_profile)"
 if [[ "${dry_run}" -eq 1 ]]; then

@@ -73,6 +73,27 @@ the harnesses do not see it. `scripts/link-skills.sh` derives the per-skill syml
 is gone), and is idempotent. `scripts/doctor.sh` verifies the same set, also derived from
 `skills/`, so neither needs editing when a skill is added or removed.
 
+### Two skill layers: shared vs. internal
+
+There are two distinct, firewalled skill layers:
+
+- **Shared** — `skills/<name>/`, linked into `claude/skills` + `codex/skills` (and thus into
+  global `~/.claude`/`~/.codex`), and exportable to other repos. Advisory coding skills any repo
+  may receive.
+- **Internal** — `skills-local/<name>/`, linked **only** into this repo's own project-scope
+  dotdirs (`.claude/skills`, `.codex/skills`) by a second pass of `link-skills.sh`. These describe
+  how to develop/maintain this repo and are **never** global and **never** exported. The
+  separation is structural: the export/installer tools read only `skills/`, with no code path to
+  `skills-local/`.
+
+### Client utilities (same model, for other repos)
+
+Two Node commands give other repos the same dual-harness skill model:
+`harness_helper --export-skill` (bundle shared skills into a `.zip` + copy into a target repo) and
+`harness-install-local-skills` (symlink a client repo's own `.claude/skills` into the installed
+global harnesses). Both share `scripts/skill-lib.mjs`; canonical client dirs are `.claude/skills`
++ `.codex/skills`.
+
 ## Sync Flow
 
 ```mermaid

@@ -1,5 +1,13 @@
 # Per-Repo Skill Installer
 
+> **Status: IMPLEMENTED.** Shipped as `bin/harness-install-local-skills`
+> (Node core `scripts/install-local-skills.mjs`, shared logic in `scripts/skill-lib.mjs`).
+> The implementation is **Node, not bash** (chosen for cross-platform reach incl. Windows; the
+> bash skeleton below is kept for historical context only). Canonical client source/dest is
+> `.claude/skills/` + `.codex/skills/`, consistent with `harness_helper --export-skill`. The
+> installer also mirrors each skill into the client repo's own `.codex/skills` so the client gets
+> the same two-level layout. See the `harness-platform-dev` internal skill for the full map.
+
 ## Problem
 
 Global skills in `harness_configs/skills/` are symlinked into both `~/.claude/skills/` and `~/.codex/skills/`. App-specific skills (deploy flows, domain-specific agents) need the same dual-harness treatment but should live in the app repo, not the global harness.

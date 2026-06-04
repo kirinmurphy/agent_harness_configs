@@ -28,3 +28,7 @@
 
 # Local backup output from install script.
 .backups/
+
+# Skill export bundles produced by `harness_helper --export-skill` (shareable artifacts,
+# not source). Pattern guards against accidentally committing a test/export run.
+global_agent_skills_*.zip

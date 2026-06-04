@@ -10,4 +10,4 @@ Configured in `codex/hooks.json`.
 
 ## Notes
 
-Codex `PreToolUse` hook support is not confirmed stable. jcodemunch enforcement in Codex relies on rules in `codex/rules/default.rules` and `codex/AGENTS.md` rather than tool-level hooks. See [jcodemunch.md](jcodemunch.md) for full details.
+Codex `PreToolUse` hook support is not confirmed stable. jcodemunch enforcement in Codex relies on rules in `codex/rules/default.rules` and generated `codex/AGENTS.md` rather than tool-level hooks. See [jcodemunch.md](jcodemunch.md) for full details.
