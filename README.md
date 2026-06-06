@@ -6,6 +6,13 @@ Version controlled Codex & Claude global harness configurations that symlink to 
 
 Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows support is available but less tested.
 
+**One command is the front door: `roborepo`.** After the first install it is on your `PATH`, and everything a consumer of this repo does — installing/updating, indexing, working with skills, registering MCP servers, maintenance — runs through it. Run `roborepo` with no arguments for an interactive menu, or a subcommand directly. The first install bootstraps it:
+
+```sh
+./scripts/roborepo-install.sh   # first install; puts roborepo on PATH. After that: roborepo update
+```
+
+- **Full roborepo reference (every subcommand): [docs/reference/services/roborepo.md](docs/reference/services/roborepo.md)**
 - Install and daily commands: [docs/guides/setup-and-daily-use.md](docs/guides/setup-and-daily-use.md)
 - Install workflow choices: [docs/guides/install-workflows.md](docs/guides/install-workflows.md)
 - Documentation index: [docs/README.md](docs/README.md)
@@ -13,7 +20,7 @@ Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows suppor
 
 ## Install Workflow Choices
 
-`./scripts/install-symlinks.sh` installs repo-managed config where it can do so cleanly. If it finds existing user-owned root config, it asks whether to manage from this repo or adopt the repo defaults into local config.
+`./scripts/roborepo-install.sh` installs repo-managed config where it can do so cleanly. If it finds existing user-owned root config, it asks whether to manage from this repo or adopt the repo defaults into local config.
 
 | Workflow | What it gives you | What it hinders | User responsibility |
 | --- | --- | --- | --- |
@@ -60,31 +67,15 @@ Skills that describe how to develop/maintain **this repo itself** live in `skill
 
 ## The `roborepo` CLI
 
-One command, installed to `~/.local/bin` by `scripts/install-global-commands.sh`, is the single front door for everything a consumer of this repo does. Run `roborepo` with no arguments for an interactive menu (arrow keys, or a numbered fallback on non-interactive terminals), or call a subcommand directly:
+One command, installed to `~/.local/bin` by the installer, is the single front door for everything a consumer of this repo does. Run `roborepo` for an interactive menu, or a subcommand directly. The categories:
 
-```
-roborepo skill export          bundle shared skills into a .zip + copy into this repo
-roborepo skill link            symlink this repo's .agents/skills into .claude/skills + .codex/skills
-roborepo index code [path]     jcodemunch index   (path optional, defaults to cwd)
-roborepo index docs [path]     jdocmunch index
-roborepo watch code [path]     jcodemunch live watch
-roborepo run <cmd> [args...]   run a command, capturing + truncating noisy output
-roborepo install [--dry-run]   set up harness config on this machine
-roborepo update  [--dry-run]   re-apply the install
-roborepo sync                  pull live config back into the repo
-roborepo doctor  [--installed] health check
-roborepo verify                post-install verification
-```
+| Category | Subcommands |
+| --- | --- |
+| Skills | `skill export`, `skill link` |
+| Day to day | `index code\|docs`, `watch code`, `mcp add`, `run` |
+| Lifecycle | `update`, `sync`, `doctor`, `verify` |
 
-`[path]` is optional everywhere it appears (defaults to the current directory) and may be relative or absolute — roborepo resolves it to an absolute path.
-
-Consumer-facing notes:
-
-- **`skill export`** copies the shared skills into the current repo's `.claude/skills` (+ `.agents/skills`, which Codex scans), prompting override/skip per skill (override backs the old one up to `archived/<name>_backup_<ts>`) and leaving a shareable `.zip`. Refuses to run inside harness_configs itself.
-- **`skill link`** symlinks each `<repo>/.agents/skills/<name>` (the client's canonical source, also what Codex scans) into that repo's own `.claude/skills` + `.codex/skills`. **Purely in-repo — never touches `~/.claude`/`~/.codex`.** Re-run after adding a skill; it also prunes links whose source is gone.
-- **`install`/`update`/`sync`/`doctor`/`verify`** dispatch to the existing repo scripts; they are the lifecycle verbs for setting up and maintaining the install on this machine.
-
-Maintainer-only scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) are deliberately not exposed through `roborepo`. Cross-platform: pure `node:` built-ins, no external `zip`/`unzip`/`ln`. Windows without Git Bash: `node <repo>/scripts/roborepo.mjs <args>`.
+**See [docs/reference/services/roborepo.md](docs/reference/services/roborepo.md) for the complete reference** — every flag, the interactive menu, MCP registration, PATH wiring, and the `scripts/cli/` module layout. The first install is the shell bootstrap `scripts/roborepo-install.sh` (that puts `roborepo` on `PATH`); from then on you only ever `roborepo update`. Maintainer-only scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) are deliberately not exposed through `roborepo`.
 
 ## Shared Rules
 

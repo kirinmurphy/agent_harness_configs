@@ -21,7 +21,7 @@ For install workflow tradeoffs, see [install-workflows.md](install-workflows.md)
 ### Clone the repo, then run:
 
 ```sh
-./scripts/install-symlinks.sh
+./scripts/roborepo-install.sh
 ```
 
 This detects which harnesses are installed (Claude Code, Codex, or both), installs clean repo-managed symlinks, installs global commands, and adds shell snippets to your profile.
@@ -39,7 +39,7 @@ Managed root config is only automatic when the target path is missing or already
 ### Preview without modifying anything:
 
 ```sh
-./scripts/install-symlinks.sh --dry-run
+./scripts/roborepo-install.sh --dry-run
 ```
 
 ### Verify the install:
@@ -179,7 +179,7 @@ Git Bash is required — hook scripts and bin commands are bash and will not run
 **Install from Git Bash:**
 
 ```bash
-./scripts/install-symlinks.sh
+./scripts/roborepo-install.sh
 ```
 
 **Config paths on Windows:**

@@ -26,7 +26,7 @@ are easy to get wrong; it does not duplicate the repo's own docs.
 
 There are **two** symlink levels. Mixing them up is the common mistake.
 
-1. **HOME → repo (install-time).** `scripts/install-symlinks.sh` links whole dirs
+1. **HOME → repo (install-time).** `scripts/roborepo-install.sh` links whole dirs
    from HOME into the repo, e.g. `~/.claude/skills -> harness_configs/claude/skills`
    and `~/.codex/skills -> harness_configs/codex/skills`. Already done on a set-up
    machine. You normally do NOT touch this.

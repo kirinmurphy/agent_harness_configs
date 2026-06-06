@@ -41,13 +41,13 @@ For install conflicts, the default stance is `adopt`: preserve local behavior an
 Run a preview first:
 
 ```sh
-./scripts/install-symlinks.sh --dry-run
+./scripts/roborepo-install.sh --dry-run
 ```
 
 If the preview reports no collisions, run:
 
 ```sh
-./scripts/install-symlinks.sh
+./scripts/roborepo-install.sh
 ```
 
 If a collision is reported, choose:

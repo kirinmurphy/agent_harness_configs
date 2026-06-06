@@ -144,7 +144,7 @@ This needs either native harness include support or a generated/merged config pi
 The canonical shared source is `agents/skills/<name>/` (each a folder with a `SKILL.md`).
 The two harnesses reach it differently because Codex and Claude scan different paths:
 
-- **Codex** scans `~/.agents/skills` exclusively. So `install-symlinks.sh` links
+- **Codex** scans `~/.agents/skills` exclusively. So `roborepo-install.sh` links
   `~/.agents/skills → agents/skills` directly (plus a transitional `~/.codex/skills →
   agents/skills` for cross-compat). Codex needs **no** per-skill intermediate dir, and there
   is no longer a `codex/skills/` directory in the repo. Codex's own `.system/` skills
@@ -180,9 +180,10 @@ list). For the dual-harness skill model it offers `skill export` (bundle shared 
 `.zip` + copy into a target repo's `.claude/skills` + `.agents/skills`) and `skill link` (in the
 target repo, symlink its own `.agents/skills/<name>` into `.claude/skills` + `.codex/skills` —
 purely in-repo, never global; `.agents/skills` is the client's canonical source, which Codex also
-scans directly). It also folds in `index`/`watch`/`run` and dispatches the lifecycle verbs
-`install`/`update`/`sync`/`doctor`/`verify` to the existing bash scripts. Shared skill logic lives
-in `scripts/skill-lib.mjs`.
+scans directly). It also folds in `mcp add`/`index`/`watch`/`run` and dispatches the lifecycle
+verbs `update`/`sync`/`doctor`/`verify` to the existing bash scripts (the first install is the shell
+bootstrap `roborepo-install.sh`, so there is no `install` verb). Shared skill logic lives in
+`scripts/cli/skill-lib.mjs`.
 
 ## Sync Flow
 
@@ -193,7 +194,7 @@ sequenceDiagram
   participant Backup as ~/.harness-configs-backups
 
   Home->>Repo: ./scripts/sync-from-home.sh reviews diffs before copying selected live config
-  Repo->>Home: ./scripts/install-symlinks.sh installs repo-owned config
+  Repo->>Home: ./scripts/roborepo-install.sh installs repo-owned config
   Home-->>Home: user-owned config collisions are preserved for adopt/agent merge
   Repo-->>Home: symlinks created for tracked or managed config
   Home-->>Home: runtime files remain local and ignored

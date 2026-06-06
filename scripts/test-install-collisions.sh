@@ -133,16 +133,17 @@ test_global_command_conflict_blocks_before_mutation() {
   local home_dir
   home_dir="$(make_home)"
   mkdir -p "$home_dir/.local/bin"
-  printf '#!/bin/sh\necho local\n' > "$home_dir/.local/bin/jcmwatch"
-  chmod +x "$home_dir/.local/bin/jcmwatch"
+  # roborepo is the one managed global command; an unmanaged file at its target must block install.
+  printf '#!/bin/sh\necho local\n' > "$home_dir/.local/bin/roborepo"
+  chmod +x "$home_dir/.local/bin/roborepo"
 
   if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out" 2>&1; then
     fail "global command conflict blocks install" "$home_dir/out"
   fi
 
-  assert_file_contains "$home_dir/out" "conflict: $home_dir/.local/bin/jcmwatch already exists" "global command conflict is reported"
+  assert_file_contains "$home_dir/out" "conflict: $home_dir/.local/bin/roborepo already exists" "global command conflict is reported"
   assert_file_contains "$home_dir/out" "Default stance: preserve the existing local command" "global command prompt preserves local command"
-  assert_file_contains "$home_dir/.local/bin/jcmwatch" "echo local" "global command conflict leaves command untouched"
+  assert_file_contains "$home_dir/.local/bin/roborepo" "echo local" "global command conflict leaves command untouched"
   [[ ! -e "$home_dir/.gitignore_global" && ! -e "$home_dir/.claude/settings.json" && ! -e "$home_dir/.codex/config.toml" ]] \
     && pass "global command conflict prevents config mutation" \
     || fail "global command conflict prevents config mutation"

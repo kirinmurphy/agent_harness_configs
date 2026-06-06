@@ -65,7 +65,7 @@ Index stored globally at `~/.doc-index/` — not per-repo. Once indexed, a doc s
 
 ## Per-repo marker file
 
-`roborepo index docs` writes `.jdm-indexed` to the indexed directory after a successful run. Hooks check for this file to detect whether a repo's docs have been indexed — avoids MCP calls at session start. The marker is excluded from git via `~/.gitignore_global` (configured by `scripts/install-gitignore-globals.sh`, called automatically from `scripts/install-symlinks.sh`).
+`roborepo index docs` writes `.jdm-indexed` to the indexed directory after a successful run. Hooks check for this file to detect whether a repo's docs have been indexed — avoids MCP calls at session start. The marker is excluded from git via `~/.gitignore_global` (configured by `scripts/install-gitignore-globals.sh`, called automatically from `scripts/roborepo-install.sh`).
 
 ## Notes
 

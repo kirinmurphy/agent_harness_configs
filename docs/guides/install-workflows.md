@@ -71,7 +71,7 @@ User responsibility:
 
 - review archived local files, staged repo candidates, or agent output
 - copy only wanted settings into the active global config
-- rerun `./scripts/install-symlinks.sh --dry-run` or future update command to confirm expected state
+- rerun `./scripts/roborepo-install.sh --dry-run` or future update command to confirm expected state
 
 ## Known Gaps
 
@@ -86,13 +86,13 @@ User responsibility:
 Run a preview first:
 
 ```sh
-./scripts/install-symlinks.sh --dry-run
+./scripts/roborepo-install.sh --dry-run
 ```
 
 If preview is clean, run install:
 
 ```sh
-./scripts/install-symlinks.sh
+./scripts/roborepo-install.sh
 ```
 
 For exact prompt behavior, noninteractive behavior, backups, sync, and regression tests, see [../reference/internal/config-collision-handling.md](../reference/internal/config-collision-handling.md).

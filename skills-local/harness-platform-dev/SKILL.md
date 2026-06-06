@@ -58,7 +58,7 @@ Everything else (the two symlink levels, the layer table) lives in
   config or to a client export. Don't add one.
 - **Reuse the link/conflict primitives.** Bash: `scripts/install-lib.sh` (`link_item`,
   `link_item_clean`, collision prompts) and `scripts/skill-lib.sh` (`list_source_skills`). Node:
-  `scripts/skill-lib.mjs` (`listSourceSkills`, `ensureSymlink`, `linkLocalSkills`, `writeZip`).
+  `scripts/cli/skill-lib.mjs` (`listSourceSkills`, `ensureSymlink`, `linkLocalSkills`, `writeZip`).
   Don't re-derive the "what is a skill" rule or hand-roll `ln`/`symlink` logic.
 - **Generated outputs are not editable.** `claude/CLAUDE.md` and `codex/AGENTS.md` are rendered
   from `rules/{shared,claude,codex}/` by `scripts/render-rules.sh`. Edit fragments, re-render.
@@ -87,29 +87,39 @@ Everything else (the two symlink levels, the layer table) lives in
 
 ## The `roborepo` CLI (the single consumer front door)
 
-`roborepo` (Node core `scripts/roborepo.mjs` + `scripts/skill-lib.mjs`, bash shim `bin/roborepo`)
-is the ONE command a consumer runs. No-arg = interactive menu (arrow keys + numbered fallback via
-`selectMenu` in `skill-lib.mjs`). Subcommands, grouped by category:
+`roborepo` is the ONE command a consumer runs. `scripts/roborepo.mjs` is a thin orchestrator
+(usage, menu, dispatch); the subcommand impls live under `scripts/cli/` — `skills.mjs`,
+`index.mjs`, `mcp.mjs`, `paths.mjs` (shared `repoRoot`/`sharedSkillsDir`), and `skill-lib.mjs`
+(shared Node core: zip, prompts, symlink helpers). Bash shim is `bin/roborepo`. No-arg =
+interactive menu (arrow keys + numbered fallback via `selectMenu` in `cli/skill-lib.mjs`).
+Subcommands, grouped by category:
 
-- `skill export` / `skill link` — the dual-harness skill tools (export bundles + copies into
-  `.claude/skills` + `.agents/skills`; link is purely in-repo `.agents/skills` → `.claude/skills`
-  + `.codex/skills`, with prune). Read only the shared / client-local layer — never `skills-local/`.
-- `index code|docs [path]`, `watch code [path]` — jcodemunch/jdocmunch wrappers. `[path]` optional,
-  defaults to cwd, resolved to absolute. `watch code` writes the pidfile
-  `/tmp/jcmwatch-<md5(absdir)>.pid` that the Claude SessionStart hook reads — keep that in sync
-  with `claude/settings.json` if you change it.
-- `run <cmd>` — capture + truncate noisy output.
-- `install`/`update`/`sync`/`doctor`/`verify` — lifecycle verbs that DISPATCH to the existing bash
-  scripts (`install-symlinks.sh`, `sync-from-home.sh`, `doctor.sh`, `verify-install.sh`). `install`
-  and `update` map to the same script today; separate verbs keep the CLI stable if they diverge.
+- `skill export` / `skill link` (`cli/skills.mjs`) — the dual-harness skill tools (export bundles +
+  copies into `.claude/skills` + `.agents/skills`; link is purely in-repo `.agents/skills` →
+  `.claude/skills` + `.codex/skills`, with prune). Read only the shared / client-local layer —
+  never `skills-local/`.
+- `index code|docs [path]`, `watch code [path]`, `run <cmd>` (`cli/index.mjs`) — jcodemunch/jdocmunch
+  wrappers + the trimmed-output runner. `[path]` optional, defaults to cwd, resolved to absolute.
+  `watch code` writes the pidfile `/tmp/jcmwatch-<md5(absdir)>.pid` that the Claude SessionStart
+  hook reads — keep that in sync with `claude/settings.json` if you change it.
+- `mcp add <name-or-url>` / `addMCP` (`cli/mcp.mjs`) — register an MCP server with Claude
+  (`claude mcp add` + a `mcp__<name>` permission in `claude/settings.json`) and Codex (a block in
+  `codex/config.toml`). Presets for `jcodemunch`/`jdocmunch`; URLs default to HTTP transport.
+- `update`/`sync`/`doctor`/`verify` — lifecycle verbs that DISPATCH to the existing bash scripts
+  (`roborepo-install.sh`, `sync-from-home.sh`, `doctor.sh`, `verify-install.sh`). There is no
+  `install` verb: the FIRST install is the shell bootstrap `roborepo-install.sh` (that is what puts
+  `roborepo` on PATH), so from the CLI you only ever `update` — which re-runs that same install
+  script to pick up new config.
 
-Adding a new `roborepo` subcommand: add the case in `dispatch()`, the usage line, and a menu
-item. Only ONE global command exists now (`roborepo`), so the old per-command 3-place wiring is
-gone — `install-global-commands.sh`, `doctor.sh`, `verify-install.sh` each reference only
-`roborepo`. MAINTAINER scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) stay OUT of
-`roborepo`.
+Adding a new `roborepo` subcommand: write/extend the module under `scripts/cli/`, export the
+handler, then wire it in `roborepo.mjs` (import + `dispatch()` case + usage line + menu item). Only
+ONE global command exists (`roborepo`), so the old per-command 3-place wiring is gone —
+`install-global-commands.sh`, `doctor.sh`, `verify-install.sh` each reference only `roborepo`.
+MAINTAINER scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) stay OUT of `roborepo`.
 
 **Tests:** `scripts/test-roborepo.sh` smoke-tests the subcommands (skill link/prune/uninstall/
-conflict, export/override/firewall/self-pollution guard, run, lifecycle dispatch, menu fallback)
-against throwaway temp repos. Run it after touching `roborepo.mjs` or `skill-lib.mjs`. `doctor.sh`
-also asserts `skill-lib.sh` and `skill-lib.mjs` agree on the skill list (parity guard).
+conflict, export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real
+Codex/Claude writes against a throwaway harness root, lifecycle dispatch, menu fallback) against
+throwaway temp repos. Run it after touching `roborepo.mjs` or anything under `scripts/cli/`.
+`doctor.sh` also asserts `skill-lib.sh` and `cli/skill-lib.mjs` agree on the skill list (parity
+guard).

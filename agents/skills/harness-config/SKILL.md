@@ -27,7 +27,7 @@ are easy to get wrong; it does not duplicate the repo's own docs.
 The canonical shared source is **`agents/skills/<name>/`**. The two harnesses reach it
 differently because Codex and Claude scan different paths:
 
-1. **HOME → repo (install-time).** `scripts/install-symlinks.sh` links HOME dirs into the
+1. **HOME → repo (install-time).** `scripts/roborepo-install.sh` links HOME dirs into the
    repo. Codex scans `~/.agents/skills` **exclusively** (no `~/.codex/skills` fallback), so
    the canonical link is `~/.agents/skills -> harness_configs/agents/skills` (plus a
    transitional `~/.codex/skills -> harness_configs/agents/skills` for cross-compat). Claude
