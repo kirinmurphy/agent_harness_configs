@@ -8,7 +8,7 @@
 #
 # Usage:
 #   From PowerShell:  .\scripts\install-windows.ps1
-#   From Git Bash:    called automatically by install-symlinks.sh
+#   From Git Bash:    called automatically by roborepo-install.sh
 #
 # Less tested than macOS/Linux. Report issues or submit PRs.
 

@@ -6,8 +6,8 @@ set -euo pipefail
 # SHARED layer (advisory, global + exportable):
 #   agents/skills/<name>  ->  claude/skills/<name>   (../../agents/skills/<name>)
 #   agents/skills/ is the canonical shared source. claude/skills is symlinked into
-#   ~/.claude/skills by install-symlinks.sh (Claude reads ~/.claude/skills). Codex has NO
-#   per-skill intermediate dir: Codex reads ~/.agents/skills, which install-symlinks.sh
+#   ~/.claude/skills by roborepo-install.sh (Claude reads ~/.claude/skills). Codex has NO
+#   per-skill intermediate dir: Codex reads ~/.agents/skills, which roborepo-install.sh
 #   points straight at agents/skills/ (Codex scans .agents/skills exclusively — there is no
 #   .codex/skills fallback). The export tool reads agents/skills/ directly.
 #

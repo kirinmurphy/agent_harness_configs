@@ -138,7 +138,7 @@ check_skill_lib_parity() {
   node_out="$(node -e '
     const [mod, dir] = process.argv.slice(1);
     import(mod).then((m) => console.log(m.listSourceSkills(dir).sort().join("\n")));
-  ' "${repo_root}/scripts/skill-lib.mjs" "${repo_root}/agents/skills" 2>/dev/null)"
+  ' "${repo_root}/scripts/cli/skill-lib.mjs" "${repo_root}/agents/skills" 2>/dev/null)"
   if [[ "${bash_out}" == "${node_out}" ]]; then
     ok "skill-lib.sh and skill-lib.mjs agree on agents/skills/"
   else
@@ -179,7 +179,7 @@ for skill_src in "${repo_root}"/skills-local/*/SKILL.md; do
 done
 check_file "bin/roborepo"
 check_file "scripts/skill-lib.sh"
-check_file "scripts/skill-lib.mjs"
+check_file "scripts/cli/skill-lib.mjs"
 check_file "scripts/roborepo.mjs"
 check_file "scripts/test-roborepo.sh"
 check_file "scripts/normalize-claude-settings.mjs"

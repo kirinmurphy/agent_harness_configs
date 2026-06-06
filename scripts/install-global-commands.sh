@@ -149,38 +149,6 @@ link_command() {
 
 link_command "roborepo"
 
-# Prune stale command symlinks from earlier installs. We removed the old one-off commands
-# (jcmindex/jcmwatch/jdmindex/harness-run/harness_helper/harness-install-local-skills) when
-# they were folded into roborepo, but a prior install left their ~/.local/bin symlinks behind.
-# Remove any ~/.local/bin/* symlink that points into this repo's bin/ but whose basename is not
-# in the managed set below. Only ever touches symlinks into THIS repo — never other files.
-managed_commands=("roborepo")
-prune_stale_commands() {
-  [[ -d "${bin_dir}" ]] || return 0
-  local link target base keep m
-  for link in "${bin_dir}"/*; do
-    [[ -L "${link}" ]] || continue
-    target="$(readlink "${link}" 2>/dev/null || true)"
-    case "${target}" in
-      "${repo_root}/bin/"*) ;;   # a command symlink we manage
-      *) continue ;;             # points elsewhere — not ours
-    esac
-    base="$(basename "${link}")"
-    keep=0
-    for m in "${managed_commands[@]}"; do
-      [[ "${base}" == "${m}" ]] && keep=1 && break
-    done
-    [[ "${keep}" -eq 1 ]] && continue
-    if [[ "${dry_run}" -eq 1 ]]; then
-      echo "prune: ${link} (removed command)"
-    else
-      rm -f "${link}"
-      echo "prune: ${link} (removed command)"
-    fi
-  done
-}
-prune_stale_commands
-
 profile_path="$(choose_profile || true)"
 if [[ -z "${profile_path}" ]]; then
   # Unknown shell with no ~/.profile — do not guess a file the shell won't read. Tell the

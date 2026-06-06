@@ -63,7 +63,7 @@ run_expect_install() {
   command -v expect >/dev/null 2>&1 || fail "expect is required for interactive installer tests"
   HC_REPO="$repo_root" HC_HOME="$home_dir" HC_EXPECT_SCRIPT="$script" expect <<'EOF' >"$output" 2>&1
 set timeout 20
-spawn env HOME=$env(HC_HOME) $env(HC_REPO)/scripts/install-symlinks.sh
+spawn env HOME=$env(HC_HOME) $env(HC_REPO)/scripts/roborepo-install.sh
 source $env(HC_EXPECT_SCRIPT)
 expect eof
 set wait_result [wait]
@@ -76,7 +76,7 @@ test_fresh_managed() {
   local home_dir
   home_dir="$(make_home)"
 
-  HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" >"$home_dir/out"
+  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out"
 
   assert_symlink_target "$home_dir/.claude/settings.json" "$repo_root/claude/settings.json" "fresh Claude config symlink"
   assert_symlink_target "$home_dir/.codex/config.toml" "$repo_root/codex/config.toml" "fresh Codex config symlink"
@@ -87,7 +87,7 @@ test_dry_run_collision_no_mutation() {
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
 
-  HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" --dry-run >"$home_dir/out"
+  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" --dry-run >"$home_dir/out"
 
   assert_file_contains "$home_dir/out" "collision: $home_dir/.claude/settings.json" "dry-run reports Claude collision"
   assert_file_contains "$home_dir/out" "adopt existing config or print agent merge prompt" "dry-run describes only safe root config choices"
@@ -103,7 +103,7 @@ test_noninteractive_block_no_mutation() {
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
 
-  if HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out" 2>&1; then
     fail "noninteractive collision blocks install" "$home_dir/out"
   fi
 
@@ -116,7 +116,7 @@ test_non_root_conflict_blocks_before_mutation() {
   home_dir="$(make_home)"
   printf 'existing agents\n' > "$home_dir/.codex/AGENTS.md"
 
-  if HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" --dry-run >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" --dry-run >"$home_dir/out" 2>&1; then
     fail "non-root conflict blocks install" "$home_dir/out"
   fi
 
@@ -136,7 +136,7 @@ test_global_command_conflict_blocks_before_mutation() {
   printf '#!/bin/sh\necho local\n' > "$home_dir/.local/bin/jcmwatch"
   chmod +x "$home_dir/.local/bin/jcmwatch"
 
-  if HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out" 2>&1; then
     fail "global command conflict blocks install" "$home_dir/out"
   fi
 
@@ -245,8 +245,8 @@ test_idempotency_no_extra_backups() {
   local home_dir
   home_dir="$(make_home)"
 
-  HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" >"$home_dir/first.out"
-  HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" >"$home_dir/second.out"
+  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/first.out"
+  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/second.out"
 
   assert_file_contains "$home_dir/second.out" "ok: $home_dir/.claude/settings.json" "idempotent Claude config ok"
   assert_file_contains "$home_dir/second.out" "ok: $home_dir/.codex/config.toml" "idempotent Codex config ok"
@@ -261,7 +261,7 @@ test_malformed_claude_config() {
   printf '{bad json\n' > "$home_dir/.claude/settings.json"
   printf 'model = "o3"\n' > "$home_dir/.codex/config.toml"
 
-  HOME="$home_dir" "$repo_root/scripts/install-symlinks.sh" --dry-run >"$home_dir/out"
+  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" --dry-run >"$home_dir/out"
 
   assert_file_contains "$home_dir/out" "invalid JSON" "malformed Claude config is reported"
   assert_file_contains "$home_dir/out" "collision: $home_dir/.claude/settings.json" "malformed Claude config still prompts"

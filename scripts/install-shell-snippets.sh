@@ -12,15 +12,19 @@ case "${1:-}" in
   *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
 esac
 
-if [[ "${dry_run}" -eq 1 ]]; then
-  [[ -e "${zshrc}" ]] || echo "would touch: ${zshrc}"
-else
-  touch "${zshrc}"
-fi
-
 # No shell snippets are wired today — jcmwatch/jdmindex were folded into the `roborepo`
 # command. This array is intentionally empty; add entries here to source future helpers.
 source_snippets=()
+
+# Only create ~/.zshrc if we actually have something to write into it. With no snippets wired
+# and no existing profile, do nothing — don't leave behind an empty ~/.zshrc the user never had.
+if [[ ${#source_snippets[@]} -gt 0 ]]; then
+  if [[ "${dry_run}" -eq 1 ]]; then
+    [[ -e "${zshrc}" ]] || echo "would touch: ${zshrc}"
+  else
+    touch "${zshrc}"
+  fi
+fi
 
 needs_backup=true
 

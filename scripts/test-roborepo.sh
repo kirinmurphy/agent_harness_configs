@@ -157,14 +157,115 @@ assert "run: no command exits non-zero" \
   bash -c "! node '${cli}' run >/dev/null 2>&1"
 
 # ---------------------------------------------------------------------------
-# roborepo lifecycle dispatch (doctor + install --dry-run, both read-only)
+# roborepo mcp add
+# ---------------------------------------------------------------------------
+mcp_jdoc="$( node "${cli}" mcp add jdocmunch --dry-run )"
+assert "mcp add: jdocmunch preset maps to Claude user-scope uvx command" \
+  test "${mcp_jdoc}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\nwould add permission: mcp__jdocmunch -> claude/settings.json\ncodex MCP already present: jdocmunch'
+
+mcp_jcode="$( node "${cli}" mcp add jcodemunch --dry-run )"
+assert "mcp add: jcodemunch preset maps to Claude user-scope uvx command" \
+  test "${mcp_jcode}" = $'claude mcp add --scope user jcodemunch -- uvx jcodemunch-mcp\nwould add permission: mcp__jcodemunch -> claude/settings.json\ncodex MCP already present: jcodemunch'
+
+mcp_alias="$( node "${cli}" addMCP jdocmunch --dry-run )"
+assert "mcp add: addMCP alias maps to same command" \
+  test "${mcp_alias}" = "${mcp_jdoc}"
+
+mcp_pkg="$( node "${cli}" mcp add example-mcp --name=example --dry-run -- --flag value )"
+assert "mcp add: generic package supports name override and passthrough args" \
+  test "${mcp_pkg}" = $'claude mcp add --scope user example -- uvx example-mcp --flag value\nwould add permission: mcp__example -> claude/settings.json\nwould add Codex MCP: example -> codex/config.toml\n[mcp_servers.example]\ncommand = "uvx"\nargs = ["example-mcp", "--flag", "value"]'
+
+mcp_url="$( node "${cli}" mcp add https://mcp.example.com/mcp --name=example --dry-run )"
+assert "mcp add: URL defaults to http transport" \
+  test "${mcp_url}" = $'claude mcp add --scope user --transport http example https://mcp.example.com/mcp\nwould add permission: mcp__example -> claude/settings.json\nwould add Codex MCP: example -> codex/config.toml\n[mcp_servers.example]\nurl = "https://mcp.example.com/mcp"'
+
+mcp_skip_permission="$( node "${cli}" mcp add jdocmunch --dry-run --skip-claude-permission )"
+assert "mcp add: --skip-claude-permission skips settings update" \
+  test "${mcp_skip_permission}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\ncodex MCP already present: jdocmunch'
+
+mcp_only_claude="$( node "${cli}" mcp add jdocmunch --dry-run --only-claude )"
+assert "mcp add: --only-claude skips Codex config update" \
+  test "${mcp_only_claude}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\nwould add permission: mcp__jdocmunch -> claude/settings.json'
+
+mcp_only_codex="$( node "${cli}" mcp add jdocmunch --dry-run --only-codex )"
+assert "mcp add: --only-codex skips Claude registration and settings update" \
+  test "${mcp_only_codex}" = "codex MCP already present: jdocmunch"
+
+assert "mcp add: only flags are mutually exclusive" \
+  bash -c "! node '${cli}' mcp add jdocmunch --only-claude --only-codex --dry-run >/dev/null 2>&1"
+
+assert "mcp add: invalid scope rejected" \
+  bash -c "! node '${cli}' mcp add jdocmunch --scope=team --dry-run >/dev/null 2>&1"
+
+assert "mcp add: invalid transport rejected" \
+  bash -c "! node '${cli}' mcp add https://mcp.example.com/mcp --transport=websocket --dry-run >/dev/null 2>&1"
+
+# Real write tests run against a throwaway harness root. roborepo derives repoRoot from
+# scripts/cli/paths.mjs (two levels up), so copying scripts/roborepo.mjs + scripts/cli/ lets us
+# test writes without touching this repo. roborepo.mjs imports every cli/ module at load time.
+mcp_harness="${work}/mcp-harness"
+mkdir -p "${mcp_harness}/scripts/cli" "${mcp_harness}/codex" "${mcp_harness}/claude"
+cp "${repo_root}/scripts/roborepo.mjs" "${mcp_harness}/scripts/roborepo.mjs"
+cp "${repo_root}"/scripts/cli/*.mjs "${mcp_harness}/scripts/cli/"
+printf '[features]\nhooks = true\n' > "${mcp_harness}/codex/config.toml"
+printf '{"permissions":{"allow":["Read"]}}\n' > "${mcp_harness}/claude/settings.json"
+
+( cd "${work}" && node "${mcp_harness}/scripts/roborepo.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
+assert "mcp add: writes Codex HTTP url block" \
+  grep -q 'url = "https://mcp.example.com/mcp"' "${mcp_harness}/codex/config.toml"
+
+( cd "${work}" && node "${mcp_harness}/scripts/roborepo.mjs" mcp add example-mcp --name=stdio-example --only-codex -- --flag value >/dev/null )
+assert "mcp add: writes Codex stdio command block" \
+  grep -q 'command = "uvx"' "${mcp_harness}/codex/config.toml"
+assert "mcp add: writes Codex stdio args block" \
+  grep -q 'args = \["example-mcp", "--flag", "value"\]' "${mcp_harness}/codex/config.toml"
+
+( cd "${work}" && node "${mcp_harness}/scripts/roborepo.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
+assert "mcp add: Codex write is idempotent" \
+  bash -c "test \"\$(grep -c '^\\[mcp_servers.example\\]' '${mcp_harness}/codex/config.toml')\" = 1"
+
+fake_bin="${work}/fake-bin"
+mkdir -p "${fake_bin}"
+{
+  printf '#!/usr/bin/env bash\n'
+  printf 'printf "%%s\\n" "$*" > "%s"\n' "${work}/fake-claude-args.txt"
+} > "${fake_bin}/claude"
+chmod +x "${fake_bin}/claude"
+( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/roborepo.mjs" mcp add perm-mcp --name=permtest --only-claude >/dev/null )
+assert "mcp add: Claude registration command invoked" \
+  grep -q 'mcp add --scope user permtest -- uvx perm-mcp' "${work}/fake-claude-args.txt"
+assert "mcp add: Claude permission written after successful registration" \
+  grep -q '"mcp__permtest"' "${mcp_harness}/claude/settings.json"
+
+( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/roborepo.mjs" mcp add all-mcp --name=alltest -- --all-flag >/dev/null )
+assert "mcp add: default target invokes Claude registration" \
+  grep -q 'mcp add --scope user alltest -- uvx all-mcp --all-flag' "${work}/fake-claude-args.txt"
+assert "mcp add: default target writes Claude permission" \
+  grep -q '"mcp__alltest"' "${mcp_harness}/claude/settings.json"
+assert "mcp add: default target writes Codex config" \
+  grep -q 'args = \["all-mcp", "--all-flag"\]' "${mcp_harness}/codex/config.toml"
+
+{
+  printf '#!/usr/bin/env bash\n'
+  printf 'exit 37\n'
+} > "${fake_bin}/claude"
+chmod +x "${fake_bin}/claude"
+assert "mcp add: Claude registration failure exits non-zero" \
+  bash -c "cd '${work}' && ! env PATH='${fake_bin}':\"\${PATH}\" node '${mcp_harness}/scripts/roborepo.mjs' mcp add fail-mcp --name=failtest >/dev/null 2>&1"
+assert "mcp add: Claude failure does not write permission" \
+  bash -c "! grep -q '\"mcp__failtest\"' '${mcp_harness}/claude/settings.json'"
+assert "mcp add: Claude failure does not write Codex config" \
+  bash -c "! grep -q '^\\[mcp_servers.failtest\\]' '${mcp_harness}/codex/config.toml'"
+
+# ---------------------------------------------------------------------------
+# roborepo lifecycle dispatch (doctor + update --dry-run, both read-only)
 # ---------------------------------------------------------------------------
 assert "lifecycle: roborepo doctor dispatches and passes" \
   bash -c "node '${cli}' doctor >/dev/null 2>&1"
-assert "lifecycle: roborepo install --dry-run dispatches (no changes)" \
-  bash -c "node '${cli}' install --dry-run >/dev/null 2>&1"
-assert "lifecycle: roborepo update --dry-run dispatches install alias" \
+assert "lifecycle: roborepo update --dry-run dispatches (no changes)" \
   bash -c "node '${cli}' update --dry-run >/dev/null 2>&1"
+assert "lifecycle: roborepo install verb removed (first install is the shell bootstrap)" \
+  bash -c "! node '${cli}' install --dry-run >/dev/null 2>&1"
 assert "lifecycle: roborepo verify dispatches and exits non-zero when not installed" \
   bash -c "! HOME='${work}/not-installed-home' node '${cli}' verify >/dev/null 2>&1"
 
@@ -177,7 +278,7 @@ menu_out="${work}/menu.txt"
 printf '\n' | node "${cli}" > "${menu_out}" 2>&1 || true
 assert "menu: shows Setup section header" grep -q "Setup" "${menu_out}"
 assert "menu: shows Day to day section header" grep -q "Day to day" "${menu_out}"
-assert "menu: numbers actions but not headers (install is 1)" grep -qE "1\) install" "${menu_out}"
+assert "menu: numbers actions but not headers (update is 1)" grep -qE "1\) update" "${menu_out}"
 assert "menu: items have descriptions" grep -q "health check" "${menu_out}"
 assert "menu: numbered fallback cancels on out-of-range/blank" \
   bash -c "printf '99\n' | node '${cli}' 2>&1 | grep -q 'cancelled'"
@@ -221,27 +322,10 @@ assert "install: unknown shell does not create ~/.zshrc" \
   bash -c "! test -e '${fhome}/.zshrc'"
 
 # ---------------------------------------------------------------------------
-# Prune passes: a prior install left stale ~/.local/bin command symlinks and stale ~/.zshrc
-# `source` lines for removed helpers. Re-running the installers should remove them, and never
-# touch roborepo or unrelated entries. Isolated via a fake HOME.
+# Prune pass: a prior install left stale ~/.zshrc `source` lines for removed shell helpers.
+# Re-running install-shell-snippets.sh should remove them and preserve the user's own content.
+# Isolated via a fake HOME.
 # ---------------------------------------------------------------------------
-phome="${work}/home-prune"
-mkdir -p "${phome}/.local/bin"
-# Stale managed command symlinks (point into this repo's bin/, removed from managed set).
-ln -s "${repo_root}/bin/jcmindex" "${phome}/.local/bin/jcmindex"
-ln -s "${repo_root}/bin/jcmwatch" "${phome}/.local/bin/jcmwatch"
-# An unrelated symlink that must NOT be pruned (points outside this repo).
-ln -s /usr/bin/true "${phome}/.local/bin/some-other-tool"
-SHELL=/bin/zsh HOME="${phome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
-assert "prune: stale jcmindex symlink removed" \
-  bash -c "! test -e '${phome}/.local/bin/jcmindex'"
-assert "prune: stale jcmwatch symlink removed" \
-  bash -c "! test -e '${phome}/.local/bin/jcmwatch'"
-assert "prune: roborepo symlink kept" \
-  test -L "${phome}/.local/bin/roborepo"
-assert "prune: unrelated symlink left intact" \
-  test -L "${phome}/.local/bin/some-other-tool"
-
 # Stale ~/.zshrc snippet source lines for removed helpers.
 iss="${repo_root}/scripts/install-shell-snippets.sh"
 shome="${work}/home-snip"
