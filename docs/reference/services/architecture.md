@@ -34,14 +34,16 @@ flowchart LR
 
 Most files are symlinked directly from the repo into the tool home directory. Root config files are conditional: `~/.claude/settings.json` and `~/.codex/config.toml` may be user-owned, so the installer asks before replacing them.
 
-Codex (`~/.codex/` ← `codex/`):
+Codex (`~/.codex/` ← `codex/`, plus skills under `~/.agents/` ← `agents/`):
 
 - `AGENTS.md`
 - `config.toml` when managed
 - `hooks.json`
 - `MANAGED_BY_HARNESS_CONFIGS.md`
 - `rules/`
-- `skills/`
+- `skills/` — Codex scans `~/.agents/skills` **exclusively** (there is no `~/.codex/skills`
+  fallback), so the canonical link is `~/.agents/skills → agents/skills`. `~/.codex/skills`
+  is kept as a transitional cross-compat link to the same source.
 
 Claude (`~/.claude/` ← `claude/`):
 
@@ -137,47 +139,48 @@ local repo context
 
 This needs either native harness include support or a generated/merged config pipeline. Track this in [../../plans/harness-parity-todo.md](../../plans/harness-parity-todo.md).
 
-### Shared skills use two symlink levels
+### Shared skills: canonical source + per-harness fan-out
 
-`skills/` above is not a passthrough — it is a two-level structure:
+The canonical shared source is `agents/skills/<name>/` (each a folder with a `SKILL.md`).
+The two harnesses reach it differently because Codex and Claude scan different paths:
 
-1. **Home → repo (install-time).** `~/.claude/skills` and `~/.codex/skills` are
-   symlinks to the real directories `claude/skills/` and `codex/skills/`. Created once
-   by `install-symlinks.sh`.
-2. **Per-harness → shared source (in-repo).** Each shared skill's content lives once in
-   `skills/<name>/`. Inside `claude/skills/` and `codex/skills/`, each skill is an
-   individual symlink `<name> -> ../../skills/<name>`.
+- **Codex** scans `~/.agents/skills` exclusively. So `install-symlinks.sh` links
+  `~/.agents/skills → agents/skills` directly (plus a transitional `~/.codex/skills →
+  agents/skills` for cross-compat). Codex needs **no** per-skill intermediate dir, and there
+  is no longer a `codex/skills/` directory in the repo. Codex's own `.system/` skills
+  (imagegen, openai-docs, skill-creator, …) are real files living at `agents/skills/.system/`,
+  so they ride into `~/.agents/skills/.system` automatically.
+- **Claude** scans `~/.claude/skills`. That is a folder symlink to the repo's `claude/skills/`,
+  inside which each shared skill is an individual symlink `<name> -> ../../agents/skills/<name>`.
+  The per-skill layer lets Claude carry the shared skills alongside any Claude-only ones.
 
-Per-skill symlinks (rather than one folder symlink to `skills/`) let each harness share
-the common skills while keeping its own — for example Codex's `codex/skills/.system/`
-skills, which are real files that exist only on that side.
-
-A skill's source folder alone is therefore not enough; without the per-harness symlinks
-the harnesses do not see it. `scripts/link-skills.sh` derives the per-skill symlinks from
-`skills/` — it creates any missing links and prunes orphaned ones (symlinks whose source
-is gone), and is idempotent. `scripts/doctor.sh` verifies the same set, also derived from
-`skills/`, so neither needs editing when a skill is added or removed.
+A skill's source folder alone is therefore not enough for Claude; without the per-skill
+symlinks Claude does not see it. `scripts/link-skills.sh` derives the Claude per-skill symlinks
+from `agents/skills/` — it creates any missing links and prunes orphaned ones (symlinks whose
+source is gone), and is idempotent. `scripts/doctor.sh` verifies the same set, also derived
+from `agents/skills/`, so neither needs editing when a skill is added or removed.
 
 ### Two skill layers: shared vs. internal
 
 There are two distinct, firewalled skill layers:
 
-- **Shared** — `skills/<name>/`, linked into `claude/skills` + `codex/skills` (and thus into
-  global `~/.claude`/`~/.codex`), and exportable to other repos. Advisory coding skills any repo
-  may receive.
+- **Shared** — `agents/skills/<name>/`, the canonical source. Linked into `claude/skills` (for
+  Claude) and reached by Codex via `~/.agents/skills`; thus global on both harnesses, and
+  exportable to other repos. Advisory coding skills any repo may receive.
 - **Internal** — `skills-local/<name>/`, linked **only** into this repo's own project-scope
-  dotdirs (`.claude/skills`, `.codex/skills`) by a second pass of `link-skills.sh`. These describe
-  how to develop/maintain this repo and are **never** global and **never** exported. The
-  separation is structural: the export/installer tools read only `skills/`, with no code path to
-  `skills-local/`.
+  dotdirs (`.claude/skills`, `.agents/skills`, `.codex/skills`) by a second pass of
+  `link-skills.sh`. These describe how to develop/maintain this repo and are **never** global and
+  **never** exported. The separation is structural: the export/installer tools read only
+  `agents/skills/`, with no code path to `skills-local/`.
 
 ### Client utilities (same model, for other repos)
 
 One Node command, `roborepo`, is the consumer front door (see the README for the full subcommand
 list). For the dual-harness skill model it offers `skill export` (bundle shared skills into a
-`.zip` + copy into a target repo's `.claude/skills` + `.codex/skills`) and `skill link` (in the
-target repo, symlink its own `skills/<name>` into `.claude/skills` + `.codex/skills` — purely
-in-repo, never global). It also folds in `index`/`watch`/`run` and dispatches the lifecycle verbs
+`.zip` + copy into a target repo's `.claude/skills` + `.agents/skills`) and `skill link` (in the
+target repo, symlink its own `.agents/skills/<name>` into `.claude/skills` + `.codex/skills` —
+purely in-repo, never global; `.agents/skills` is the client's canonical source, which Codex also
+scans directly). It also folds in `index`/`watch`/`run` and dispatches the lifecycle verbs
 `install`/`update`/`sync`/`doctor`/`verify` to the existing bash scripts. Shared skill logic lives
 in `scripts/skill-lib.mjs`.
 

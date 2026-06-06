@@ -37,20 +37,21 @@ export function listSourceSkills(srcDir) {
 
 /**
  * Resolve client-repo skill destination dirs under repoRoot, canonical = .claude/skills
- * and .codex/skills. If neither exists, create .claude/skills (and .codex/skills only when
- * a .codex dir already exists at repo root). Returns absolute dir paths.
+ * (Claude reads it) and .agents/skills (Codex scans it exclusively). If neither exists,
+ * create .claude/skills (and .agents/skills only when a .agents dir already exists at repo
+ * root). Returns absolute dir paths.
  */
 export function resolveClientSkillDirs(repoRoot, { create = false } = {}) {
   const candidates = [
     { dir: path.join(repoRoot, ".claude", "skills"), parent: path.join(repoRoot, ".claude") },
-    { dir: path.join(repoRoot, ".codex", "skills"), parent: path.join(repoRoot, ".codex") },
+    { dir: path.join(repoRoot, ".agents", "skills"), parent: path.join(repoRoot, ".agents") },
   ];
   const existing = candidates.filter((c) => fs.existsSync(c.dir));
   if (existing.length > 0) return existing.map((c) => c.dir);
 
   if (!create) return [];
 
-  // Nothing exists yet: always seed .claude/skills; add .codex/skills if a .codex dir is there.
+  // Nothing exists yet: always seed .claude/skills; add .agents/skills if a .agents dir is there.
   const dests = [candidates[0].dir];
   if (fs.existsSync(candidates[1].parent)) dests.push(candidates[1].dir);
   for (const d of dests) fs.mkdirSync(d, { recursive: true });
@@ -106,23 +107,25 @@ export function copyDir(src, dest) {
   fs.cpSync(src, dest, { recursive: true, dereference: true });
 }
 
-// The symlink target prefix used for in-repo client skill links: ../../skills/<name>.
-const LOCAL_LINK_PREFIX = path.join("..", "..", "skills");
+// The symlink target prefix used for in-repo client skill links: ../../.agents/skills/<name>.
+// .agents/skills is the canonical client source AND what Codex scans for project skills.
+const LOCAL_LINK_PREFIX = path.join("..", "..", ".agents", "skills");
 
 /**
- * In-repo skill linking for a CLIENT repo: source <repoRoot>/skills/<name> becomes a
+ * In-repo skill linking for a CLIENT repo: source <repoRoot>/.agents/skills/<name> becomes a
  * per-harness symlink in <repoRoot>/.claude/skills and <repoRoot>/.codex/skills, each
- * pointing at ../../skills/<name>. Purely local — never touches ~/.claude or ~/.codex.
+ * pointing at ../../.agents/skills/<name>. Purely local — never touches ~/.claude or ~/.codex.
  *
- * This is the same two-level model harness_configs uses for itself (see link-skills.sh),
- * built on the shared ensureSymlink primitive so there is no duplicated link/conflict logic.
+ * .agents/skills is the single canonical source (Codex reads it directly as project-scope
+ * skills; the per-harness links let Claude and the transitional .codex path see it too).
+ * Built on the shared ensureSymlink primitive so there is no duplicated link/conflict logic.
  * Like link-skills.sh, it also PRUNES orphaned links — symlinks this tool owns whose source
  * skill no longer exists — so deleting a skill and re-running cleans up the dead link.
  *
  * Returns a tally { linked, ok, conflicts, unlinked, denied, pruned, skills }.
  */
 export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false } = {}) {
-  const srcDir = path.join(repoRoot, "skills");
+  const srcDir = path.join(repoRoot, ".agents", "skills");
   const harnessDirs = [
     path.join(repoRoot, ".claude", "skills"),
     path.join(repoRoot, ".codex", "skills"),
@@ -131,7 +134,7 @@ export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false } 
   const tally = { linked: 0, ok: 0, conflicts: 0, unlinked: 0, denied: 0, pruned: 0, skills: names.length };
 
   for (const name of names) {
-    // Relative target keeps the client repo portable: ../../skills/<name>.
+    // Relative target keeps the client repo portable: ../../.agents/skills/<name>.
     const relTarget = path.join(LOCAL_LINK_PREFIX, name);
     for (const hdir of harnessDirs) {
       const target = path.join(hdir, name);
@@ -161,7 +164,7 @@ export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false } 
         const link = path.join(hdir, ent.name);
         const tgt = readlinkSafe(link);
         if (tgt === null) continue; // only symlinks; never touch real files/dirs
-        // Only links we own: target shaped like ../../skills/<name>.
+        // Only links we own: target shaped like ../../.agents/skills/<name>.
         if (path.dirname(tgt) !== LOCAL_LINK_PREFIX) continue;
         if (live.has(ent.name)) continue; // source still exists — keep
         if (!dryRun) fs.rmSync(link);

@@ -28,3 +28,8 @@ Keep verification small, native to the repo, and explicit.
 ## Blocked Verification
 
 Use `blocked` only when the command cannot run because of missing dependencies, network/sandbox restrictions, unavailable services, or unclear repo setup. Include the exact command attempted.
+
+## Delivery Honesty
+
+- Before reporting a code or UI change complete, verify the exact file content and paths actually changed.
+- If a requested change was not applied, state that explicitly instead of implying completion.

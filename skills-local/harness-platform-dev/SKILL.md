@@ -34,10 +34,14 @@ to them plus the judgment that isn't written down. Read the doc, then apply the 
 
 ## Repo dir convention (the one thing to internalize first)
 
-- `claude/` + `codex/` = SOURCE symlinked into the user's GLOBAL `~/.claude`/`~/.codex`.
-- `.claude/` + `.codex/` (dotdirs) = THIS repo's own PROJECT-SCOPE config, NOT global.
-- `skills/` = shared/advisory layer (global + exportable). `skills-local/` = internal layer
-  (this repo only). The firewall between them is structural — see below.
+- `claude/` + `codex/` + `agents/` = SOURCE symlinked into the user's GLOBAL
+  `~/.claude`/`~/.codex`/`~/.agents`.
+- `.claude/` + `.codex/` + `.agents/` (dotdirs) = THIS repo's own PROJECT-SCOPE config, NOT global.
+- `agents/skills/` = canonical shared/advisory layer (global + exportable; Codex reads it via
+  `~/.agents/skills`, Claude via per-skill links in `claude/skills/`). `skills-local/` = internal
+  layer (this repo only). The firewall between them is structural — see below.
+- Codex scans `.agents/skills` **exclusively** for skills (no `.codex/skills` fallback);
+  `~/.codex/skills` is kept only as a transitional cross-compat link.
 
 Everything else (the two symlink levels, the layer table) lives in
 `docs/reference/services/architecture.md`. Read it there.
@@ -46,11 +50,11 @@ Everything else (the two symlink levels, the layer table) lives in
 
 - **Adding any skill:** create the source folder, then ALWAYS run `scripts/link-skills.sh` —
   never hand-write `ln`. It derives links from source and is idempotent, so it can't drift.
-  Shared skill → `skills/`. Internal/repo-only skill → `skills-local/`. The script's two passes
-  handle each. Source folder alone is never enough; the active skill list refreshes only on
+  Shared skill → `agents/skills/`. Internal/repo-only skill → `skills-local/`. The script's two
+  passes handle each. Source folder alone is never enough; the active skill list refreshes only on
   harness reload.
 - **The firewall is code, not convention.** `link-skills.sh` runs one pass per layer;
-  `roborepo` reads only `skills/`. There is no code path from `skills-local/` to global
+  `roborepo` reads only `agents/skills/`. There is no code path from `skills-local/` to global
   config or to a client export. Don't add one.
 - **Reuse the link/conflict primitives.** Bash: `scripts/install-lib.sh` (`link_item`,
   `link_item_clean`, collision prompts) and `scripts/skill-lib.sh` (`list_source_skills`). Node:
@@ -65,12 +69,21 @@ Everything else (the two symlink levels, the layer table) lives in
   link check), `verify-install.sh` (link check) — or it's half-installed.
 - **Script conventions:** idempotent; `--dry-run`; verifiers take `--check`. Collisions warn,
   preserve the local copy, print an agent merge prompt — never clobber.
+- **`--quiet`/`-q` on the checkers.** `doctor.sh`, `verify-install.sh`, `test-roborepo.sh`, and
+  `link-skills.sh` all accept `--quiet`: suppress the per-check `ok:`/`+ linked` lines, still
+  print every failure plus a one-line `… (N checks)` / `N passed, M failed` summary, exit code
+  unchanged. Use the bare script + `--quiet` for a readable, permissionable check — never pipe a
+  verifier through `grep`/`head` to trim output. `doctor.sh` also folds `link-skills.sh --check`,
+  so it is the single repo-health entrypoint (`--installed` adds the global ~/.claude·~/.codex·
+  ~/.agents link checks); `test-roborepo.sh` stays the separate test suite.
 - **Cross-platform floor:** Node cores use only `node:` built-ins (no shelling to
   `zip`/`unzip`/`ln`), so the same code runs on macOS/Linux/Windows. Keep it that way.
-- **Codex project-skill discovery is UNVERIFIED.** Claude Code auto-loads `<repo>/.claude/skills/`
-  as project skills (confirmed). Whether Codex auto-loads `<repo>/.codex/skills/` the same way
-  is not yet verified; the link is harmless if Codex ignores it. Don't assert parity you haven't
-  tested.
+- **Codex skill discovery path (VERIFIED).** Codex scans `.agents/skills` — repo-up-to-root for
+  project scope, and `~/.agents/skills` globally — and does NOT read any `.codex/skills` path
+  (per OpenAI Codex docs). Claude Code auto-loads `<repo>/.claude/skills/` for project scope. The
+  `~/.codex/skills` and repo `.codex/skills` links we still create are transitional cross-compat
+  only; Codex ignores them. Symlinked skill folders are followed, so linking these dirs at the
+  canonical `agents/skills` source works.
 
 ## The `roborepo` CLI (the single consumer front door)
 
@@ -78,9 +91,9 @@ Everything else (the two symlink levels, the layer table) lives in
 is the ONE command a consumer runs. No-arg = interactive menu (arrow keys + numbered fallback via
 `selectMenu` in `skill-lib.mjs`). Subcommands, grouped by category:
 
-- `skill export` / `skill link` — the dual-harness skill tools (export bundles + copies; link is
-  purely in-repo `skills/` → `.claude/skills` + `.codex/skills`, with prune). Read only the
-  shared / client-local layer — never `skills-local/`.
+- `skill export` / `skill link` — the dual-harness skill tools (export bundles + copies into
+  `.claude/skills` + `.agents/skills`; link is purely in-repo `.agents/skills` → `.claude/skills`
+  + `.codex/skills`, with prune). Read only the shared / client-local layer — never `skills-local/`.
 - `index code|docs [path]`, `watch code [path]` — jcodemunch/jdocmunch wrappers. `[path]` optional,
   defaults to cwd, resolved to absolute. `watch code` writes the pidfile
   `/tmp/jcmwatch-<md5(absdir)>.pid` that the Claude SessionStart hook reads — keep that in sync

@@ -1,14 +1,14 @@
 # Per-Repo Skill Installer
 
-> **Status: IMPLEMENTED** (revised from this plan). Shipped as the
-> `harness_helper --symlink-local-skills` subcommand (Node, `scripts/harness_helper.mjs` +
-> shared `scripts/skill-lib.mjs::linkLocalSkills`), chosen Node-over-bash for cross-platform
-> reach incl. Windows. **Scope was corrected during implementation:** the tool is *purely
-> in-repo* — it symlinks `<repo>/skills/<name>` into that repo's own `.claude/skills` +
-> `.codex/skills` and does NOT touch the global `~/.claude`/`~/.codex` (this plan's original
-> "symlink into `~/.claude/skills`" wording was the wrong scope). Source convention is a
-> top-level `skills/` in the client repo, matching how harness_configs treats itself. The bash
-> skeleton below is historical context only.
+> **Status: IMPLEMENTED** (revised from this plan). Shipped as the `roborepo skill link`
+> subcommand (Node, `scripts/roborepo.mjs` + shared `scripts/skill-lib.mjs::linkLocalSkills`),
+> chosen Node-over-bash for cross-platform reach incl. Windows. **Scope was corrected during
+> implementation:** the tool is *purely in-repo* — it symlinks the client repo's own
+> `.agents/skills/<name>` into that repo's `.claude/skills` + `.codex/skills` and does NOT touch
+> the global `~/.claude`/`~/.codex` (this plan's original "symlink into `~/.claude/skills`"
+> wording was the wrong scope). Source convention is `.agents/skills/` in the client repo — the
+> dir Codex scans for project skills, doubling as the canonical source. The bash skeleton below
+> is historical context only.
 
 ## Problem
 

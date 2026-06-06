@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/doctor.sh:*)",
+      "Bash(bash scripts/verify-install.sh:*)",
+      "Bash(bash scripts/test-roborepo.sh:*)",
+      "Bash(bash scripts/link-skills.sh:*)"
+    ]
+  }
+}

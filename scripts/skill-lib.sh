@@ -3,8 +3,8 @@
 #
 # The single source-of-truth rule for "what is a real skill folder":
 #   a direct child directory that contains a SKILL.md, and is NOT itself a symlink.
-# Both the shared layer (skills/) and the internal layer (skills-local/) use this rule,
-# so the definition lives in exactly one place.
+# Both the shared layer (agents/skills/) and the internal layer (skills-local/) use this
+# rule, so the definition lives in exactly one place.
 
 # list_source_skills <src_dir>
 # Prints one skill NAME per line for each real skill folder in <src_dir>.

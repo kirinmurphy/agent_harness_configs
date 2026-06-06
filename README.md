@@ -28,31 +28,35 @@ For filesystem diagrams showing what lives in the repo vs `~/.claude`/`~/.codex`
 
 Implemented across both Codex and Claude:
 
-- **[jcodemunch-mcp](docs/reference/services/jcodemunch.md)** — indexes repo code to allow for easier access by agents. Eliminates token waste by providing a mapping for agents to find relevant code without excessive expensive grep/glob/read tool calls.
-- **[jdocmunch-mcp](docs/reference/services/jdocmunch.md)** — section-based documentation indexer. Same token-efficiency principle as jcodemunch but for `.md`/`.rst`/etc. files. Agents query sections by heading instead of reading full doc files.
-- **Caveman plugin** — me make agent talk like caveman to no make big output tokens
-- **Minimal verification** — run only the narrowest check that proves an edit; final answer includes receipt like `Verified: npm run check -> pass`
-- **[Convention capture](docs/reference/services/convention-capture.md)** — when a decision or pattern is surfaced from a chat, the agent uniquely highlights it in the response, allowing the user to trigger an instruction to write this new convention to agent rules, skills or a file for later review. Updates can be saved to the local repo doc or the global test harness repo (this repo).
+| Behavior | Description |
+| --- | --- |
+| **[jcodemunch-mcp](docs/reference/services/jcodemunch.md)** | Indexes repo code to allow for easier access by agents. Eliminates token waste by providing a mapping for agents to find relevant code without excessive expensive grep/glob/read tool calls. |
+| **[jdocmunch-mcp](docs/reference/services/jdocmunch.md)** | Section-based documentation indexer. Same token-efficiency principle as jcodemunch but for `.md`/`.rst`/etc. files. Agents query sections by heading instead of reading full doc files. |
+| **Caveman plugin** | Me make agent talk like caveman to no make big output tokens. |
+| **Minimal verification** | Run only the narrowest check that proves an edit; final answer includes receipt like `Verified: npm run check -> pass`. |
+| **[Convention capture](docs/reference/services/convention-capture.md)** | When a decision or pattern is surfaced from a chat, the agent uniquely highlights it in the response, allowing the user to trigger an instruction to write this new convention to agent rules, skills or a file for later review. Updates can be saved to the local repo doc or the global test harness repo (this repo). |
 
 ## Shared Skills
 
 Lives once in `./skills` and symlinked to `./[harness]/skills`.
 
-- **test-harness** — choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks
-- **technical-planning-docs** — recommendations for agents to write effective technical documentation, for architecture notes, migration docs, runbooks, design proposals; structured for future readers with facts/recommendations/risks/open-questions separated
-- **frontend-design** — production-grade UI components and pages; avoids generic AI aesthetics
-- **blog** — long-form architecture blog posts; fixed 6-beat storyline arc, readable from non-technical to highly technical without becoming a coding tutorial
-- **harness-config** — working on this repo itself: adding/editing shared skills, the two-level symlink model, global rules/hooks/settings, Claude/Codex parity. Activates only in global-config context
+| Skill | Description |
+| --- | --- |
+| **test-harness** | Choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks. |
+| **technical-planning-docs** | Recommendations for agents to write effective technical documentation, for architecture notes, migration docs, runbooks, design proposals; structured for future readers with facts/recommendations/risks/open-questions separated. |
+| **frontend-design** | Production-grade UI components and pages; avoids generic AI aesthetics. |
+| **blog** | Long-form architecture blog posts; fixed 6-beat storyline arc, readable from non-technical to highly technical without becoming a coding tutorial. |
+| **harness-config** | Working on this repo itself: adding/editing shared skills, the two-level symlink model, global rules/hooks/settings, Claude/Codex parity. Activates only in global-config context. |
 
-Each skill's source lives once in `./skills/<name>/`. `claude/skills/` and `codex/skills/` are real directories holding one **per-skill symlink** each (`<name> -> ../../skills/<name>`), so each harness can share the common skills while keeping its own (e.g. Codex's `.system/` skills). Editing a skill's source under `./skills/` is instantly visible to both harnesses; no sync step needed.
+Each skill's source lives once in `./agents/skills/<name>/`, the canonical shared source. Codex scans `~/.agents/skills` **exclusively** (there is no `~/.codex/skills` fallback), so the installer links `~/.agents/skills → agents/skills` directly (plus a transitional `~/.codex/skills` for cross-compat). Claude reads `~/.claude/skills`, a folder symlink to `claude/skills/`, which holds one **per-skill symlink** each (`<name> -> ../../agents/skills/<name>`). Codex's own `.system/` skills are real files at `agents/skills/.system/`. Editing a skill's source under `./agents/skills/` is instantly visible to both harnesses; no sync step needed.
 
-**Adding a new skill:** create `skills/<name>/SKILL.md`, then run `scripts/link-skills.sh`. The script scans `skills/` and creates any missing per-harness symlinks (idempotent — safe to run anytime to heal drift). The source folder alone is not enough; without the per-skill symlinks the harnesses won't see it.
+**Adding a new skill:** create `agents/skills/<name>/SKILL.md`, then run `scripts/link-skills.sh`. The script scans `agents/skills/` and creates any missing Claude per-skill symlinks (idempotent — safe to run anytime to heal drift). The source folder alone is not enough for Claude; without the per-skill symlinks it won't see the skill.
 
-Verify with `scripts/link-skills.sh --check` or `scripts/doctor.sh` — both derive the skill list from `skills/`, so neither needs editing when you add a skill.
+Verify with `scripts/link-skills.sh --check` or `scripts/doctor.sh` — both derive the skill list from `agents/skills/`, so neither needs editing when you add a skill.
 
 ### Internal (repo-only) skills
 
-Skills that describe how to develop/maintain **this repo itself** live in `skills-local/<name>/`, a separate layer that is **never** symlinked to global config and **never** exported to client repos. `scripts/link-skills.sh` runs a second pass linking `skills-local/<name>` into this repo's own project-scope dotdirs (`.claude/skills/`, `.codex/skills/`), so they auto-load only when an agent works inside harness_configs. The firewall is structural: the export/installer tools read only `skills/`. The `harness-platform-dev` skill (the platform mechanic's manual) lives here.
+Skills that describe how to develop/maintain **this repo itself** live in `skills-local/<name>/`, a separate layer that is **never** symlinked to global config and **never** exported to client repos. `scripts/link-skills.sh` runs a second pass linking `skills-local/<name>` into this repo's own project-scope dotdirs (`.claude/skills/`, `.agents/skills/`, `.codex/skills/`), so they auto-load only when an agent works inside harness_configs. The firewall is structural: the export/installer tools read only `agents/skills/`. The `harness-platform-dev` skill (the platform mechanic's manual) lives here.
 
 ## The `roborepo` CLI
 
@@ -60,7 +64,7 @@ One command, installed to `~/.local/bin` by `scripts/install-global-commands.sh`
 
 ```
 roborepo skill export          bundle shared skills into a .zip + copy into this repo
-roborepo skill link            symlink this repo's skills/ into .claude/skills + .codex/skills
+roborepo skill link            symlink this repo's .agents/skills into .claude/skills + .codex/skills
 roborepo index code [path]     jcodemunch index   (path optional, defaults to cwd)
 roborepo index docs [path]     jdocmunch index
 roborepo watch code [path]     jcodemunch live watch
@@ -76,8 +80,8 @@ roborepo verify                post-install verification
 
 Consumer-facing notes:
 
-- **`skill export`** copies the shared skills into the current repo's `.claude/skills` (+ `.codex/skills`), prompting override/skip per skill (override backs the old one up to `archived/<name>_backup_<ts>`) and leaving a shareable `.zip`. Refuses to run inside harness_configs itself.
-- **`skill link`** symlinks each `<repo>/skills/<name>` into that repo's own `.claude/skills` + `.codex/skills` (the same two-level layout harness_configs uses). **Purely in-repo — never touches `~/.claude`/`~/.codex`.** Re-run after adding a skill; it also prunes links whose source is gone.
+- **`skill export`** copies the shared skills into the current repo's `.claude/skills` (+ `.agents/skills`, which Codex scans), prompting override/skip per skill (override backs the old one up to `archived/<name>_backup_<ts>`) and leaving a shareable `.zip`. Refuses to run inside harness_configs itself.
+- **`skill link`** symlinks each `<repo>/.agents/skills/<name>` (the client's canonical source, also what Codex scans) into that repo's own `.claude/skills` + `.codex/skills`. **Purely in-repo — never touches `~/.claude`/`~/.codex`.** Re-run after adding a skill; it also prunes links whose source is gone.
 - **`install`/`update`/`sync`/`doctor`/`verify`** dispatch to the existing repo scripts; they are the lifecycle verbs for setting up and maintaining the install on this machine.
 
 Maintainer-only scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) are deliberately not exposed through `roborepo`. Cross-platform: pure `node:` built-ins, no external `zip`/`unzip`/`ln`. Windows without Git Bash: `node <repo>/scripts/roborepo.mjs <args>`.

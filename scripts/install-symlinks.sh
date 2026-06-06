@@ -52,10 +52,12 @@ esac
 has_claude=0
 has_codex=0
 [[ -d "${HOME}/.claude" ]] && has_claude=1
-[[ -d "${HOME}/.codex" ]]  && has_codex=1
+# Codex config lives under ~/.codex; Codex skills live under ~/.agents (scanned exclusively).
+# Treat either dir as "Codex present" so a skills-only ~/.agents home still installs.
+{ [[ -d "${HOME}/.codex" ]] || [[ -d "${HOME}/.agents" ]]; } && has_codex=1
 
 if [[ $has_claude -eq 0 && $has_codex -eq 0 ]]; then
-  echo "error: neither ~/.claude nor ~/.codex found." >&2
+  echo "error: neither ~/.claude nor ~/.codex/~/.agents found." >&2
   echo "Install Claude Code (https://claude.ai/code) or Codex before running this script." >&2
   exit 1
 fi
@@ -104,7 +106,9 @@ preflight_clean_targets() {
     check_clean_target "codex/hooks.json" "${HOME}/.codex/hooks.json" || conflict=1
     check_clean_target "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md" || conflict=1
     check_clean_target "codex/rules" "${HOME}/.codex/rules" || conflict=1
-    check_clean_target "codex/skills" "${HOME}/.codex/skills" || conflict=1
+    # Skills: canonical ~/.agents/skills + transitional ~/.codex/skills, both -> agents/skills.
+    check_clean_target "agents/skills" "${HOME}/.agents/skills" || conflict=1
+    check_clean_target "agents/skills" "${HOME}/.codex/skills" || conflict=1
   fi
 
   if [[ $conflict -eq 1 ]]; then

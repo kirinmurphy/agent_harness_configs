@@ -11,6 +11,15 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cli="${repo_root}/scripts/roborepo.mjs"
 pass=0
 fail=0
+quiet=0
+
+# --quiet|-q : suppress per-test "ok:" lines; still print every FAIL + the summary.
+for arg in "$@"; do
+  case "${arg}" in
+    --quiet|-q) quiet=1 ;;
+    *) echo "usage: $0 [--quiet|-q]" >&2; exit 2 ;;
+  esac
+done
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/roborepo-test.XXXXXX")"
 trap 'rm -rf "${work}"' EXIT
@@ -18,7 +27,7 @@ trap 'rm -rf "${work}"' EXIT
 assert() {
   local label="$1"; shift
   if "$@"; then
-    echo "ok: ${label}"
+    [[ "${quiet}" -eq 0 ]] && echo "ok: ${label}"
     pass=$((pass + 1))
   else
     echo "FAIL: ${label}" >&2
@@ -36,21 +45,21 @@ mk_skill() {
 # roborepo skill link
 # ---------------------------------------------------------------------------
 local_repo="${work}/local"
-mk_skill "${local_repo}/skills" "app-deploy"
-mk_skill "${local_repo}/skills" "app-test"
+mk_skill "${local_repo}/.agents/skills" "app-deploy"
+mk_skill "${local_repo}/.agents/skills" "app-test"
 
 ( cd "${local_repo}" && node "${cli}" skill link >/dev/null )
 assert "skill link: .claude link created" test -L "${local_repo}/.claude/skills/app-deploy"
 assert "skill link: .codex link created"  test -L "${local_repo}/.codex/skills/app-test"
 assert "skill link: link is relative to source" \
-  test "$(readlink "${local_repo}/.claude/skills/app-deploy")" = "../../skills/app-deploy"
+  test "$(readlink "${local_repo}/.claude/skills/app-deploy")" = "../../.agents/skills/app-deploy"
 
 rerun="$( cd "${local_repo}" && node "${cli}" skill link )"
 assert "skill link: idempotent re-run reports already ok" \
   bash -c "echo '${rerun}' | grep -q 'already ok'"
 
 # Prune: delete a source skill, re-run, stale links removed.
-rm -rf "${local_repo}/skills/app-test"
+rm -rf "${local_repo}/.agents/skills/app-test"
 ( cd "${local_repo}" && node "${cli}" skill link >/dev/null )
 assert "skill link: orphan .claude link pruned" \
   bash -c "! test -e '${local_repo}/.claude/skills/app-test'"
@@ -63,20 +72,40 @@ assert "skill link: live link kept after prune" test -L "${local_repo}/.claude/s
 assert "skill link: uninstall removes owned links" \
   bash -c "! test -e '${local_repo}/.claude/skills/app-deploy'"
 
+# Dry-run: reports planned links without creating harness skill dirs.
+dry_repo="${work}/dry-link"
+mk_skill "${dry_repo}/.agents/skills" "app-deploy"
+( cd "${dry_repo}" && node "${cli}" skill link --dry-run >/dev/null )
+assert "skill link: dry-run does not create .claude link" \
+  bash -c "! test -e '${dry_repo}/.claude/skills/app-deploy'"
+assert "skill link: dry-run does not create .codex link" \
+  bash -c "! test -e '${dry_repo}/.codex/skills/app-deploy'"
+
 # Conflict: a real (non-symlink) dir at the target is never clobbered.
 conflict_repo="${work}/conflict"
-mk_skill "${conflict_repo}/skills" "app-deploy"
+mk_skill "${conflict_repo}/.agents/skills" "app-deploy"
 mkdir -p "${conflict_repo}/.claude/skills/app-deploy"
 echo "REAL" > "${conflict_repo}/.claude/skills/app-deploy/marker"
 ( cd "${conflict_repo}" && node "${cli}" skill link >/dev/null 2>&1 ) || true
 assert "skill link: real dir at target left intact (conflict)" \
   test -f "${conflict_repo}/.claude/skills/app-deploy/marker"
 
-# Missing skills/ dir: clear error, non-zero exit.
+foreign_repo="${work}/foreign-link"
+mk_skill "${foreign_repo}/.agents/skills" "app-deploy"
+mkdir -p "${foreign_repo}/elsewhere" "${foreign_repo}/.codex/skills"
+ln -s "../../elsewhere/app-deploy" "${foreign_repo}/.codex/skills/app-deploy"
+( cd "${foreign_repo}" && node "${cli}" skill link --uninstall >/dev/null 2>&1 ) || true
+assert "skill link: uninstall leaves foreign symlink intact" \
+  test "$(readlink "${foreign_repo}/.codex/skills/app-deploy")" = "../../elsewhere/app-deploy"
+
+# Missing .agents/skills dir: clear error, non-zero exit.
 empty_repo="${work}/empty"
 mkdir -p "${empty_repo}"
-assert "skill link: missing skills/ exits non-zero" \
+assert "skill link: missing .agents/skills exits non-zero" \
   bash -c "cd '${empty_repo}' && ! node '${cli}' skill link >/dev/null 2>&1"
+
+assert "skill link: unknown flag rejected" \
+  bash -c "cd '${local_repo}' && ! node '${cli}' skill link --nonsense >/dev/null 2>&1"
 
 # ---------------------------------------------------------------------------
 # roborepo skill export
@@ -96,6 +125,17 @@ fi
 ( cd "${export_repo}" && node "${cli}" skill export --yes --on-conflict=override >/dev/null )
 assert "skill export: override moves old skill to archived/" \
   bash -c "ls '${export_repo}'/.claude/skills/archived/test-harness_backup_* >/dev/null 2>&1"
+
+skip_repo="${work}/export-skip"
+mkdir -p "${skip_repo}/.claude/skills/test-harness" "${skip_repo}/.agents/skills"
+echo "LOCAL" > "${skip_repo}/.claude/skills/test-harness/local.txt"
+( cd "${skip_repo}" && node "${cli}" skill export --yes --on-conflict=skip >/dev/null )
+assert "skill export: skip preserves existing skill content" \
+  grep -q "LOCAL" "${skip_repo}/.claude/skills/test-harness/local.txt"
+assert "skill export: existing .agents/skills is populated" \
+  test -f "${skip_repo}/.agents/skills/test-harness/SKILL.md"
+assert "skill export: invalid on-conflict rejected" \
+  bash -c "cd '${skip_repo}' && ! node '${cli}' skill export --yes --on-conflict=merge >/dev/null 2>&1"
 
 assert "skill export: internal skill NOT exported (firewall)" \
   bash -c "! test -e '${export_repo}/.claude/skills/harness-platform-dev'"
@@ -123,6 +163,10 @@ assert "lifecycle: roborepo doctor dispatches and passes" \
   bash -c "node '${cli}' doctor >/dev/null 2>&1"
 assert "lifecycle: roborepo install --dry-run dispatches (no changes)" \
   bash -c "node '${cli}' install --dry-run >/dev/null 2>&1"
+assert "lifecycle: roborepo update --dry-run dispatches install alias" \
+  bash -c "node '${cli}' update --dry-run >/dev/null 2>&1"
+assert "lifecycle: roborepo verify dispatches and exits non-zero when not installed" \
+  bash -c "! HOME='${work}/not-installed-home' node '${cli}' verify >/dev/null 2>&1"
 
 # ---------------------------------------------------------------------------
 # roborepo menu (numbered fallback via pipe)
@@ -219,6 +263,12 @@ assert "prune: stale jdocmunch.zsh source line removed" \
   bash -c "! grep -q 'shell/jdocmunch.zsh' '${shome}/.zshrc'"
 assert "prune: user's own .zshrc content preserved" \
   grep -q "alias ll='ls -la'" "${shome}/.zshrc"
+
+empty_shome="${work}/home-empty-snip"
+mkdir -p "${empty_shome}"
+HOME="${empty_shome}" bash "${iss}" >/dev/null 2>&1 || true
+assert "snippets: no configured snippets does not create ~/.zshrc" \
+  bash -c "! test -e '${empty_shome}/.zshrc'"
 
 # ---------------------------------------------------------------------------
 echo ""

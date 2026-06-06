@@ -67,7 +67,7 @@ roborepo — choose an action:
 
   Skills
   skill export   copy shared skills into this repo
-  skill link     link this repo's skills/ into .claude + .codex
+  skill link     link this repo's .agents/skills into .claude + .codex
 
   Maintenance
   sync           pull live config back into the repo
@@ -111,10 +111,11 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   writes the pidfile the Claude SessionStart hook reads to report watcher status); `run` executes a
   command and prints only a trimmed tail of its output.
 - **Skills** — `skill export` bundles the shared skills into a `.zip` and copies them into the
-  current repo's `.claude/skills` (+ `.codex/skills`) with per-skill override/skip (override backs
-  the old one up under `archived/`). `skill link` symlinks the current repo's own `skills/<name>`
-  into its `.claude/skills` + `.codex/skills` (purely in-repo, never global) and prunes links whose
-  source is gone. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
+  current repo's `.claude/skills` (+ `.agents/skills`, which Codex scans) with per-skill
+  override/skip (override backs the old one up under `archived/`). `skill link` symlinks the current
+  repo's own `.agents/skills/<name>` (its canonical source, also what Codex scans) into its
+  `.claude/skills` + `.codex/skills` (purely in-repo, never global) and prunes links whose source is
+  gone. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
 - **Maintenance** — `sync` pulls live config back into the repo; `doctor` and `verify` are health
   and post-install checks. These dispatch to the existing bash scripts.
 

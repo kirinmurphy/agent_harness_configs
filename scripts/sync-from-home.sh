@@ -198,4 +198,4 @@ sync_item "${HOME}/.claude/commands" "claude/commands"
 sync_item "${HOME}/.claude/hooks" "claude/hooks"
 sync_item "${HOME}/.claude/plugins/blocklist.json" "claude/plugins/blocklist.json"
 
-echo "skip shared skills: maintained in repo/skills and symlinked into both harnesses"
+echo "skip shared skills: maintained in repo/agents/skills and symlinked into both harnesses"

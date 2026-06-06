@@ -3,6 +3,26 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 failed=0
+quiet=0
+passed=0
+
+# --quiet|-q : suppress per-check "ok:" lines; still print every failure + a summary.
+for arg in "$@"; do
+  case "${arg}" in
+    --quiet|-q) quiet=1 ;;
+    *) echo "usage: $0 [--quiet|-q]" >&2; exit 2 ;;
+  esac
+done
+
+# shellcheck source=scripts/skill-lib.sh
+source "${repo_root}/scripts/skill-lib.sh"
+
+# Record a passing check. Honors --quiet (count always, print only when verbose).
+pass_msg() {
+  passed=$((passed + 1))
+  [[ "${quiet}" -eq 1 ]] && return 0
+  echo "ok: $*"
+}
 
 check_file_contains() {
   local path="$1"
@@ -10,7 +30,7 @@ check_file_contains() {
   local label="$3"
 
   if grep -Eq "${pattern}" "${path}"; then
-    echo "ok: ${label}"
+    pass_msg "${label}"
     return 0
   fi
 
@@ -47,7 +67,7 @@ PY
     return 0
   fi
 
-  echo "ok: ${home_path} -> ${expected}"
+  pass_msg "${home_path} -> ${expected}"
 }
 
 check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
@@ -55,7 +75,9 @@ check_link "codex/config.toml" "${HOME}/.codex/config.toml"
 check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"
 check_link "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
 check_link "codex/rules" "${HOME}/.codex/rules"
-check_link "codex/skills" "${HOME}/.codex/skills"
+# Codex skills: canonical ~/.agents/skills + transitional ~/.codex/skills, both -> agents/skills.
+check_link "agents/skills" "${HOME}/.agents/skills"
+check_link "agents/skills" "${HOME}/.codex/skills"
 
 check_link "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
 check_link "claude/settings.json" "${HOME}/.claude/settings.json"
@@ -65,26 +87,19 @@ check_link "claude/hooks" "${HOME}/.claude/hooks"
 check_link "claude/skills" "${HOME}/.claude/skills"
 check_link "claude/plugins/blocklist.json" "${HOME}/.claude/plugins/blocklist.json"
 
-check_link "skills/test-harness" "${HOME}/.codex/skills/test-harness"
-check_link "skills/technical-planning-docs" "${HOME}/.codex/skills/technical-planning-docs"
-check_link "skills/frontend-design" "${HOME}/.codex/skills/frontend-design"
-check_link "skills/code-style" "${HOME}/.codex/skills/code-style"
-check_link "skills/react" "${HOME}/.codex/skills/react"
-check_link "skills/javascript-typescript" "${HOME}/.codex/skills/javascript-typescript"
-check_link "skills/supabase-integration-testing" "${HOME}/.codex/skills/supabase-integration-testing"
-check_link "skills/test-harness" "${HOME}/.claude/skills/test-harness"
-check_link "skills/technical-planning-docs" "${HOME}/.claude/skills/technical-planning-docs"
-check_link "skills/frontend-design" "${HOME}/.claude/skills/frontend-design"
-check_link "skills/code-style" "${HOME}/.claude/skills/code-style"
-check_link "skills/react" "${HOME}/.claude/skills/react"
-check_link "skills/javascript-typescript" "${HOME}/.claude/skills/javascript-typescript"
-check_link "skills/supabase-integration-testing" "${HOME}/.claude/skills/supabase-integration-testing"
+# Only Claude links skills per-skill (~/.claude/skills/<n> is its own symlink). Codex uses
+# whole-dir symlinks (~/.agents/skills, ~/.codex/skills -> agents/skills), verified above; the
+# <n> inside is the real source dir, not a link, so it is NOT checked per skill here.
+while IFS= read -r skill_name; do
+  [[ -n "${skill_name}" ]] || continue
+  check_link "agents/skills/${skill_name}" "${HOME}/.claude/skills/${skill_name}"
+done < <(list_source_skills "${repo_root}/agents/skills")
 check_link "bin/roborepo" "${HOME}/.local/bin/roborepo"
 
 if command -v node >/dev/null 2>&1; then
   node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${HOME}/.codex/hooks.json"
   node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${HOME}/.claude/settings.json"
-  echo "ok: JSON config parses"
+  pass_msg "JSON config parses"
 else
   echo "skip: node not found, JSON parse check not run"
 fi
@@ -96,18 +111,20 @@ check_file_contains "${HOME}/.codex/config.toml" '^\[mcp_servers\.jcodemunch\]$'
 check_file_contains "${HOME}/.codex/config.toml" '^[[:space:]]*args[[:space:]]*=[[:space:]]*\["jcodemunch-mcp"\][[:space:]]*$' "Codex jcodemunch MCP args configured"
 check_file_contains "${HOME}/.codex/AGENTS.md" 'Verified: <command> -> <pass\|fail\|blocked>' "Codex verification receipt configured"
 
-"${repo_root}/scripts/doctor.sh" --installed
+doctor_args=(--installed)
+[[ "${quiet}" -eq 1 ]] && doctor_args+=(--quiet)
+"${repo_root}/scripts/doctor.sh" "${doctor_args[@]}"
 
 if command -v uvx >/dev/null 2>&1; then
-  echo "ok: uvx available for jcodemunch MCP"
+  pass_msg "uvx available for jcodemunch MCP"
 else
   echo "fail: uvx not found; jcodemunch MCP command cannot start"
   failed=1
 fi
 
 if [[ "${failed}" -ne 0 ]]; then
-  echo "verify failed"
+  echo "verify failed (${passed} checks passed, see fail: lines above)" >&2
   exit 1
 fi
 
-echo "verify passed"
+echo "verify passed (${passed} checks)"

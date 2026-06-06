@@ -2,22 +2,32 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=scripts/skill-lib.sh
+source "${repo_root}/scripts/skill-lib.sh"  # provides list_source_skills (used below)
+
 failed=0
 check_installed=0
+quiet=0
+passed=0
 
-case "${1:-}" in
-  --installed)
-    check_installed=1
-    ;;
-  "")
-    ;;
-  *)
-    echo "usage: $0 [--installed]" >&2
-    exit 2
-    ;;
-esac
+# Flags may appear in any order:
+#   --installed  also check the global ~/.claude and ~/.codex install links
+#   --quiet|-q   suppress per-check "ok:" lines; still print every failure + a summary
+for arg in "$@"; do
+  case "${arg}" in
+    --installed) check_installed=1 ;;
+    --quiet|-q)  quiet=1 ;;
+    *)
+      echo "usage: $0 [--installed] [--quiet|-q]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 ok() {
+  passed=$((passed + 1))
+  [[ "${quiet}" -eq 1 ]] && return 0
   echo "ok: $*"
 }
 
@@ -114,7 +124,7 @@ check_roborepo_on_path() {
 
 # The "what is a skill folder" rule is implemented twice — list_source_skills (skill-lib.sh)
 # and listSourceSkills (skill-lib.mjs). Parity is the whole point of this repo, so verify the
-# two agree on skills/ rather than letting them drift silently.
+# two agree on agents/skills/ rather than letting them drift silently.
 check_skill_lib_parity() {
   if ! command -v node >/dev/null 2>&1; then
     ok "node unavailable; skipped skill-lib parity check"
@@ -123,16 +133,16 @@ check_skill_lib_parity() {
   local bash_out node_out
   bash_out="$(
     source "${repo_root}/scripts/skill-lib.sh"
-    list_source_skills "${repo_root}/skills" | sort
+    list_source_skills "${repo_root}/agents/skills" | sort
   )"
   node_out="$(node -e '
     const [mod, dir] = process.argv.slice(1);
     import(mod).then((m) => console.log(m.listSourceSkills(dir).sort().join("\n")));
-  ' "${repo_root}/scripts/skill-lib.mjs" "${repo_root}/skills" 2>/dev/null)"
+  ' "${repo_root}/scripts/skill-lib.mjs" "${repo_root}/agents/skills" 2>/dev/null)"
   if [[ "${bash_out}" == "${node_out}" ]]; then
-    ok "skill-lib.sh and skill-lib.mjs agree on skills/"
+    ok "skill-lib.sh and skill-lib.mjs agree on agents/skills/"
   else
-    fail "skill-lib parity: bash and node disagree on skills/ (diff below)"
+    fail "skill-lib parity: bash and node disagree on agents/skills/ (diff below)"
     diff <(echo "${bash_out}") <(echo "${node_out}") >&2 || true
   fi
 }
@@ -148,22 +158,23 @@ check_file "rules/shared/20-verification.md"
 check_file "rules/shared/30-session-capture.md"
 check_file "rules/claude/90-claude-specific.md"
 check_file "rules/codex/90-codex-specific.md"
-# Derive the shared-skill list from skills/*/SKILL.md so this never goes stale.
-# Each skill must have a per-harness symlink in claude/ and codex/.
-for skill_src in "${repo_root}"/skills/*/SKILL.md; do
+# Derive the shared-skill list from agents/skills/*/SKILL.md so this never goes stale.
+# Claude gets a per-skill symlink (claude/skills/<n> -> ../../agents/skills/<n>). Codex has
+# NO per-skill intermediate: it reads ~/.agents/skills -> agents/skills directly.
+for skill_src in "${repo_root}"/agents/skills/*/SKILL.md; do
   [[ -e "${skill_src}" ]] || continue
   skill_name="$(basename "$(dirname "${skill_src}")")"
-  check_file "skills/${skill_name}/SKILL.md"
-  check_repo_symlink "claude/skills/${skill_name}" "../../skills/${skill_name}"
-  check_repo_symlink "codex/skills/${skill_name}" "../../skills/${skill_name}"
+  check_file "agents/skills/${skill_name}/SKILL.md"
+  check_repo_symlink "claude/skills/${skill_name}" "../../agents/skills/${skill_name}"
 done
 # Internal (repo-only) skills: source in skills-local/, linked into THIS repo's project-scope
-# dotdirs (.claude/skills, .codex/skills) — never global, never exported.
+# dotdirs (.claude/skills, .agents/skills, .codex/skills) — never global, never exported.
 for skill_src in "${repo_root}"/skills-local/*/SKILL.md; do
   [[ -e "${skill_src}" ]] || continue
   skill_name="$(basename "$(dirname "${skill_src}")")"
   check_file "skills-local/${skill_name}/SKILL.md"
   check_repo_symlink ".claude/skills/${skill_name}" "../../skills-local/${skill_name}"
+  check_repo_symlink ".agents/skills/${skill_name}" "../../skills-local/${skill_name}"
   check_repo_symlink ".codex/skills/${skill_name}" "../../skills-local/${skill_name}"
 done
 check_file "bin/roborepo"
@@ -191,28 +202,32 @@ else
   ok "node unavailable; skipped Claude hook schema check"
 fi
 
-"${repo_root}/scripts/render-rules.sh" --check || failed=1
+# Sub-script checks. In quiet mode swallow their normal stdout but keep failures (stderr)
+# and the non-zero exit. link-skills.sh --check is the source of truth for per-skill link
+# integrity; calling it here keeps doctor from drifting against the linker.
+if [[ "${quiet}" -eq 1 ]]; then
+  "${repo_root}/scripts/render-rules.sh" --check >/dev/null || failed=1
+  "${repo_root}/scripts/link-skills.sh" --check >/dev/null || failed=1
+else
+  "${repo_root}/scripts/render-rules.sh" --check || failed=1
+  "${repo_root}/scripts/link-skills.sh" --check || failed=1
+fi
 
 if [[ "${check_installed}" -eq 1 ]]; then
-  check_link "skills/test-harness" "${HOME}/.codex/skills/test-harness"
-  check_link "skills/technical-planning-docs" "${HOME}/.codex/skills/technical-planning-docs"
-  check_link "skills/frontend-design" "${HOME}/.codex/skills/frontend-design"
-  check_link "skills/code-style" "${HOME}/.codex/skills/code-style"
-  check_link "skills/react" "${HOME}/.codex/skills/react"
-  check_link "skills/javascript-typescript" "${HOME}/.codex/skills/javascript-typescript"
-  check_link "skills/supabase-integration-testing" "${HOME}/.codex/skills/supabase-integration-testing"
-  check_link "skills/test-harness" "${HOME}/.claude/skills/test-harness"
-  check_link "skills/technical-planning-docs" "${HOME}/.claude/skills/technical-planning-docs"
-  check_link "skills/frontend-design" "${HOME}/.claude/skills/frontend-design"
-  check_link "skills/code-style" "${HOME}/.claude/skills/code-style"
-  check_link "skills/react" "${HOME}/.claude/skills/react"
-  check_link "skills/javascript-typescript" "${HOME}/.claude/skills/javascript-typescript"
-  check_link "skills/supabase-integration-testing" "${HOME}/.claude/skills/supabase-integration-testing"
+  # Claude links each skill individually (claude/skills/<n> -> agents/skills/<n>), so each
+  # ~/.claude/skills/<n> is its own symlink and is checked per skill. Codex has NO per-skill
+  # links — ~/.agents/skills and ~/.codex/skills are whole-dir symlinks to agents/skills, and
+  # <n> inside them is the real source dir. Those are verified at the dir level below.
+  while IFS= read -r skill_name; do
+    [[ -n "${skill_name}" ]] || continue
+    check_link "agents/skills/${skill_name}" "${HOME}/.claude/skills/${skill_name}"
+  done < <(list_source_skills "${repo_root}/agents/skills")
   check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
   check_link "codex/config.toml" "${HOME}/.codex/config.toml"
   check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"
   check_link "codex/rules" "${HOME}/.codex/rules"
-  check_link "codex/skills" "${HOME}/.codex/skills"
+  check_link "agents/skills" "${HOME}/.agents/skills"
+  check_link "agents/skills" "${HOME}/.codex/skills"
   check_link "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
   check_link "claude/settings.json" "${HOME}/.claude/settings.json"
   check_link "claude/hooks" "${HOME}/.claude/hooks"
@@ -222,8 +237,8 @@ if [[ "${check_installed}" -eq 1 ]]; then
 fi
 
 if [[ "${failed}" -ne 0 ]]; then
-  echo "doctor failed" >&2
+  echo "doctor failed (${passed} checks passed, see fail: lines above)" >&2
   exit 1
 fi
 
-echo "doctor passed"
+echo "doctor passed (${passed} checks)"

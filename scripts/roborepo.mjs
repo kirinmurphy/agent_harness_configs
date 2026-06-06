@@ -7,7 +7,7 @@
 //
 //   skill   work with skills in the current repo
 //     roborepo skill export        bundle shared skills into a .zip + copy into this repo
-//     roborepo skill link          symlink this repo's skills/ into .claude/skills + .codex/skills
+//     roborepo skill link          symlink this repo's .agents/skills into .claude/skills + .codex/skills
 //
 //   index   index the current repo for the MCP servers
 //     roborepo index code [path]   jcodemunch  (code index)
@@ -55,7 +55,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
-const sharedSkillsDir = path.join(repoRoot, "skills");
+const sharedSkillsDir = path.join(repoRoot, "agents", "skills");
 
 const argv = process.argv.slice(2);
 
@@ -106,14 +106,20 @@ function runRepoScript(relScript, args) {
 // --------------------------------------------------------------------------- skill link
 
 function skillLink(flags) {
+  for (const f of flags) {
+    if (f === "--dry-run" || f === "--uninstall") continue;
+    console.error(`unknown flag for "skill link": ${f}`);
+    process.exit(2);
+  }
+
   const dryRun = flags.has("--dry-run");
   const uninstall = flags.has("--uninstall");
   const repo = process.cwd();
-  const srcDir = path.join(repo, "skills");
+  const srcDir = path.join(repo, ".agents", "skills");
 
   if (!fs.existsSync(srcDir)) {
-    console.error(`no skills/ directory found at ${srcDir}`);
-    console.error(`create skills/<skill-name>/SKILL.md in this repo first, then re-run.`);
+    console.error(`no .agents/skills directory found at ${srcDir}`);
+    console.error(`create .agents/skills/<skill-name>/SKILL.md in this repo first, then re-run.`);
     process.exit(1);
   }
 
@@ -129,7 +135,7 @@ function skillLink(flags) {
     if (t.denied > 0) line += `, ${t.denied} denied (OS refused symlink)`;
     console.log(`${line}.`);
     console.log("");
-    console.log("Reminder: add a new skill at skills/<name>/SKILL.md ? Re-run");
+    console.log("Reminder: add a new skill at .agents/skills/<name>/SKILL.md ? Re-run");
     console.log("  roborepo skill link");
     console.log("so .claude/skills and .codex/skills pick it up — the source folder alone is not enough.");
   }
@@ -358,7 +364,7 @@ async function interactiveMenu() {
 
     { header: "Skills" },
     { label: "skill export", value: ["skill", "export"], desc: "copy shared skills into this repo" },
-    { label: "skill link", value: ["skill", "link"], desc: "link this repo's skills/ into .claude + .codex" },
+    { label: "skill link", value: ["skill", "link"], desc: "link this repo's .agents/skills into .claude + .codex" },
 
     { header: "Maintenance" },
     { label: "sync", value: ["sync"], desc: "pull live config back into the repo" },

@@ -32,7 +32,7 @@ if (path.basename(abs) === 'settings.local.json') noop()
 const isNewFile = !fs.existsSync(abs)
 
 const reminder = isNewFile
-  ? `This path symlinks into the version-controlled harness_configs repo (~/projects/live_projects/harness_configs). Do NOT create a new file directly here. Create it in harness_configs/ (for a skill: skills/<name>/SKILL.md), then run scripts/link-skills.sh to create the symlinks. See the harness-config skill.`
+  ? `This path symlinks into the version-controlled harness_configs repo (~/projects/live_projects/harness_configs). Do NOT create a new file directly here. Create it in harness_configs/ (for a skill: agents/skills/<name>/SKILL.md), then run scripts/link-skills.sh to create the symlinks. See the harness-config skill.`
   : `This file is a symlink into the version-controlled harness_configs repo (~/projects/live_projects/harness_configs). Editing here is fine — it resolves to the root file — but commit the change in that repo, not from the current working dir.`
 
 process.stdout.write(

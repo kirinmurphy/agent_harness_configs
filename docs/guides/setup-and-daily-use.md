@@ -109,10 +109,11 @@ roborepo index docs path/to/dir
 
 ### Add a shared skill
 
-A shared skill's content lives once in `skills/<name>/`, but each harness reaches it
-through a per-skill symlink (see [architecture.md](../reference/services/architecture.md#shared-skills-use-two-symlink-levels)).
-After creating `skills/<name>/SKILL.md`, run the linker — it creates any missing
-per-harness symlinks and prunes orphaned ones, deriving everything from `skills/`:
+A shared skill's content lives once in `agents/skills/<name>/`, the canonical source. Codex
+reaches it via `~/.agents/skills`; Claude reaches it through a per-skill symlink (see
+[architecture.md](../reference/services/architecture.md#shared-skills-canonical-source--per-harness-fan-out)).
+After creating `agents/skills/<name>/SKILL.md`, run the linker — it creates any missing
+Claude per-skill symlinks and prunes orphaned ones, deriving everything from `agents/skills/`:
 
 ```sh
 scripts/link-skills.sh          # create/prune links for all skills
@@ -144,11 +145,17 @@ Then render and check:
 
 ### Check harness health
 
-Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies. The skill checks are derived from `skills/`, so adding a skill needs no edit here.
+Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies. The skill checks are derived from `agents/skills/`, so adding a skill needs no edit here.
 
 ```sh
 roborepo doctor        # (dispatches to scripts/doctor.sh)
+scripts/doctor.sh --installed     # also checks the global ~/.claude·~/.codex·~/.agents links
+scripts/doctor.sh --installed -q  # --quiet: failures + a one-line summary only
 ```
+
+`doctor.sh`, `verify-install.sh`, `test-roborepo.sh`, and `link-skills.sh` all accept
+`--quiet`/`-q` — prints only failures plus a summary line, exit code unchanged. Prefer that over
+piping a checker through `grep`/`head`.
 
 ### Run noisy commands with trimmed output
 
