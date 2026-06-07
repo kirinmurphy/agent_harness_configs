@@ -37,8 +37,8 @@ const rootConfigPaths = new Set([
 const reminder = rootConfigPaths.has(abs)
   ? `This is mutable active root config, not a repo symlink. Keep user/project trust, hook approvals, profiles, and machine-local state here; merge only intentional portable defaults into the repo baseline.`
   : isNewFile
-    ? `This path symlinks into the version-controlled harness config repo. Do NOT create a new file directly here. Create it in the repo (for a skill: agents/skills/<name>/SKILL.md), then run scripts/link-skills.sh to create the symlinks. See the roborepo-support skill.`
-    : `This file is a symlink into the version-controlled harness config repo. Editing here is fine — it resolves to the root file — but commit the change in that repo, not from the current working dir.`
+    ? `This path symlinks into the version-controlled roborepo. Do NOT create a new file directly here. Create it in the repo (for a skill: agents/skills/<name>/SKILL.md), then run scripts/link-skills.sh to create the symlinks. See the roborepo-support skill.`
+    : `This file is a symlink into the version-controlled roborepo. Editing here is fine — it resolves to the root file — but commit the change in that repo, not from the current working dir.`
 
 process.stdout.write(
   JSON.stringify({

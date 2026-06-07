@@ -47,7 +47,7 @@
 // relative or absolute — roborepo always resolves it to an absolute path before use.
 //
 // Most maintainer-only scripts (test-*.sh) are deliberately NOT exposed here — they edit the
-// harness config source itself, not anything a consumer touches. The exceptions are `skill sync`
+// roborepo source itself, not anything a consumer touches. The exceptions are `skill sync`
 // and `rules`, because shared-skill and generated-rule editing are documented workflows.
 // The lifecycle verbs above dispatch to the existing bash scripts (install/main.sh, etc.);
 // those filenames are an internal detail.

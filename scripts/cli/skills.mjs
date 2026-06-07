@@ -113,10 +113,10 @@ export async function skillExport(flags) {
 
   const cwd = process.cwd();
 
-  // Guard: never run the exporter from inside the harness config source repo itself — it
+  // Guard: never run the exporter from inside the roborepo source repo itself — it
   // would copy the shared skills back over their own source and drop a zip in the repo root.
   if (path.resolve(cwd) === path.resolve(repoRoot)) {
-    console.error(`refusing to export into the harness config source repo (${cwd}).`);
+    console.error(`refusing to export into the roborepo source repo (${cwd}).`);
     console.error(`cd into the TARGET repo first, then run: roborepo skill export`);
     process.exit(1);
   }

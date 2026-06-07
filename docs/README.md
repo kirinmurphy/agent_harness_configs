@@ -1,4 +1,4 @@
-# Harness Config Docs
+# RoboRepo Docs
 
 Docs are split by reader need: user surface first, implementation reference second.
 

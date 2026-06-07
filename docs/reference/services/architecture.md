@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  repo["harness config repo"]
+  repo["roborepo"]
   codexRepo["codex/"]
   claudeRepo["claude/"]
   codexHome["~/.codex"]
@@ -215,7 +215,7 @@ in `scripts/cli/skill-lib.mjs`.
 ```mermaid
 sequenceDiagram
   participant Home as ~/.codex and ~/.claude
-  participant Repo as harness config repo
+  participant Repo as roborepo
   participant Backup as ~/.roborepo-backups
 
   Home->>Repo: ./scripts/sync-from-home.sh reviews diffs before copying selected live config

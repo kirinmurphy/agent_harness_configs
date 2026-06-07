@@ -7,7 +7,7 @@ allowed-tools: Read, Glob, Grep, Edit, Write, Bash(git diff:*), Bash(git log:*),
 
 Review the current conversation to extract **new conventions and app behaviors** established during this session. Persist them into the appropriate repo's documentation so they survive context clearing.
 
-**Route each item to the right repo** — local project conventions go into the current repo; harness-wide behaviors go into the harness config repo. See Step 5.
+**Route each item to the right repo** — local project conventions go into the current repo; harness-wide behaviors go into roborepo. See Step 5.
 
 ## Step 1: Confirm project root
 
