@@ -3,8 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 dry_run=0
-backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
-export HARNESS_CONFIG_BACKUP_ROOT="${backup_root}"
+backup_root="${ROBOREPO_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
+export ROBOREPO_BACKUP_ROOT="${backup_root}"
 
 case "${1:-}" in
   --dry-run) dry_run=1 ;;
@@ -95,7 +95,7 @@ preflight_clean_targets() {
 
   if [[ $has_claude -eq 1 ]]; then
     check_clean_target "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md" || conflict=1
-    check_clean_target "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md" || conflict=1
+    check_clean_target "claude/MANAGED_BY_ROBOREPO.md" "${HOME}/.claude/MANAGED_BY_ROBOREPO.md" || conflict=1
     check_clean_target "claude/commands" "${HOME}/.claude/commands" || conflict=1
     check_clean_target "claude/hooks" "${HOME}/.claude/hooks" || conflict=1
     check_clean_target "claude/skills" "${HOME}/.claude/skills" || conflict=1
@@ -104,7 +104,7 @@ preflight_clean_targets() {
   if [[ $has_codex -eq 1 ]]; then
     check_clean_target "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md" || conflict=1
     check_clean_target "codex/hooks.json" "${HOME}/.codex/hooks.json" || conflict=1
-    check_clean_target "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md" || conflict=1
+    check_clean_target "codex/MANAGED_BY_ROBOREPO.md" "${HOME}/.codex/MANAGED_BY_ROBOREPO.md" || conflict=1
     check_clean_target "codex/rules" "${HOME}/.codex/rules" || conflict=1
     # Skills: canonical ~/.agents/skills + transitional ~/.codex/skills, both -> agents/skills.
     check_clean_target "agents/skills" "${HOME}/.agents/skills" || conflict=1

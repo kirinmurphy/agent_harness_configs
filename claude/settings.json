@@ -85,7 +85,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$HOME/.claude/hooks/harness-config-write-guard.mjs\""
+            "command": "node \"$HOME/.claude/hooks/roborepo-write-guard.mjs\""
           }
         ]
       }

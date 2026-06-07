@@ -87,7 +87,7 @@ Use `--include-root-config` only when you intentionally want to review and promo
 ./scripts/sync-from-home.sh --include-root-config
 ```
 
-`HARNESS_CONFIG_REPO_ROOT` is available for tests that need to point sync at a temporary repo fixture. Do not set it during normal use.
+`ROBOREPO_REPO_ROOT` is available for tests that need to point sync at a temporary repo fixture. Do not set it during normal use.
 
 Still inspect the final repo diff before committing.
 

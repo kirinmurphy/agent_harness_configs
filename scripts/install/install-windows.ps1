@@ -1,4 +1,4 @@
-# install-windows.ps1 — Windows symlink installer for harness-configs
+# install-windows.ps1 — Windows symlink installer for roborepo
 #
 # Requirements:
 #   - Windows Developer Mode OR run PowerShell as Administrator
@@ -293,7 +293,7 @@ function Invoke-CleanTargetPreflight {
   if ($hasClaude) {
     $claudeHome = Join-Path $env:APPDATA "Claude"
     if (-not (Test-CleanTarget "claude/CLAUDE.md" (Join-Path $claudeHome "CLAUDE.md"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "claude/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $claudeHome "MANAGED_BY_HARNESS_CONFIGS.md"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "claude/MANAGED_BY_ROBOREPO.md" (Join-Path $claudeHome "MANAGED_BY_ROBOREPO.md"))) { $conflict = $true }
     if (-not (Test-CleanTarget "claude/commands" (Join-Path $claudeHome "commands"))) { $conflict = $true }
     if (-not (Test-CleanTarget "claude/hooks" (Join-Path $claudeHome "hooks"))) { $conflict = $true }
     if (-not (Test-CleanTarget "claude/skills" (Join-Path $claudeHome "skills"))) { $conflict = $true }
@@ -304,7 +304,7 @@ function Invoke-CleanTargetPreflight {
     $agentsHome = Join-Path $env:USERPROFILE ".agents"
     if (-not (Test-CleanTarget "codex/AGENTS.md" (Join-Path $codexHome "AGENTS.md"))) { $conflict = $true }
     if (-not (Test-CleanTarget "codex/hooks.json" (Join-Path $codexHome "hooks.json"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "codex/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $codexHome "MANAGED_BY_HARNESS_CONFIGS.md"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "codex/MANAGED_BY_ROBOREPO.md" (Join-Path $codexHome "MANAGED_BY_ROBOREPO.md"))) { $conflict = $true }
     if (-not (Test-CleanTarget "codex/rules" (Join-Path $codexHome "rules"))) { $conflict = $true }
     if (-not (Test-CleanTarget "agents/skills" (Join-Path $agentsHome "skills"))) { $conflict = $true }
     if (-not (Test-CleanTarget "agents/skills" (Join-Path $codexHome "skills"))) { $conflict = $true }
@@ -356,7 +356,7 @@ if ($hasClaude) {
     Export-UserConfig "claude" "claude/settings.json"  (Join-Path $claudeHome "settings.json")
   }
   Link-Item "claude/CLAUDE.md"                     (Join-Path $claudeHome "CLAUDE.md")
-  Link-Item "claude/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $claudeHome "MANAGED_BY_HARNESS_CONFIGS.md")
+  Link-Item "claude/MANAGED_BY_ROBOREPO.md" (Join-Path $claudeHome "MANAGED_BY_ROBOREPO.md")
   Link-Item "claude/commands"                      (Join-Path $claudeHome "commands")
   Link-Item "claude/hooks"                         (Join-Path $claudeHome "hooks")
   Link-Item "claude/skills"                        (Join-Path $claudeHome "skills")
@@ -375,7 +375,7 @@ if ($hasCodex) {
   }
   Link-Item "codex/AGENTS.md"                     (Join-Path $codexHome "AGENTS.md")
   Link-Item "codex/hooks.json"                    (Join-Path $codexHome "hooks.json")
-  Link-Item "codex/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $codexHome "MANAGED_BY_HARNESS_CONFIGS.md")
+  Link-Item "codex/MANAGED_BY_ROBOREPO.md" (Join-Path $codexHome "MANAGED_BY_ROBOREPO.md")
   Link-Item "codex/rules"                         (Join-Path $codexHome "rules")
   Link-Item "agents/skills"                       (Join-Path $agentsHome "skills")
   Link-Item "agents/skills"                       (Join-Path $codexHome "skills")

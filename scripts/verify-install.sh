@@ -83,7 +83,7 @@ check_active_file() {
 check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
 check_active_file "${HOME}/.codex/config.toml"
 check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"
-check_link "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
+check_link "codex/MANAGED_BY_ROBOREPO.md" "${HOME}/.codex/MANAGED_BY_ROBOREPO.md"
 check_link "codex/rules" "${HOME}/.codex/rules"
 # Codex skills: canonical ~/.agents/skills + transitional ~/.codex/skills, both -> agents/skills.
 check_link "agents/skills" "${HOME}/.agents/skills"
@@ -91,7 +91,7 @@ check_link "agents/skills" "${HOME}/.codex/skills"
 
 check_link "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
 check_active_file "${HOME}/.claude/settings.json"
-check_link "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
+check_link "claude/MANAGED_BY_ROBOREPO.md" "${HOME}/.claude/MANAGED_BY_ROBOREPO.md"
 check_link "claude/commands" "${HOME}/.claude/commands"
 check_link "claude/hooks" "${HOME}/.claude/hooks"
 check_link "claude/skills" "${HOME}/.claude/skills"

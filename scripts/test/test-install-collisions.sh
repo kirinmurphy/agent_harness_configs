@@ -377,14 +377,14 @@ test_sync_guard() {
   cp "$repo_root/claude/settings.json" "$sync_repo/claude/settings.json"
 
   before_hash="$(shasum "$sync_repo/codex/config.toml" "$sync_repo/claude/settings.json")"
-  HARNESS_CONFIG_REPO_ROOT="$sync_repo" HOME="$home_dir" "$repo_root/scripts/sync-from-home.sh" >"$home_dir/out"
+  ROBOREPO_REPO_ROOT="$sync_repo" HOME="$home_dir" "$repo_root/scripts/sync-from-home.sh" >"$home_dir/out"
   after_hash="$(shasum "$sync_repo/codex/config.toml" "$sync_repo/claude/settings.json")"
 
   [[ "$before_hash" == "$after_hash" ]] && pass "sync guard leaves repo config baseline unchanged" || fail "sync guard leaves repo config baseline unchanged"
   assert_file_contains "$home_dir/out" "skip user-owned config: $home_dir/.codex/config.toml" "sync guard skips Codex user config"
   assert_file_contains "$home_dir/out" "skip user-owned config: $home_dir/.claude/settings.json" "sync guard skips Claude user config"
 
-  if HARNESS_CONFIG_REPO_ROOT="$sync_repo" HOME="$home_dir" "$repo_root/scripts/sync-from-home.sh" --include-root-config >"$home_dir/include-root.out" 2>&1; then
+  if ROBOREPO_REPO_ROOT="$sync_repo" HOME="$home_dir" "$repo_root/scripts/sync-from-home.sh" --include-root-config >"$home_dir/include-root.out" 2>&1; then
     fail "sync include-root-config requires interactive review" "$home_dir/include-root.out"
   fi
   assert_file_contains "$home_dir/include-root.out" "stdin is not interactive" "sync include-root-config reviews user config before promoting"
@@ -399,8 +399,8 @@ test_sync_interactive_choices() {
   printf 'home agents\n' > "$home_dir/.codex/AGENTS.md"
   printf 'repo hooks\n' > "$sync_repo/codex/hooks.json"
   printf 'home hooks\n' > "$home_dir/.codex/hooks.json"
-  printf 'repo marker\n' > "$sync_repo/codex/MANAGED_BY_HARNESS_CONFIGS.md"
-  printf 'home marker\n' > "$home_dir/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
+  printf 'repo marker\n' > "$sync_repo/codex/MANAGED_BY_ROBOREPO.md"
+  printf 'home marker\n' > "$home_dir/.codex/MANAGED_BY_ROBOREPO.md"
   expect_file="$home_dir/expect.tcl"
   cat >"$expect_file" <<'EOF'
 expect "Selection*"
@@ -415,7 +415,7 @@ EOF
   command -v expect >/dev/null 2>&1 || fail "expect is required for interactive sync tests"
   HC_REPO="$repo_root" HC_HOME="$home_dir" HC_SYNC_REPO="$sync_repo" HC_EXPECT_SCRIPT="$expect_file" expect <<'EOF' >"$home_dir/out" 2>&1
 set timeout 20
-spawn env HARNESS_CONFIG_REPO_ROOT=$env(HC_SYNC_REPO) HOME=$env(HC_HOME) $env(HC_REPO)/scripts/sync-from-home.sh
+spawn env ROBOREPO_REPO_ROOT=$env(HC_SYNC_REPO) HOME=$env(HC_HOME) $env(HC_REPO)/scripts/sync-from-home.sh
 source $env(HC_EXPECT_SCRIPT)
 set wait_result [wait]
 set exit_code [lindex $wait_result 3]
@@ -424,7 +424,7 @@ EOF
 
   assert_file_contains "$sync_repo/codex/AGENTS.md" "repo agents" "sync keep repo leaves item unchanged"
   assert_file_contains "$sync_repo/codex/hooks.json" "home hooks" "sync overwrite copies home item"
-  assert_file_contains "$sync_repo/codex/MANAGED_BY_HARNESS_CONFIGS.md" "repo marker" "sync agent prompt skips item"
+  assert_file_contains "$sync_repo/codex/MANAGED_BY_ROBOREPO.md" "repo marker" "sync agent prompt skips item"
   assert_file_contains "$home_dir/out" "Agent merge prompt:" "sync agent prompt printed"
   assert_file_contains "$home_dir/out" "Required first step: compute your own complete comparison" "sync prompt requires full comparison"
   assert_file_contains "$home_dir/out" "Default stance: keep the repo baseline" "sync prompt defaults to repo baseline"
@@ -456,7 +456,7 @@ EOF
   command -v expect >/dev/null 2>&1 || fail "expect is required for interactive sync tests"
   if HC_REPO="$repo_root" HC_HOME="$home_dir" HC_SYNC_REPO="$sync_repo" HC_EXPECT_SCRIPT="$expect_file" HC_FAKE_BIN="$fake_bin" expect <<'EOF' >"$home_dir/out" 2>&1
 set timeout 20
-spawn env HARNESS_CONFIG_REPO_ROOT=$env(HC_SYNC_REPO) HOME=$env(HC_HOME) PATH=$env(HC_FAKE_BIN):$env(PATH) $env(HC_REPO)/scripts/sync-from-home.sh
+spawn env ROBOREPO_REPO_ROOT=$env(HC_SYNC_REPO) HOME=$env(HC_HOME) PATH=$env(HC_FAKE_BIN):$env(PATH) $env(HC_REPO)/scripts/sync-from-home.sh
 source $env(HC_EXPECT_SCRIPT)
 set wait_result [wait]
 set exit_code [lindex $wait_result 3]
@@ -502,9 +502,9 @@ test_write_guard_root_config_message() {
   skill_out="$home_dir/skill-guard.out"
 
   printf '{"tool_input":{"file_path":"%s/.codex/config.toml"}}\n' "$home_dir" \
-    | HOME="$home_dir" node "$repo_root/claude/hooks/harness-config-write-guard.mjs" >"$root_out"
+    | HOME="$home_dir" node "$repo_root/claude/hooks/roborepo-write-guard.mjs" >"$root_out"
   printf '{"tool_input":{"file_path":"%s/.claude/skills/new-skill/SKILL.md"}}\n' "$home_dir" \
-    | HOME="$home_dir" node "$repo_root/claude/hooks/harness-config-write-guard.mjs" >"$skill_out"
+    | HOME="$home_dir" node "$repo_root/claude/hooks/roborepo-write-guard.mjs" >"$skill_out"
 
   assert_file_contains "$root_out" "mutable active root config" "write guard identifies root config as local"
   assert_file_contains "$root_out" "not a repo symlink" "write guard does not call root config a symlink"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="${HARNESS_CONFIG_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+repo_root="${ROBOREPO_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 include_user_config=0
 
 case "${1:-}" in
@@ -189,11 +189,11 @@ sync_item() {
 sync_item "${HOME}/.codex/AGENTS.md" "codex/AGENTS.md"
 sync_item "${HOME}/.codex/config.toml" "codex/config.toml" "user_config"
 sync_item "${HOME}/.codex/hooks.json" "codex/hooks.json"
-sync_item "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md" "codex/MANAGED_BY_HARNESS_CONFIGS.md"
+sync_item "${HOME}/.codex/MANAGED_BY_ROBOREPO.md" "codex/MANAGED_BY_ROBOREPO.md"
 sync_item "${HOME}/.codex/rules" "codex/rules"
 sync_item "${HOME}/.claude/CLAUDE.md" "claude/CLAUDE.md"
 sync_item "${HOME}/.claude/settings.json" "claude/settings.json" "user_config"
-sync_item "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md" "claude/MANAGED_BY_HARNESS_CONFIGS.md"
+sync_item "${HOME}/.claude/MANAGED_BY_ROBOREPO.md" "claude/MANAGED_BY_ROBOREPO.md"
 sync_item "${HOME}/.claude/commands" "claude/commands"
 sync_item "${HOME}/.claude/hooks" "claude/hooks"
 sync_item "${HOME}/.claude/plugins/blocklist.json" "claude/plugins/blocklist.json"

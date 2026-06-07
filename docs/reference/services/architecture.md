@@ -39,7 +39,7 @@ Codex (`~/.codex/` ← `codex/`, plus skills under `~/.agents/` ← `agents/`):
 - `AGENTS.md`
 - `config.toml` exported as a local active file
 - `hooks.json`
-- `MANAGED_BY_HARNESS_CONFIGS.md`
+- `MANAGED_BY_ROBOREPO.md`
 - `rules/`
 - `skills/` — Codex scans `~/.agents/skills` **exclusively** (there is no `~/.codex/skills`
   fallback), so the canonical link is `~/.agents/skills → agents/skills`. `~/.codex/skills`
@@ -49,7 +49,7 @@ Claude (`~/.claude/` ← `claude/`):
 
 - `CLAUDE.md`
 - `settings.json` exported as a local active file
-- `MANAGED_BY_HARNESS_CONFIGS.md`
+- `MANAGED_BY_ROBOREPO.md`
 - `commands/`
 - `hooks/`
 - `skills/`

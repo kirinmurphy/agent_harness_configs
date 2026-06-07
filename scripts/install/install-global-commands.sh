@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 bin_dir="${HOME}/.local/bin"
 path_line='export PATH="${HOME}/.local/bin:${PATH}"'
-backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
+backup_root="${ROBOREPO_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 dry_run=0
 
 case "${1:-}" in
@@ -23,8 +23,8 @@ case "$(uname -s)" in
 esac
 
 choose_profile() {
-  if [[ -n "${HARNESS_CONFIG_SHELL_PROFILE:-}" ]]; then
-    echo "${HARNESS_CONFIG_SHELL_PROFILE}"
+  if [[ -n "${ROBOREPO_SHELL_PROFILE:-}" ]]; then
+    echo "${ROBOREPO_SHELL_PROFILE}"
     return 0
   fi
 

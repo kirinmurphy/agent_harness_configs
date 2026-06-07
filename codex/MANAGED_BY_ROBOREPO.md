@@ -1,4 +1,4 @@
-# Managed By Harness Configs
+# Managed By Roborepo
 
 Stable Codex config is version-controlled in:
 

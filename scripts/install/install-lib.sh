@@ -363,8 +363,8 @@ choose_config_collision_action() {
 }
 
 choose_profile() {
-  if [[ -n "${HARNESS_CONFIG_SHELL_PROFILE:-}" ]]; then
-    echo "${HARNESS_CONFIG_SHELL_PROFILE}"
+  if [[ -n "${ROBOREPO_SHELL_PROFILE:-}" ]]; then
+    echo "${ROBOREPO_SHELL_PROFILE}"
     return 0
   fi
 

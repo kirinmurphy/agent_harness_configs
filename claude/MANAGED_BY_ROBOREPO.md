@@ -1,4 +1,4 @@
-# Managed By Harness Configs
+# Managed By Roborepo
 
 Stable Claude config is version-controlled in:
 

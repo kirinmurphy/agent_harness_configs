@@ -44,7 +44,7 @@ on a new terminal:
   exact line to add (e.g. `fish_add_path ~/.local/bin`) rather than writing a file the shell never
   reads
 
-A missing profile file is created. Set `HARNESS_CONFIG_SHELL_PROFILE=/path/to/profile` to override
+A missing profile file is created. Set `ROBOREPO_SHELL_PROFILE=/path/to/profile` to override
 the choice.
 
 Windows + PowerShell is the one case that needs a manual PATH addition (the POSIX installer cannot

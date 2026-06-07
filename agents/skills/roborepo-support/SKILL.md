@@ -60,7 +60,7 @@ won't see the skill, and the active skill list only refreshes on harness reload.
 There is no auto-link-on-create; `link-skills.sh` is the mechanism that makes it
 reliable, so run it after adding any skill.
 
-A `Write|Edit` PreToolUse hook (`claude/hooks/harness-config-write-guard.mjs`,
+A `Write|Edit` PreToolUse hook (`claude/hooks/roborepo-write-guard.mjs`,
 registered in `claude/settings.json`) fires from any repo when a path under
 `~/.claude` or `~/.codex` is written. For read-mostly assets, it reminds that the
 file is symlinked into this repo. For mutable root config (`~/.claude/settings.json`,

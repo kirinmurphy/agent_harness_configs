@@ -324,12 +324,12 @@ igc="${repo_root}/scripts/install/install-global-commands.sh"
 # zsh: writes ~/.zshrc (created if missing) with the PATH line.
 zhome="${work}/home-zsh"
 mkdir -p "${zhome}"
-SHELL=/bin/zsh HOME="${zhome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
+SHELL=/bin/zsh HOME="${zhome}" ROBOREPO_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
 assert "install: zsh profile gets PATH line" \
   bash -c "grep -q '.local/bin' '${zhome}/.zshrc'"
 
 # Re-run is idempotent: the PATH line is not duplicated.
-SHELL=/bin/zsh HOME="${zhome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
+SHELL=/bin/zsh HOME="${zhome}" ROBOREPO_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
 assert "install: PATH line not duplicated on re-run" \
   bash -c "test \"\$(grep -c 'export PATH=\"\${HOME}/.local/bin' '${zhome}/.zshrc')\" = 1"
 
@@ -338,7 +338,7 @@ assert "install: PATH line not duplicated on re-run" \
 bhome="${work}/home-bash"
 mkdir -p "${bhome}"
 if [[ "$(uname -s)" == "Darwin" ]]; then bash_profile="${bhome}/.bash_profile"; else bash_profile="${bhome}/.bashrc"; fi
-SHELL=/bin/bash HOME="${bhome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
+SHELL=/bin/bash HOME="${bhome}" ROBOREPO_SHELL_PROFILE="" bash "${igc}" >/dev/null 2>&1 || true
 assert "install: bash PATH line lands in the OS-correct profile" \
   grep -q ".local/bin" "${bash_profile}"
 
@@ -346,7 +346,7 @@ assert "install: bash PATH line lands in the OS-correct profile" \
 fhome="${work}/home-fish"
 mkdir -p "${fhome}"
 fish_out="${work}/fish.txt"
-SHELL=/usr/bin/fish HOME="${fhome}" HARNESS_CONFIG_SHELL_PROFILE="" bash "${igc}" > "${fish_out}" 2>&1 || true
+SHELL=/usr/bin/fish HOME="${fhome}" ROBOREPO_SHELL_PROFILE="" bash "${igc}" > "${fish_out}" 2>&1 || true
 assert "install: unknown shell warns instead of guessing" \
   grep -qi "could not determine a shell profile" "${fish_out}"
 assert "install: unknown shell does not create ~/.zshrc" \
