@@ -47,7 +47,7 @@ Generated files remain tracked because the harnesses read them directly and setu
 
 - Shared fragments hold behavior that should apply to both harnesses.
 - Harness-specific fragments hold only true harness differences.
-- Shared fragments should stay compact. Expanded workflow guidance belongs in skills such as `test-harness`, `code-style`, `javascript-typescript`, `react`, or `harness-config`.
+- Shared fragments should stay compact. Expanded workflow guidance belongs in skills such as `test-harness`, `code-style`, `javascript-typescript`, `react`, or `roborepo-support`.
 - Global rules may tell the agent when to use a skill, but should not duplicate the full skill body.
 - The renderer should preserve deliberate format differences:
   - Claude can keep Markdown sections.

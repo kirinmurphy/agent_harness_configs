@@ -4,7 +4,7 @@
 
 1. Design true layered root-config inheritance.
    - Priority: high.
-   - Current model is binary for root config: symlink to repo means `managed`; local file means adopted/user-owned.
+   - Current model separates read-mostly symlinks from root config export: mutable root config stays local even under `managed`; local divergent files mean adopted/user-owned.
    - Desired model: harness repo provides baseline config, user global config can inherit/add/override it, and local repo context can overlay project-specific instructions/config where harnesses support it.
    - Research whether Claude/Codex support native include/import/layering for `~/.claude/settings.json` and `~/.codex/config.toml`; if not, design generated/merged config with clear source ownership and drift checks.
    - Define how this interacts with `managed`, `adopt`, future update command, secrets/local machine config, and repo-local `CLAUDE.md`/`AGENTS.md`.
@@ -24,7 +24,7 @@
    - Open question: compact global rules only, expanded skill references, or both.
 
 4. Redesign managed/adopt/update installer model.
-   - Clarify top-level choices: `managed` as repo-hosted symlink logic; `adopt` as copy/replicate/merge into user-owned global config.
+   - Clarify top-level choices: `managed` as repo-hosted symlink logic for read-mostly assets plus local root-config export; `adopt` as copy/replicate/merge into user-owned global config.
    - Treat `agent prompt` as an adopt sub-option, alongside replace-existing-files and keep-existing-files behavior.
    - Define archive/not-adopted folder layout, idempotency rules for repeated adopt runs, and whether repo updates use `adopt` again or a separate update command.
    - Revisit whether a layered model is possible: harness repo baseline, global config overlay, local repo overlay.

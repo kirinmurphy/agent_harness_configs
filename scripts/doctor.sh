@@ -85,6 +85,15 @@ PY
   [[ "${actual}" == "${expected}" ]] && ok "${home_path} -> ${expected}" || fail "${home_path} -> ${actual}; expected ${expected}"
 }
 
+check_active_file() {
+  local home_path="$1"
+  if [[ -f "${home_path}" && ! -L "${home_path}" ]]; then
+    ok "${home_path} is active local file"
+  else
+    fail "${home_path} is not an active local file"
+  fi
+}
+
 check_repo_symlink() {
   local path="$1"
   local expected="$2"
@@ -118,7 +127,7 @@ check_roborepo_on_path() {
     echo "      (Windows PowerShell: add ${bin_dir} via System Environment Variables or"
     echo "       \$PROFILE, then restart the shell. Re-run 'roborepo doctor' to confirm.)"
   else
-    fail "roborepo not found on PATH and no symlink at ${bin_dir}/roborepo — run scripts/roborepo-install.sh"
+    fail "roborepo not found on PATH and no symlink at ${bin_dir}/roborepo — run scripts/install/main.sh"
   fi
 }
 
@@ -168,20 +177,19 @@ for skill_src in "${repo_root}"/agents/skills/*/SKILL.md; do
   check_repo_symlink "claude/skills/${skill_name}" "../../agents/skills/${skill_name}"
 done
 # Internal (repo-only) skills: source in skills-local/, linked into THIS repo's project-scope
-# dotdirs (.claude/skills, .agents/skills, .codex/skills) — never global, never exported.
+# dotdirs (.claude/skills, .agents/skills) — never global, never exported.
 for skill_src in "${repo_root}"/skills-local/*/SKILL.md; do
   [[ -e "${skill_src}" ]] || continue
   skill_name="$(basename "$(dirname "${skill_src}")")"
   check_file "skills-local/${skill_name}/SKILL.md"
   check_repo_symlink ".claude/skills/${skill_name}" "../../skills-local/${skill_name}"
   check_repo_symlink ".agents/skills/${skill_name}" "../../skills-local/${skill_name}"
-  check_repo_symlink ".codex/skills/${skill_name}" "../../skills-local/${skill_name}"
 done
 check_file "bin/roborepo"
 check_file "scripts/skill-lib.sh"
 check_file "scripts/cli/skill-lib.mjs"
-check_file "scripts/roborepo.mjs"
-check_file "scripts/test-roborepo.sh"
+check_file "scripts/cli/main.mjs"
+check_file "scripts/test/test-roborepo.sh"
 check_file "scripts/normalize-claude-settings.mjs"
 check_skill_lib_parity
 check_json "codex/hooks.json"
@@ -223,13 +231,13 @@ if [[ "${check_installed}" -eq 1 ]]; then
     check_link "agents/skills/${skill_name}" "${HOME}/.claude/skills/${skill_name}"
   done < <(list_source_skills "${repo_root}/agents/skills")
   check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
-  check_link "codex/config.toml" "${HOME}/.codex/config.toml"
+  check_active_file "${HOME}/.codex/config.toml"
   check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"
   check_link "codex/rules" "${HOME}/.codex/rules"
   check_link "agents/skills" "${HOME}/.agents/skills"
   check_link "agents/skills" "${HOME}/.codex/skills"
   check_link "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-  check_link "claude/settings.json" "${HOME}/.claude/settings.json"
+  check_active_file "${HOME}/.claude/settings.json"
   check_link "claude/hooks" "${HOME}/.claude/hooks"
   check_link "claude/skills" "${HOME}/.claude/skills"
   check_link "bin/roborepo" "${HOME}/.local/bin/roborepo"

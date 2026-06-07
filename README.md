@@ -1,8 +1,8 @@
 # RoboRepo
 
-Version-controlled Claude Code and Codex global harness configuration. The repo installs shared
-rules, skills, hooks, MCP helpers, and maintenance commands into the local filesystem paths the
-harnesses already read.
+Version-controlled Claude Code and Codex global harness configuration and CLI helper.
+
+The repo installs shared rules, skills, hooks, MCP helpers, and maintenance commands into the local filesystem paths the harnesses already read.
 
 Primary goals:
 
@@ -13,14 +13,14 @@ Primary goals:
 
 ## Start Here
 
-Works with Claude Code, Codex, or both. Supports macOS and Linux; Windows support is available but
-less tested.
+Works with Claude Code, Codex, or both.
+Supports macOS and Linux; Windows support is available but less tested.
 
-Install configs and the CLI [here](docs/guides/first-time-setup.md).
+Setup both default configs and CLI [here](docs/guides/first-time-setup.md).
 
-## What Install Gives You
+## Global Behavior
 
-### Global Behavior
+### General Behavior
 
 Implemented across both Codex and Claude:
 
@@ -38,9 +38,9 @@ Implemented across both Codex and Claude:
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **test-harness**            | Choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks.                                             |
 | **technical-planning-docs** | Writing architecture notes, migration docs, runbooks, and design proposals with facts, recommendations, risks, and open questions separated. |
-| **frontend-design**         | Production-grade UI components and pages; avoids generic AI aesthetics.                                                                      |
 | **blog**                    | Long-form architecture blog posts with a fixed 6-beat storyline arc.                                                                         |
-| **harness-config**          | Working on this repo itself: shared skills, global rules, hooks, settings, and Claude/Codex parity.                                          |
+| **roborepo-support**       | Working on this repo itself: shared skills, global rules, hooks, settings, and Claude/Codex parity.                                       |
+| **frontend-design**         | Production-grade UI components and pages; avoids generic AI aesthetics.                                                                      |
 
 ### Harness Notes
 
@@ -65,13 +65,13 @@ Implemented across both Codex and Claude:
 
 ### Setup and Maintenance
 
-| Command                    | What it does                                                                                                                            |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `roborepo update`          | Re-applies the harness config on this machine: symlinks, global command install, and shell wiring. Use this after pulling repo changes. |
-| `roborepo sync`            | Reviews live config under `~/.claude` and `~/.codex` and pulls intentional changes back into this repo.                                 |
-| `roborepo doctor`          | Runs harness health checks for config files, links, helper commands, dependencies, and generated outputs.                               |
-| `roborepo verify`          | Runs post-install verification that the installed harness paths resolve correctly.                                                      |
-| `roborepo rules [--check]` | Renders generated Claude/Codex global instruction files, or verifies them with `--check`.                                               |
+| Command                    | What it does                                                                                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roborepo update`          | Re-applies the harness config on this machine: managed links, root config export, global command install, and shell wiring. Use after pulling repo changes. |
+| `roborepo sync`            | Reviews live config under `~/.claude` and `~/.codex` and pulls intentional changes back into this repo.                                                     |
+| `roborepo doctor`          | Runs harness health checks for config files, links, helper commands, dependencies, and generated outputs.                                                   |
+| `roborepo verify`          | Runs post-install verification that the installed harness paths resolve correctly.                                                                          |
+| `roborepo rules [--check]` | Renders generated Claude/Codex global instruction files, or verifies them with `--check`.                                                                   |
 
 ### Indexing
 

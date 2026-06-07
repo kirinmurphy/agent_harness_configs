@@ -25,6 +25,7 @@ Use this skill to write or revise technical documentation that helps future read
 - Put maintenance or authoring rules in skills, contributor guidance, or agent instructions instead of project docs.
 - Avoid meta language like "keep X out of Y" unless the target reader must enforce that rule during normal project work.
 - For todo docs, include only unresolved work. Do not include current behavior, completed history, or explanations that belong in guides/reference docs. Prefer concise task titles plus exact owner/source links.
+- Avoid local, personal, or machine-specific paths in repo docs unless the user explicitly asks for them or the path is essential to the document's purpose. Prefer repo-relative paths such as `docs/example.md`, placeholders such as `<repo>/...`, or harness-relative paths such as `~/.codex/...` when the location is intentionally under a tool home.
 
 ## Default Document Shape
 

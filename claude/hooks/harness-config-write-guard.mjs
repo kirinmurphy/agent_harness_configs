@@ -2,12 +2,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-// Fires on Write/Edit. When the target path lives under a symlinked harness
-// config dir (~/.claude or ~/.codex), inject a non-blocking reminder that the
-// real file is version-controlled in the harness_configs repo. Edits to an
-// existing file resolve through the symlink to the root and are safe; the trap
-// is creating a NEW plain file here instead of in harness_configs + linking.
-// Visible from any repo because settings.json is itself symlinked globally.
+// Fires on Write/Edit for managed harness home dirs (~/.claude or ~/.codex).
+// Most managed assets are symlinked into the repo. Mutable root config files are
+// active local files instead, so remind agents to merge portable changes
+// intentionally instead of assuming every HOME write is repo-backed.
+// Visible from any repo because this hook is installed globally under ~/.claude.
 
 const input = JSON.parse(fs.readFileSync(0, 'utf8'))
 const toolInput = input.tool_input || {}
@@ -30,16 +29,22 @@ if (!underGuarded) noop()
 if (path.basename(abs) === 'settings.local.json') noop()
 
 const isNewFile = !fs.existsSync(abs)
+const rootConfigPaths = new Set([
+  path.join(home, '.claude', 'settings.json'),
+  path.join(home, '.codex', 'config.toml'),
+])
 
-const reminder = isNewFile
-  ? `This path symlinks into the version-controlled harness_configs repo (~/projects/live_projects/harness_configs). Do NOT create a new file directly here. Create it in harness_configs/ (for a skill: agents/skills/<name>/SKILL.md), then run scripts/link-skills.sh to create the symlinks. See the harness-config skill.`
-  : `This file is a symlink into the version-controlled harness_configs repo (~/projects/live_projects/harness_configs). Editing here is fine — it resolves to the root file — but commit the change in that repo, not from the current working dir.`
+const reminder = rootConfigPaths.has(abs)
+  ? `This is mutable active root config, not a repo symlink. Keep user/project trust, hook approvals, profiles, and machine-local state here; merge only intentional portable defaults into the repo baseline.`
+  : isNewFile
+    ? `This path symlinks into the version-controlled harness config repo. Do NOT create a new file directly here. Create it in the repo (for a skill: agents/skills/<name>/SKILL.md), then run scripts/link-skills.sh to create the symlinks. See the roborepo-support skill.`
+    : `This file is a symlink into the version-controlled harness config repo. Editing here is fine — it resolves to the root file — but commit the change in that repo, not from the current working dir.`
 
 process.stdout.write(
   JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
-      additionalContext: `[harness-config] ${reminder}`,
+      additionalContext: `[roborepo-support] ${reminder}`,
     },
   }),
 )

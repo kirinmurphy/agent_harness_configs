@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  repo["harness_configs repo"]
+  repo["harness config repo"]
   codexRepo["codex/"]
   claudeRepo["claude/"]
   codexHome["~/.codex"]
@@ -15,8 +15,8 @@ flowchart LR
   repo --> codexRepo
   repo --> claudeRepo
 
-  codexRepo -. managed config symlinks .-> codexHome
-  claudeRepo -. managed config symlinks .-> claudeHome
+  codexRepo -. managed links and root config export .-> codexHome
+  claudeRepo -. managed links and root config export .-> claudeHome
 
   codexRuntime --- codexHome
   claudeRuntime --- claudeHome
@@ -32,12 +32,12 @@ flowchart LR
 
 ## Symlink Map
 
-Most files are symlinked directly from the repo into the tool home directory. Root config files are conditional: `~/.claude/settings.json` and `~/.codex/config.toml` may be user-owned, so the installer asks before replacing them.
+Most files are symlinked directly from the repo into the tool home directory. Root config files are different: `~/.claude/settings.json` and `~/.codex/config.toml` are mutable active files, so the installer copies repo baselines when missing or identical and asks before merging existing local content.
 
 Codex (`~/.codex/` ← `codex/`, plus skills under `~/.agents/` ← `agents/`):
 
 - `AGENTS.md`
-- `config.toml` when managed
+- `config.toml` exported as a local active file
 - `hooks.json`
 - `MANAGED_BY_HARNESS_CONFIGS.md`
 - `rules/`
@@ -48,7 +48,7 @@ Codex (`~/.codex/` ← `codex/`, plus skills under `~/.agents/` ← `agents/`):
 Claude (`~/.claude/` ← `claude/`):
 
 - `CLAUDE.md`
-- `settings.json` when managed
+- `settings.json` exported as a local active file
 - `MANAGED_BY_HARNESS_CONFIGS.md`
 - `commands/`
 - `hooks/`
@@ -56,26 +56,41 @@ Claude (`~/.claude/` ← `claude/`):
 
 ## Install Workflow Filesystem Shapes
 
-Root config files have two possible ownership shapes today: managed from this repo, or adopted into user-owned global config. A future layered model is still open work.
+Root config files are mutable user state. The repo keeps portable baseline templates, but active home files are local copies or user-owned files, not direct symlinks.
 
-### Managed
+### Managed Read-Mostly Assets
 
-Repo file is the source of truth. The global harness path observes it through a symlink.
+Repo files are the source of truth for read-mostly assets. The global harness path observes them through symlinks.
 
 ```text
-harness_configs/
-  codex/config.toml
-  claude/settings.json
-        ▲
-        │ symlink target
-        │
-~/.codex/config.toml      -> harness_configs/codex/config.toml
-~/.claude/settings.json   -> harness_configs/claude/settings.json
+~/.codex/AGENTS.md      -> <repo>/codex/AGENTS.md
+~/.codex/hooks.json     -> <repo>/codex/hooks.json
+~/.codex/rules          -> <repo>/codex/rules
+~/.agents/skills        -> <repo>/agents/skills
+~/.claude/CLAUDE.md     -> <repo>/claude/CLAUDE.md
+~/.claude/hooks         -> <repo>/claude/hooks
+~/.claude/skills        -> <repo>/claude/skills
 ```
 
-Implication: updates in this repo become active globally. User edits at the global path edit the repo file through the symlink.
+Implication: updates in this repo become active globally for these assets. User edits at the global path edit the repo file through the symlink.
 
-### Adopt: replace existing files
+### Root Config Export
+
+Repo files are portable baselines. Active global files are local copies or existing user-owned files.
+
+```text
+<repo>/codex/config.toml                # repo baseline
+~/.codex/config.toml                    # active local file
+
+<repo>/claude/settings.json             # repo baseline
+~/.claude/settings.json                 # active local file
+```
+
+Implication: runtime trust, hook approvals, local profiles, and machine-specific state stay out of repo source. If both sides exist, the installer keeps the local file and prints merge guidance instead of replacing it.
+
+### Root Config Merge Options
+
+#### Replace existing files
 
 Repo version becomes active in the global config location. Existing local files are preserved in an archive folder.
 
@@ -93,7 +108,7 @@ Repo version becomes active in the global config location. Existing local files 
 
 Implication: user does not lose old config, but must merge wanted local settings back from `archived/`.
 
-### Adopt: keep existing files
+#### Keep existing files
 
 User-owned config remains active. Repo candidates are preserved in a staging folder for later merge.
 
@@ -111,15 +126,15 @@ User-owned config remains active. Repo candidates are preserved in a staging fol
 
 Implication: user keeps current behavior, but must merge wanted repo defaults from `not_adopted/`.
 
-### Adopt: agent prompt
+#### Agent prompt
 
 User-owned config remains active. The installer prints an agent prompt that points at both local and repo paths.
 
 ```text
-harness_configs/codex/config.toml       # repo candidate
+<repo>/codex/config.toml                # repo candidate
 ~/.codex/config.toml                    # existing local version, active
 
-harness_configs/claude/settings.json    # repo candidate
+<repo>/claude/settings.json             # repo candidate
 ~/.claude/settings.json                 # existing local version, active
 ```
 
@@ -130,7 +145,7 @@ Implication: no automatic merge. The agent/user compares both sides and applies 
 Desired but not implemented:
 
 ```text
-harness_configs baseline
+repo baseline
         ↓ inherited by
 user global config overlay
         ↓ refined by
@@ -144,7 +159,7 @@ This needs either native harness include support or a generated/merged config pi
 The canonical shared source is `agents/skills/<name>/` (each a folder with a `SKILL.md`).
 The two harnesses reach it differently because Codex and Claude scan different paths:
 
-- **Codex** scans `~/.agents/skills` exclusively. So `roborepo-install.sh` links
+- **Codex** scans `~/.agents/skills` exclusively. So `install/main.sh` links
   `~/.agents/skills → agents/skills` directly (plus a transitional `~/.codex/skills →
   agents/skills` for cross-compat). Codex needs **no** per-skill intermediate dir, and there
   is no longer a `codex/skills/` directory in the repo. Codex's own `.system/` skills
@@ -168,7 +183,7 @@ There are two distinct, firewalled skill layers:
   Claude) and reached by Codex via `~/.agents/skills`; thus global on both harnesses, and
   exportable to other repos. Advisory coding skills any repo may receive.
 - **Internal** — `skills-local/<name>/`, linked **only** into this repo's own project-scope
-  dotdirs (`.claude/skills`, `.agents/skills`, `.codex/skills`) by a second pass of
+  dotdirs (`.claude/skills`, `.agents/skills`) by a second pass of
   `link-skills.sh`. These describe how to develop/maintain this repo and are **never** global and
   **never** exported. The separation is structural: the export/installer tools read only
   `agents/skills/`, with no code path to `skills-local/`.
@@ -192,7 +207,7 @@ Codex path are fan-out links from that source.
 
 `roborepo` also folds in `mcp add`/`index`/`watch`/`run` and dispatches the lifecycle verbs
 `update`/`sync`/`doctor`/`verify` to the existing bash scripts (the first install is the shell
-bootstrap `roborepo-install.sh`, so there is no root-level `install` verb). Shared skill logic lives
+bootstrap `install/main.sh`, so there is no root-level `install` verb). Shared skill logic lives
 in `scripts/cli/skill-lib.mjs`.
 
 ## Sync Flow
@@ -200,12 +215,12 @@ in `scripts/cli/skill-lib.mjs`.
 ```mermaid
 sequenceDiagram
   participant Home as ~/.codex and ~/.claude
-  participant Repo as harness_configs repo
-  participant Backup as ~/.harness-configs-backups
+  participant Repo as harness config repo
+  participant Backup as ~/.roborepo-backups
 
   Home->>Repo: ./scripts/sync-from-home.sh reviews diffs before copying selected live config
-  Repo->>Home: ./scripts/roborepo-install.sh installs repo-owned config
+  Repo->>Home: ./scripts/install/main.sh installs repo-owned config
   Home-->>Home: user-owned config collisions are preserved for adopt/agent merge
-  Repo-->>Home: symlinks created for tracked or managed config
+  Repo-->>Home: symlinks for read-mostly assets; local copies for root config
   Home-->>Home: runtime files remain local and ignored
 ```

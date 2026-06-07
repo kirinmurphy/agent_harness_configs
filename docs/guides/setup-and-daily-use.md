@@ -21,25 +21,25 @@ For install workflow tradeoffs, see [install-workflows.md](install-workflows.md)
 ### Clone the repo, then run:
 
 ```sh
-./scripts/roborepo-install.sh
+./scripts/install/main.sh
 ```
 
-This detects which harnesses are installed (Claude Code, Codex, or both), installs clean repo-managed symlinks, installs global commands, and adds shell snippets to your profile.
+This detects which harnesses are installed (Claude Code, Codex, or both), installs clean repo-managed symlinks, exports mutable root config as local files, installs global commands, and adds shell snippets to your profile.
 
 The installer has three workflows. See [install-workflows.md](install-workflows.md) for what each option offers, what it hinders, and how local user config can live alongside downloaded repo defaults.
 
-- `managed`: target path is missing or already points to this repo. The installer creates or keeps the symlink.
+- `managed`: read-mostly target path is missing or already points to this repo. The installer creates or keeps the symlink. Mutable root config is copied into a local active file instead of symlinked.
 - `adopt`: a user-owned root config exists, so the installer leaves it in place and installs only other clean harness links.
 - `agent prompt`: a user-owned root config exists and needs manual comparison, so the installer prints a merge prompt and leaves it unchanged.
 
-Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge user config or silently replace non-root conflicts. If another harness file or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. See [Config Collision Handling](../reference/internal/config-collision-handling.md) for exact behavior.
+Root config export is only automatic when the target path is missing, already an identical local copy, or still symlinked to this repo from an older install. The installer does not auto-merge user config or silently replace non-root conflicts. If another harness file or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. See [Config Collision Handling](../reference/internal/config-collision-handling.md) for exact behavior.
 
-**The script is safe to re-run** — managed links are left alone, fresh paths are linked, and user-owned root config files are preserved unless you explicitly merge them later. Re-run it for a new machine, broken symlink, added harness, or new commands/snippets added to the repo.
+**The script is safe to re-run** — managed links are left alone, fresh paths are linked, identical root config copies are accepted, and user-owned root config files are preserved unless you explicitly merge them later. Re-run it for a new machine, broken symlink, added harness, or new commands/snippets added to the repo.
 
 ### Preview without modifying anything:
 
 ```sh
-./scripts/roborepo-install.sh --dry-run
+./scripts/install/main.sh --dry-run
 ```
 
 ### Verify the install:
@@ -51,7 +51,7 @@ Managed root config is only automatic when the target path is missing or already
 ### Test installer collision behavior:
 
 ```sh
-./scripts/test-install-collisions.sh
+./scripts/test/test-install-collisions.sh
 ```
 
 This runs against temporary `HOME` directories only. See [Config Collision Handling](../reference/internal/config-collision-handling.md#validation) for what it covers.
@@ -62,7 +62,7 @@ This runs against temporary `HOME` directories only. See [Config Collision Handl
 
 ### Sync live config changes back to the repo
 
-Claude Code and Codex sometimes write directly to managed files under `~/.claude` or `~/.codex` during a session. Use this to review those live changes and selectively copy them back into the repo.
+Claude Code and Codex sometimes write directly to active files under `~/.claude` or `~/.codex` during a session. Use this to review those live changes and selectively copy intentional changes back into the repo.
 
 ```sh
 ./scripts/sync-from-home.sh
@@ -70,7 +70,7 @@ Claude Code and Codex sometimes write directly to managed files under `~/.claude
 
 For each changed item, the script shows a diff before writing to the repo. Choose `keep repo`, `overwrite repo`, or `agent prompt`.
 
-By default, sync skips user-owned root config files: `~/.claude/settings.json` and `~/.codex/config.toml`. Those files are user-owned when you chose `adopt`, or when they are regular local files instead of symlinks to this repo. Use `--include-root-config` only when you intentionally want to review and promote those local root config files into the repo baseline:
+By default, sync skips root config files: `~/.claude/settings.json` and `~/.codex/config.toml`. Those files are active local files because Claude and Codex can write personal state there. Use `--include-root-config` only when you intentionally want to review and promote selected local root config changes into the repo baseline:
 
 ```sh
 ./scripts/sync-from-home.sh --include-root-config
@@ -179,7 +179,7 @@ Git Bash is required — hook scripts and bin commands are bash and will not run
 **Install from Git Bash:**
 
 ```bash
-./scripts/roborepo-install.sh
+./scripts/install/main.sh
 ```
 
 **Config paths on Windows:**

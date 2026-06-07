@@ -6,7 +6,7 @@ old one-off commands (`harness_helper`, `harness-run`, `jcmindex`, `jcmwatch`, `
 `harness-install-local-skills`), so there is one name to remember and one entry on `PATH`.
 
 It is a Node program invoked via the `bin/roborepo` shim, installed to `~/.local/bin/roborepo`.
-`scripts/roborepo.mjs` is a thin orchestrator (usage, interactive menu, dispatch table); the
+`scripts/cli/main.mjs` is a thin orchestrator (usage, interactive menu, dispatch table); the
 subcommand implementations live under `scripts/cli/`, one module per category:
 
 | Module | Owns |
@@ -19,12 +19,12 @@ subcommand implementations live under `scripts/cli/`, one module per category:
 
 Pure `node:` built-ins — no external `zip`/`unzip`/`ln` — so it runs on macOS, Linux, and Windows
 (Git Bash). On Windows without Git Bash, call the Node entry directly:
-`node <repo>/scripts/roborepo.mjs <args>`.
+`node <repo>/scripts/cli/main.mjs <args>`.
 
 ## Install and PATH
 
 `roborepo` is wired automatically by the installer — there is no manual PATH step on macOS/Linux.
-`scripts/install/install-global-commands.sh` (run by `scripts/roborepo-install.sh`, and again by every
+`scripts/install/install-global-commands.sh` (run by `scripts/install/main.sh`, and again by every
 `roborepo update`):
 
 1. symlinks `bin/roborepo` into `~/.local/bin/roborepo`, and
@@ -123,9 +123,10 @@ relative or absolute — roborepo resolves it to an absolute path before use.
 
 ### Categories
 
-- **Setup** — `update` re-applies the harness config on this machine (re-runs the symlink/command/
-  shell install to pick up new config). The *first* install is the shell bootstrap
-  `scripts/roborepo-install.sh` — that is what puts `roborepo` on `PATH` — so the CLI has no
+- **Setup** — `update` re-applies the harness config on this machine (re-runs managed links,
+  root config export, command install, and shell install to pick up new config). The *first*
+  install is the shell bootstrap
+  `scripts/install/main.sh` — that is what puts `roborepo` on `PATH` — so the CLI has no
   separate `install` verb; once `roborepo` exists you only ever `update`.
 - **Day to day** — `index code|docs` are one-shot indexers; `watch code` runs a live indexer (and
   writes the pidfile the Claude SessionStart hook reads to report watcher status); `mcp add`
@@ -146,7 +147,7 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   and post-install checks; `rules` renders generated Claude/Codex global instruction files, or
   verifies them with `--check`. These dispatch to the existing bash scripts.
 
-The lifecycle verbs dispatch to `scripts/roborepo-install.sh`, `scripts/sync-from-home.sh`,
+The lifecycle verbs dispatch to `scripts/install/main.sh`, `scripts/sync-from-home.sh`,
 `scripts/doctor.sh`, and `scripts/verify-install.sh`; those filenames are an internal detail.
 Most maintainer-only scripts (`test-*.sh`) are intentionally not exposed through `roborepo`.
 `skill sync` and `rules` are exposed because shared-skill and generated-rule editing are documented
@@ -170,7 +171,7 @@ touching anything.
 
 ## Tests
 
-`scripts/test-roborepo.sh` smoke-tests the subcommands (skill install/link alias/sync/prune/uninstall/
+`scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill install/link alias/sync/prune/uninstall/
 conflict, export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real Codex/Claude writes
 against a throwaway harness root, lifecycle/rules dispatch, menu fallback) against throwaway temp repos.
 It touches no global state.

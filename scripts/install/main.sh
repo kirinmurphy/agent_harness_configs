@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 dry_run=0
-backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
+backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 export HARNESS_CONFIG_BACKUP_ROOT="${backup_root}"
 
 case "${1:-}" in
@@ -31,7 +31,7 @@ case "$(uname -s 2>/dev/null || echo unknown)" in
   MINGW*|MSYS*|CYGWIN*)
     echo "Windows + bash detected (Git Bash or similar)."
     if command -v powershell.exe &>/dev/null; then
-      echo "Running PowerShell installer for symlinks..."
+      echo "Running PowerShell installer..."
       ps_args=(-ExecutionPolicy Bypass -File "${repo_root}/scripts/install/install-windows.ps1")
       [[ $dry_run -eq 1 ]] && ps_args+=(-DryRun)
       powershell.exe "${ps_args[@]}"
@@ -131,6 +131,8 @@ preflight_root_config() {
   if [[ -L "${home_path}" ]]; then
     current="$(readlink "${home_path}")"
     if [[ "${current}" == "${src}" ]]; then
+      # Root config files are mutable user state. Existing repo symlinks are
+      # converted to local copies during the install phase.
       return 0
     fi
   fi
@@ -139,9 +141,15 @@ preflight_root_config() {
     return 0
   fi
 
+  if [[ -f "${home_path}" && ! -L "${home_path}" ]]; then
+    if cmp -s "${src}" "${home_path}"; then
+      return 0
+    fi
+  fi
+
   if [[ $dry_run -eq 1 ]]; then
     echo "collision: ${home_path}"
-    echo "dry-run: would ask whether to adopt existing config or print agent merge prompt"
+    echo "dry-run: would ask whether to keep existing config or print agent merge prompt"
     describe_user_config "${harness}" "${home_path}"
     return 0
   fi
@@ -180,7 +188,7 @@ fi
 # Harness-agnostic setup
 run_with_dry_args "${repo_root}/scripts/install/install-gitignore-globals.sh"
 
-# Harness-specific symlinks
+# Harness-specific managed links and root config export
 if [[ $has_claude -eq 1 ]]; then
   run_with_dry_args "${repo_root}/scripts/install/install-claude.sh"
 else

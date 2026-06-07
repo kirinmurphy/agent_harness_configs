@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
+backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 dry_run=0
 
 case "${1:-}" in
@@ -39,7 +39,7 @@ fi
 if [[ "${HARNESS_ADOPT_CODEX_CONFIG:-0}" == "1" ]]; then
   echo "skip: ${HOME}/.codex/config.toml left in place"
 else
-  link_user_config "codex" "codex/config.toml" "${HOME}/.codex/config.toml"
+  export_user_config "codex" "codex/config.toml" "${HOME}/.codex/config.toml"
 fi
 link_item_clean "codex/AGENTS.md"                     "${HOME}/.codex/AGENTS.md"
 link_item_clean "codex/hooks.json"                    "${HOME}/.codex/hooks.json"

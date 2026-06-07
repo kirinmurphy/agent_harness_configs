@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// roborepo — one CLI for everything a consumer of harness_configs does in their own repo.
+// roborepo — one CLI for everything a consumer of the harness config does in their own repo.
 //
-// This file is the orchestrator: usage text, the interactive menu, and the dispatch table.
-// The actual subcommand implementations live under scripts/cli/, grouped by category:
+// This file (scripts/cli/main.mjs) is the orchestrator: usage text, the interactive menu, and
+// the dispatch table. The actual subcommand implementations live alongside it under scripts/cli/:
 //
 //   cli/skills.mjs   skill export / skill install
 //   cli/index.mjs    index code|docs, watch code, run
@@ -18,7 +18,7 @@
 //     roborepo skill export        bundle shared skills into a .zip + copy into this repo
 //     roborepo skill install       symlink this repo's .agents/skills into existing .claude/.codex homes
 //     roborepo skill link          alias for skill install
-//     roborepo skill sync          sync harness_configs shared skill links (maintainer)
+//     roborepo skill sync          sync harness shared skill links (maintainer)
 //
 //   index   index the current repo for the MCP servers
 //     roborepo index code [path]   jcodemunch  (code index)
@@ -34,9 +34,9 @@
 //   run     run a command, capturing + truncating noisy output
 //     roborepo run <cmd> [args...]
 //
-//   lifecycle  maintain the harness_configs install on this machine
+//   lifecycle  maintain the harness config install on this machine
 //     roborepo update  [--dry-run]   re-apply repo-managed config (symlinks, commands, shell)
-//       (the FIRST install is the shell bootstrap scripts/roborepo-install.sh — that is what
+//       (the FIRST install is the shell bootstrap scripts/install/main.sh — that is what
 //        puts roborepo on PATH; from then on you only ever `update`)
 //     roborepo sync                  review/pull live config back into the repo
 //     roborepo doctor  [--installed] health check
@@ -47,26 +47,26 @@
 // relative or absolute — roborepo always resolves it to an absolute path before use.
 //
 // Most maintainer-only scripts (test-*.sh) are deliberately NOT exposed here — they edit the
-// harness_configs source itself, not anything a consumer touches. The exceptions are `skill sync`
+// harness config source itself, not anything a consumer touches. The exceptions are `skill sync`
 // and `rules`, because shared-skill and generated-rule editing are documented workflows.
-// The lifecycle verbs above dispatch to the existing bash scripts (roborepo-install.sh, etc.);
+// The lifecycle verbs above dispatch to the existing bash scripts (install/main.sh, etc.);
 // those filenames are an internal detail.
 
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { selectMenu } from "./cli/skill-lib.mjs";
-import { repoRoot } from "./cli/paths.mjs";
-import { skillLink, skillExport } from "./cli/skills.mjs";
-import { indexCode, indexDocs, watchCode, runCmd } from "./cli/index.mjs";
-import { mcpAdd } from "./cli/mcp.mjs";
+import { selectMenu } from "./skill-lib.mjs";
+import { repoRoot } from "./paths.mjs";
+import { skillLink, skillExport } from "./skills.mjs";
+import { indexCode, indexDocs, watchCode, runCmd } from "./index.mjs";
+import { mcpAdd } from "./mcp.mjs";
 
 const argv = process.argv.slice(2);
 
 // --------------------------------------------------------------------------- help
 
 function usage() {
-  console.log(`roborepo — harness_configs CLI
+  console.log(`roborepo — harness config CLI
 
 usage:
   roborepo                       interactive menu
@@ -84,7 +84,7 @@ usage:
 
   roborepo run <cmd> [args...]
 
-  roborepo update  [--dry-run]   re-apply harness config (first install: scripts/roborepo-install.sh)
+  roborepo update  [--dry-run]   re-apply harness config (first install: scripts/install/main.sh)
   roborepo sync                  pull live config back into the repo
   roborepo doctor  [--installed] health check
   roborepo verify                post-install verification
@@ -202,10 +202,10 @@ async function dispatch(args) {
       return runCmd(sub === undefined ? [] : [sub, ...rest]);
 
     // Lifecycle verbs -> existing bash scripts. The first install always happens via the shell
-    // bootstrap (scripts/roborepo-install.sh) — that's how roborepo lands on PATH — so the CLI
+    // bootstrap (scripts/install/main.sh) — that's how roborepo lands on PATH — so the CLI
     // only ever re-applies: `update` re-runs that same script to pick up new config.
     case "update":
-      return runRepoScript("scripts/roborepo-install.sh", [sub, ...rest].filter(Boolean));
+      return runRepoScript("scripts/install/main.sh", [sub, ...rest].filter(Boolean));
     case "sync":
       return runRepoScript("scripts/sync-from-home.sh", [sub, ...rest].filter(Boolean));
     case "doctor":

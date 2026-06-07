@@ -5,10 +5,10 @@ set -euo pipefail
 # Runs subcommands against throwaway temp repos and asserts on results. The consumer-facing
 # subcommands operate on a target repo dir and never touch ~/.claude / ~/.codex.
 #
-# Usage: scripts/test-roborepo.sh
+# Usage: scripts/test/test-roborepo.sh
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cli="${repo_root}/scripts/roborepo.mjs"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cli="${repo_root}/scripts/cli/main.mjs"
 pass=0
 fail=0
 quiet=0
@@ -230,26 +230,26 @@ assert "mcp add: invalid transport rejected" \
   bash -c "! node '${cli}' mcp add https://mcp.example.com/mcp --transport=websocket --dry-run >/dev/null 2>&1"
 
 # Real write tests run against a throwaway harness root. roborepo derives repoRoot from
-# scripts/cli/paths.mjs (two levels up), so copying scripts/roborepo.mjs + scripts/cli/ lets us
-# test writes without touching this repo. roborepo.mjs imports every cli/ module at load time.
+# scripts/cli/paths.mjs (two levels up), so copying scripts/cli/ (which holds the entry main.mjs
+# plus every module) lets us test writes without touching this repo. main.mjs imports every
+# cli/ module at load time.
 mcp_harness="${work}/mcp-harness"
 mkdir -p "${mcp_harness}/scripts/cli" "${mcp_harness}/codex" "${mcp_harness}/claude"
-cp "${repo_root}/scripts/roborepo.mjs" "${mcp_harness}/scripts/roborepo.mjs"
 cp "${repo_root}"/scripts/cli/*.mjs "${mcp_harness}/scripts/cli/"
 printf '[features]\nhooks = true\n' > "${mcp_harness}/codex/config.toml"
 printf '{"permissions":{"allow":["Read"]}}\n' > "${mcp_harness}/claude/settings.json"
 
-( cd "${work}" && node "${mcp_harness}/scripts/roborepo.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
+( cd "${work}" && node "${mcp_harness}/scripts/cli/main.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
 assert "mcp add: writes Codex HTTP url block" \
   grep -q 'url = "https://mcp.example.com/mcp"' "${mcp_harness}/codex/config.toml"
 
-( cd "${work}" && node "${mcp_harness}/scripts/roborepo.mjs" mcp add example-mcp --name=stdio-example --only-codex -- --flag value >/dev/null )
+( cd "${work}" && node "${mcp_harness}/scripts/cli/main.mjs" mcp add example-mcp --name=stdio-example --only-codex -- --flag value >/dev/null )
 assert "mcp add: writes Codex stdio command block" \
   grep -q 'command = "uvx"' "${mcp_harness}/codex/config.toml"
 assert "mcp add: writes Codex stdio args block" \
   grep -q 'args = \["example-mcp", "--flag", "value"\]' "${mcp_harness}/codex/config.toml"
 
-( cd "${work}" && node "${mcp_harness}/scripts/roborepo.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
+( cd "${work}" && node "${mcp_harness}/scripts/cli/main.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
 assert "mcp add: Codex write is idempotent" \
   bash -c "test \"\$(grep -c '^\\[mcp_servers.example\\]' '${mcp_harness}/codex/config.toml')\" = 1"
 
@@ -260,13 +260,13 @@ mkdir -p "${fake_bin}"
   printf 'printf "%%s\\n" "$*" > "%s"\n' "${work}/fake-claude-args.txt"
 } > "${fake_bin}/claude"
 chmod +x "${fake_bin}/claude"
-( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/roborepo.mjs" mcp add perm-mcp --name=permtest --only-claude >/dev/null )
+( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/cli/main.mjs" mcp add perm-mcp --name=permtest --only-claude >/dev/null )
 assert "mcp add: Claude registration command invoked" \
   grep -q 'mcp add --scope user permtest -- uvx perm-mcp' "${work}/fake-claude-args.txt"
 assert "mcp add: Claude permission written after successful registration" \
   grep -q '"mcp__permtest"' "${mcp_harness}/claude/settings.json"
 
-( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/roborepo.mjs" mcp add all-mcp --name=alltest -- --all-flag >/dev/null )
+( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/cli/main.mjs" mcp add all-mcp --name=alltest -- --all-flag >/dev/null )
 assert "mcp add: default target invokes Claude registration" \
   grep -q 'mcp add --scope user alltest -- uvx all-mcp --all-flag' "${work}/fake-claude-args.txt"
 assert "mcp add: default target writes Claude permission" \
@@ -280,7 +280,7 @@ assert "mcp add: default target writes Codex config" \
 } > "${fake_bin}/claude"
 chmod +x "${fake_bin}/claude"
 assert "mcp add: Claude registration failure exits non-zero" \
-  bash -c "cd '${work}' && ! env PATH='${fake_bin}':\"\${PATH}\" node '${mcp_harness}/scripts/roborepo.mjs' mcp add fail-mcp --name=failtest >/dev/null 2>&1"
+  bash -c "cd '${work}' && ! env PATH='${fake_bin}':\"\${PATH}\" node '${mcp_harness}/scripts/cli/main.mjs' mcp add fail-mcp --name=failtest >/dev/null 2>&1"
 assert "mcp add: Claude failure does not write permission" \
   bash -c "! grep -q '\"mcp__failtest\"' '${mcp_harness}/claude/settings.json'"
 assert "mcp add: Claude failure does not write Codex config" \

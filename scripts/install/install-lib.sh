@@ -125,6 +125,75 @@ link_item_clean() {
   echo "link: ${home_path} -> ${src}"
 }
 
+export_user_config() {
+  local harness="$1"
+  local repo_rel="$2"
+  local home_path="$3"
+  local src="${repo_root}/${repo_rel}"
+
+  if [[ ! -e "${src}" ]]; then
+    echo "missing source: ${src}" >&2
+    return 1
+  fi
+
+  if [[ "${dry_run}" -eq 0 ]]; then
+    mkdir -p "$(dirname "${home_path}")"
+  fi
+
+  if [[ -L "${home_path}" ]]; then
+    local current
+    current="$(readlink "${home_path}")"
+    if [[ "${current}" == "${src}" ]]; then
+      if [[ "${dry_run}" -eq 0 ]]; then
+        rm "${home_path}"
+        cp "${src}" "${home_path}"
+      fi
+      echo "copy: ${home_path} <- ${src} (converted from repo symlink)"
+      return 0
+    fi
+  fi
+
+  if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
+    if [[ "${dry_run}" -eq 0 ]]; then
+      cp "${src}" "${home_path}"
+    fi
+    echo "copy: ${home_path} <- ${src}"
+    return 0
+  fi
+
+  if [[ -f "${home_path}" && ! -L "${home_path}" ]]; then
+    if cmp -s "${src}" "${home_path}"; then
+      echo "ok: ${home_path}"
+      return 0
+    fi
+  fi
+
+  if [[ "${dry_run}" -eq 1 ]]; then
+    echo "collision: ${home_path}"
+    echo "dry-run: would ask whether to keep existing config or print agent merge prompt"
+    describe_user_config "${harness}" "${home_path}"
+    return 0
+  fi
+
+  if [[ ! -t 0 ]]; then
+    echo "error: ${home_path} exists and stdin is not interactive." >&2
+    echo "Run interactively, move the file aside, or use --dry-run to inspect root config merge needs." >&2
+    return 1
+  fi
+
+  CONFIG_COLLISION_ACTION=""
+  choose_config_collision_action "${harness}" "${repo_rel}" "${home_path}"
+  case "${CONFIG_COLLISION_ACTION}" in
+    adopt|agent)
+      echo "skip: ${home_path} left in place"
+      ;;
+    abort)
+      echo "abort: install canceled by user" >&2
+      exit 1
+      ;;
+  esac
+}
+
 preflight_clean_item() {
   local repo_rel="$1"
   local home_path="$2"
@@ -206,7 +275,7 @@ Compare harness config at:
 With local user config at:
   ${home_path}
 
-Default stance: adopt the local user config as source of truth. Preserve existing local behavior unless you can prove a harness change can be added safely.
+Default stance: keep the local user config as source of truth. Preserve existing local behavior unless you can prove a harness change can be added safely.
 
 Selected install direction: ${mode}.
 
@@ -269,7 +338,7 @@ config_collision_action() {
         ;;
       2|agent|prompt)
         print_agent_merge_prompt "${harness}" "manual agent merge before install" "${repo_rel}" "${home_path}"
-        if confirm_choice "Skip this config symlink for now?"; then
+        if confirm_choice "Skip this root config export for now?"; then
           CONFIG_COLLISION_ACTION="agent"
           return 0
         fi
@@ -291,57 +360,6 @@ choose_config_collision_action() {
   local home_path="$3"
 
   config_collision_action "${harness}" "${repo_rel}" "${home_path}"
-}
-
-link_user_config() {
-  local harness="$1"
-  local repo_rel="$2"
-  local home_path="$3"
-  local src="${repo_root}/${repo_rel}"
-
-  if [[ ! -e "${src}" ]]; then
-    echo "missing source: ${src}" >&2
-    return 1
-  fi
-
-  if [[ -L "${home_path}" ]]; then
-    local current
-    current="$(readlink "${home_path}")"
-    if [[ "${current}" == "${src}" ]]; then
-      echo "ok: ${home_path}"
-      return 0
-    fi
-  fi
-
-  if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
-    link_item "${repo_rel}" "${home_path}"
-    return 0
-  fi
-
-  if [[ "${dry_run}" -eq 1 ]]; then
-    echo "collision: ${home_path}"
-    echo "dry-run: would ask whether to adopt existing config or print agent merge prompt"
-    describe_user_config "${harness}" "${home_path}"
-    return 0
-  fi
-
-  if [[ ! -t 0 ]]; then
-    echo "error: ${home_path} exists and stdin is not interactive." >&2
-    echo "Run interactively, move the file aside, or use --dry-run to inspect collisions." >&2
-    return 1
-  fi
-
-  CONFIG_COLLISION_ACTION=""
-  choose_config_collision_action "${harness}" "${repo_rel}" "${home_path}"
-  case "${CONFIG_COLLISION_ACTION}" in
-    adopt|agent)
-      echo "skip: ${home_path} left in place"
-      ;;
-    abort)
-      echo "abort: install canceled by user" >&2
-      exit 1
-      ;;
-  esac
 }
 
 choose_profile() {

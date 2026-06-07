@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 zshrc="${HOME}/.zshrc"
-backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
+backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 dry_run=0
 
 case "${1:-}" in
@@ -50,7 +50,7 @@ done
 
 # Prune stale snippet `source` lines from a prior install. Earlier versions sourced
 # shell/jcodemunch.zsh and shell/jdocmunch.zsh; those helpers were folded into roborepo, so any
-# `source ".../harness_configs/shell/*.zsh"` line that is no longer in source_snippets is removed.
+# stale `source ".../shell/*.zsh"` line that is no longer in source_snippets is removed.
 # Also drops the "# Harness config shell helpers" marker comment that preceded each.
 prune_stale_snippets() {
   [[ -e "${zshrc}" ]] || return 0

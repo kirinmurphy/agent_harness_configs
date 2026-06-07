@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
+backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 dry_run=0
 
 case "${1:-}" in
@@ -33,12 +33,13 @@ fi
 if [[ "${HARNESS_ADOPT_CLAUDE_CONFIG:-0}" == "1" ]]; then
   echo "skip: ${HOME}/.claude/settings.json left in place"
 else
-  link_user_config "claude" "claude/settings.json" "${HOME}/.claude/settings.json"
+  export_user_config "claude" "claude/settings.json" "${HOME}/.claude/settings.json"
 fi
 link_item_clean "claude/CLAUDE.md"                    "${HOME}/.claude/CLAUDE.md"
 link_item_clean "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
 link_item_clean "claude/commands"                     "${HOME}/.claude/commands"
 link_item_clean "claude/hooks"                        "${HOME}/.claude/hooks"
 link_item_clean "claude/skills"                       "${HOME}/.claude/skills"
+remove_repo_link "${HOME}/.claude/plugins/blocklist.json"
 remove_repo_link "${HOME}/.claude/plugins/known_marketplaces.json"
 remove_repo_link "${HOME}/.claude/plugins/installed_plugins.json"

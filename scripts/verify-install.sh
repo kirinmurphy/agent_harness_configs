@@ -70,8 +70,18 @@ PY
   pass_msg "${home_path} -> ${expected}"
 }
 
+check_active_file() {
+  local home_path="$1"
+  if [[ -f "${home_path}" && ! -L "${home_path}" ]]; then
+    pass_msg "${home_path} is active local file"
+  else
+    echo "fail: ${home_path} is not an active local file"
+    failed=1
+  fi
+}
+
 check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
-check_link "codex/config.toml" "${HOME}/.codex/config.toml"
+check_active_file "${HOME}/.codex/config.toml"
 check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"
 check_link "codex/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.codex/MANAGED_BY_HARNESS_CONFIGS.md"
 check_link "codex/rules" "${HOME}/.codex/rules"
@@ -80,12 +90,11 @@ check_link "agents/skills" "${HOME}/.agents/skills"
 check_link "agents/skills" "${HOME}/.codex/skills"
 
 check_link "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-check_link "claude/settings.json" "${HOME}/.claude/settings.json"
+check_active_file "${HOME}/.claude/settings.json"
 check_link "claude/MANAGED_BY_HARNESS_CONFIGS.md" "${HOME}/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
 check_link "claude/commands" "${HOME}/.claude/commands"
 check_link "claude/hooks" "${HOME}/.claude/hooks"
 check_link "claude/skills" "${HOME}/.claude/skills"
-check_link "claude/plugins/blocklist.json" "${HOME}/.claude/plugins/blocklist.json"
 
 # Only Claude links skills per-skill (~/.claude/skills/<n> is its own symlink). Codex uses
 # whole-dir symlinks (~/.agents/skills, ~/.codex/skills -> agents/skills), verified above; the

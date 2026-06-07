@@ -1,21 +1,21 @@
 ---
 name: harness-platform-dev
 description: >
-  INTERNAL to the harness_configs repo. Use when developing or maintaining the platform
+  INTERNAL to this repo. Use when developing or maintaining the platform
   ITSELF — its install pipeline, symlink model, skill-linking machinery, rules generation,
   sync/verify scripts, bin/ commands, and the consumer CLI (roborepo). This is
   the mechanic's manual: which doc answers which question, plus the operational judgment that
-  is NOT in the docs. Triggers: "how does this repo work", "harness_configs architecture",
+  is NOT in the docs. Triggers: "how does this repo work", "harness config architecture",
   "install scripts", "add an install step", "the symlink model", working on scripts/ or bin/.
-  SKIP for ordinary skill/rule CONTENT authoring — use harness-config for that instead.
+  SKIP for ordinary skill/rule CONTENT authoring — use roborepo-support for that instead.
   This skill is never shared globally or exported to client repos.
 ---
 
 # Harness Platform Development (internal)
 
-Mechanic's manual for developing **harness_configs** itself. Distinct from `harness-config`
+Mechanic's manual for developing this repo itself. Distinct from `roborepo-support`
 (authoring shared skill/rule *content*). This skill is firewalled to this repo — it loads only
-when an agent works inside harness_configs.
+when an agent works inside this repo.
 
 **This file does NOT restate the docs.** The docs are the source of truth; this skill is a map
 to them plus the judgment that isn't written down. Read the doc, then apply the gotchas below.
@@ -36,12 +36,16 @@ to them plus the judgment that isn't written down. Read the doc, then apply the 
 
 - `claude/` + `codex/` + `agents/` = SOURCE symlinked into the user's GLOBAL
   `~/.claude`/`~/.codex`/`~/.agents`.
-- `.claude/` + `.codex/` + `.agents/` (dotdirs) = THIS repo's own PROJECT-SCOPE config, NOT global.
+- `.claude/` + `.agents/` (dotdirs) = THIS repo's own PROJECT-SCOPE skill config, NOT global.
 - `agents/skills/` = canonical shared/advisory layer (global + exportable; Codex reads it via
   `~/.agents/skills`, Claude via per-skill links in `claude/skills/`). `skills-local/` = internal
   layer (this repo only). The firewall between them is structural — see below.
-- Codex scans `.agents/skills` **exclusively** for skills (no `.codex/skills` fallback);
-  `~/.codex/skills` is kept only as a transitional cross-compat link.
+- Codex scans `.agents/skills` **exclusively** for project skills (no `.codex/skills` fallback).
+- Shared skills use `agents/skills/` as canonical source; repo-local skills use `skills-local/`
+  as canonical source and symlink into project-scope harness folders.
+- Mutable global config files should not be direct symlinks to repo source; use a generated or
+  exported active file so runtime trust, hook approval, and machine-local state stay outside the
+  shared baseline.
 
 Everything else (the two symlink levels, the layer table) lives in
 `docs/reference/services/architecture.md`. Read it there.
@@ -81,13 +85,13 @@ Everything else (the two symlink levels, the layer table) lives in
 - **Codex skill discovery path (VERIFIED).** Codex scans `.agents/skills` — repo-up-to-root for
   project scope, and `~/.agents/skills` globally — and does NOT read any `.codex/skills` path
   (per OpenAI Codex docs). Claude Code auto-loads `<repo>/.claude/skills/` for project scope. The
-  `~/.codex/skills` and repo `.codex/skills` links we still create are transitional cross-compat
-  only; Codex ignores them. Symlinked skill folders are followed, so linking these dirs at the
-  canonical `agents/skills` source works.
+  `~/.codex/skills` global link is transitional cross-compat only; Codex ignores `.codex/skills`
+  for discovery. Symlinked skill folders are followed, so linking these dirs at the canonical
+  `agents/skills` source works.
 
 ## The `roborepo` CLI (the single consumer front door)
 
-`roborepo` is the ONE command a consumer runs. `scripts/roborepo.mjs` is a thin orchestrator
+`roborepo` is the ONE command a consumer runs. `scripts/cli/main.mjs` is a thin orchestrator
 (usage, menu, dispatch); the subcommand impls live under `scripts/cli/` — `skills.mjs`,
 `index.mjs`, `mcp.mjs`, `paths.mjs` (shared `repoRoot`/`sharedSkillsDir`), and `skill-lib.mjs`
 (shared Node core: zip, prompts, symlink helpers). Bash shim is `bin/roborepo`. No-arg =
@@ -106,20 +110,20 @@ Subcommands, grouped by category:
   (`claude mcp add` + a `mcp__<name>` permission in `claude/settings.json`) and Codex (a block in
   `codex/config.toml`). Presets for `jcodemunch`/`jdocmunch`; URLs default to HTTP transport.
 - `update`/`sync`/`doctor`/`verify` — lifecycle verbs that DISPATCH to the existing bash scripts
-  (`roborepo-install.sh`, `sync-from-home.sh`, `doctor.sh`, `verify-install.sh`). There is no
-  `install` verb: the FIRST install is the shell bootstrap `roborepo-install.sh` (that is what puts
+  (`install/main.sh`, `sync-from-home.sh`, `doctor.sh`, `verify-install.sh`). There is no
+  `install` verb: the FIRST install is the shell bootstrap `install/main.sh` (that is what puts
   `roborepo` on PATH), so from the CLI you only ever `update` — which re-runs that same install
   script to pick up new config.
 
 Adding a new `roborepo` subcommand: write/extend the module under `scripts/cli/`, export the
-handler, then wire it in `roborepo.mjs` (import + `dispatch()` case + usage line + menu item). Only
+handler, then wire it in `cli/main.mjs` (import + `dispatch()` case + usage line + menu item). Only
 ONE global command exists (`roborepo`), so the old per-command 3-place wiring is gone —
 `install-global-commands.sh`, `doctor.sh`, `verify-install.sh` each reference only `roborepo`.
 MAINTAINER scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) stay OUT of `roborepo`.
 
-**Tests:** `scripts/test-roborepo.sh` smoke-tests the subcommands (skill link/prune/uninstall/
+**Tests:** `scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill link/prune/uninstall/
 conflict, export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real
 Codex/Claude writes against a throwaway harness root, lifecycle dispatch, menu fallback) against
-throwaway temp repos. Run it after touching `roborepo.mjs` or anything under `scripts/cli/`.
+throwaway temp repos. Run it after touching `cli/main.mjs` or anything under `scripts/cli/`.
 `doctor.sh` also asserts `skill-lib.sh` and `cli/skill-lib.mjs` agree on the skill list (parity
 guard).

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 pass() {
   echo "ok: $1"
@@ -42,6 +42,22 @@ assert_symlink_target() {
   [[ -L "$link_path" && "$(readlink "$link_path")" == "$target" ]] && pass "$label" || fail "$label"
 }
 
+assert_not_symlink() {
+  local path="$1"
+  local label="$2"
+
+  [[ -e "$path" && ! -L "$path" ]] && pass "$label" || fail "$label"
+}
+
+assert_regular_file_contains() {
+  local file="$1"
+  local pattern="$2"
+  local label="$3"
+
+  [[ -f "$file" && ! -L "$file" ]] || fail "$label"
+  assert_file_contains "$file" "$pattern" "$label"
+}
+
 make_home() {
   local tmp
   tmp="$(mktemp -d)"
@@ -63,7 +79,7 @@ run_expect_install() {
   command -v expect >/dev/null 2>&1 || fail "expect is required for interactive installer tests"
   HC_REPO="$repo_root" HC_HOME="$home_dir" HC_EXPECT_SCRIPT="$script" expect <<'EOF' >"$output" 2>&1
 set timeout 20
-spawn env HOME=$env(HC_HOME) $env(HC_REPO)/scripts/roborepo-install.sh
+spawn env HOME=$env(HC_HOME) $env(HC_REPO)/scripts/install/main.sh
 source $env(HC_EXPECT_SCRIPT)
 expect eof
 set wait_result [wait]
@@ -76,10 +92,93 @@ test_fresh_managed() {
   local home_dir
   home_dir="$(make_home)"
 
-  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/out"
 
-  assert_symlink_target "$home_dir/.claude/settings.json" "$repo_root/claude/settings.json" "fresh Claude config symlink"
-  assert_symlink_target "$home_dir/.codex/config.toml" "$repo_root/codex/config.toml" "fresh Codex config symlink"
+  assert_regular_file_contains "$home_dir/.claude/settings.json" "permissions" "fresh Claude config copied as local file"
+  assert_regular_file_contains "$home_dir/.codex/config.toml" "mcp_servers.jcodemunch" "fresh Codex config copied as local file"
+}
+
+test_existing_root_symlinks_convert_to_local_copies() {
+  local home_dir
+  home_dir="$(make_home)"
+
+  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/out"
+
+  assert_file_contains "$home_dir/out" "converted from repo symlink" "managed root config symlinks are converted"
+  assert_regular_file_contains "$home_dir/.claude/settings.json" "permissions" "converted Claude config is local file"
+  assert_regular_file_contains "$home_dir/.codex/config.toml" "mcp_servers.jcodemunch" "converted Codex config is local file"
+}
+
+test_direct_harness_installers_export_root_configs() {
+  local home_dir
+  home_dir="$(make_home)"
+
+  HOME="$home_dir" "$repo_root/scripts/install/install-claude.sh" >"$home_dir/claude.out"
+  HOME="$home_dir" "$repo_root/scripts/install/install-codex.sh" >"$home_dir/codex.out"
+
+  assert_regular_file_contains "$home_dir/.claude/settings.json" "permissions" "direct Claude installer copies root config as local file"
+  assert_regular_file_contains "$home_dir/.codex/config.toml" "mcp_servers.jcodemunch" "direct Codex installer copies root config as local file"
+  assert_symlink_target "$home_dir/.claude/CLAUDE.md" "$repo_root/claude/CLAUDE.md" "direct Claude installer links read-mostly assets"
+  assert_symlink_target "$home_dir/.codex/AGENTS.md" "$repo_root/codex/AGENTS.md" "direct Codex installer links read-mostly assets"
+  assert_symlink_target "$home_dir/.agents/skills" "$repo_root/agents/skills" "direct Codex installer links canonical .agents skills"
+}
+
+test_direct_harness_installers_convert_root_symlinks() {
+  local home_dir
+  home_dir="$(make_home)"
+
+  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+
+  HOME="$home_dir" "$repo_root/scripts/install/install-claude.sh" >"$home_dir/claude.out"
+  HOME="$home_dir" "$repo_root/scripts/install/install-codex.sh" >"$home_dir/codex.out"
+
+  assert_file_contains "$home_dir/claude.out" "converted from repo symlink" "direct Claude installer converts stale root symlink"
+  assert_file_contains "$home_dir/codex.out" "converted from repo symlink" "direct Codex installer converts stale root symlink"
+  assert_not_symlink "$home_dir/.claude/settings.json" "direct Claude converted config is not a symlink"
+  assert_not_symlink "$home_dir/.codex/config.toml" "direct Codex converted config is not a symlink"
+}
+
+test_direct_claude_installer_removes_stale_plugin_symlink() {
+  local home_dir
+  home_dir="$(make_home)"
+  mkdir -p "$home_dir/.claude/plugins"
+  ln -s "$repo_root/claude/plugins/blocklist.json" "$home_dir/.claude/plugins/blocklist.json"
+
+  HOME="$home_dir" "$repo_root/scripts/install/install-claude.sh" >"$home_dir/out"
+
+  [[ ! -e "$home_dir/.claude/plugins/blocklist.json" && ! -L "$home_dir/.claude/plugins/blocklist.json" ]] \
+    && pass "direct Claude installer removes stale repo plugin symlink" \
+    || fail "direct Claude installer removes stale repo plugin symlink"
+}
+
+test_verify_install_requires_active_root_configs() {
+  local home_dir
+  home_dir="$(make_home)"
+
+  if ! command -v uvx >/dev/null 2>&1; then
+    pass "verify-install active-root fixture skipped; uvx unavailable"
+    return 0
+  fi
+
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/install.out"
+  PATH="$home_dir/.local/bin:$PATH" HOME="$home_dir" "$repo_root/scripts/verify-install.sh" --quiet >"$home_dir/verify-pass.out" 2>&1 \
+    && pass "verify-install accepts copied active root configs" \
+    || fail "verify-install accepts copied active root configs" "$home_dir/verify-pass.out"
+
+  rm "$home_dir/.claude/settings.json" "$home_dir/.codex/config.toml"
+  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+
+  if PATH="$home_dir/.local/bin:$PATH" HOME="$home_dir" "$repo_root/scripts/verify-install.sh" --quiet >"$home_dir/verify-fail.out" 2>&1; then
+    fail "verify-install rejects stale root config symlinks" "$home_dir/verify-fail.out"
+  fi
+
+  assert_file_contains "$home_dir/verify-fail.out" "$home_dir/.claude/settings.json is not an active local file" "verify-install rejects stale Claude root symlink"
+  assert_file_contains "$home_dir/verify-fail.out" "$home_dir/.codex/config.toml is not an active local file" "verify-install rejects stale Codex root symlink"
 }
 
 test_dry_run_collision_no_mutation() {
@@ -87,15 +186,15 @@ test_dry_run_collision_no_mutation() {
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
 
-  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" --dry-run >"$home_dir/out"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" --dry-run >"$home_dir/out"
 
   assert_file_contains "$home_dir/out" "collision: $home_dir/.claude/settings.json" "dry-run reports Claude collision"
-  assert_file_contains "$home_dir/out" "adopt existing config or print agent merge prompt" "dry-run describes only safe root config choices"
+  assert_file_contains "$home_dir/out" "keep existing config or print agent merge prompt" "dry-run describes only safe root config choices"
   assert_file_not_contains "$home_dir/out" "managed.*backup local config" "dry-run does not offer managed replacement"
   assert_file_contains "$home_dir/out" "\[mcp_servers.personal\]" "dry-run reports personal Codex MCP"
   assert_file_contains "$home_dir/out" "\[profiles.personal\]" "dry-run reports personal Codex profile"
   [[ ! -L "$home_dir/.claude/settings.json" && ! -L "$home_dir/.codex/config.toml" ]] && pass "dry-run leaves config files untouched" || fail "dry-run leaves config files untouched"
-  [[ ! -e "$home_dir/.harness-configs-backups" ]] && pass "dry-run creates no backups" || fail "dry-run creates no backups"
+  [[ ! -e "$home_dir/.roborepo-backups" ]] && pass "dry-run creates no backups" || fail "dry-run creates no backups"
 }
 
 test_noninteractive_block_no_mutation() {
@@ -103,7 +202,7 @@ test_noninteractive_block_no_mutation() {
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
 
-  if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/out" 2>&1; then
     fail "noninteractive collision blocks install" "$home_dir/out"
   fi
 
@@ -116,7 +215,7 @@ test_non_root_conflict_blocks_before_mutation() {
   home_dir="$(make_home)"
   printf 'existing agents\n' > "$home_dir/.codex/AGENTS.md"
 
-  if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" --dry-run >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/install/main.sh" --dry-run >"$home_dir/out" 2>&1; then
     fail "non-root conflict blocks install" "$home_dir/out"
   fi
 
@@ -137,7 +236,7 @@ test_global_command_conflict_blocks_before_mutation() {
   printf '#!/bin/sh\necho local\n' > "$home_dir/.local/bin/roborepo"
   chmod +x "$home_dir/.local/bin/roborepo"
 
-  if HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/out" 2>&1; then
     fail "global command conflict blocks install" "$home_dir/out"
   fi
 
@@ -176,7 +275,7 @@ expect "Continue by adopting existing local config?*"
 send "\r"
 expect "Selection*"
 send "2\r"
-expect "Skip this config symlink for now?*"
+expect "Skip this root config export for now?*"
 send "\r"
 EOF
 
@@ -184,12 +283,12 @@ EOF
 
   assert_file_not_contains "$home_dir/out" "managed.*backup local config" "interactive root collision does not offer managed replacement"
   assert_file_contains "$home_dir/out" "Required first step: compute your own complete comparison" "root prompt requires full comparison"
-  assert_file_contains "$home_dir/out" "Default stance: adopt the local user config" "root prompt defaults to adopt"
+  assert_file_contains "$home_dir/out" "Default stance: keep the local user config" "root prompt defaults to keeping local config"
   [[ ! -L "$home_dir/.claude/settings.json" ]] && pass "adopt leaves Claude config as regular file" || fail "adopt leaves Claude config as regular file"
   assert_file_contains "$home_dir/.claude/settings.json" '"model":"opus"' "adopt preserves Claude config content"
   [[ ! -L "$home_dir/.codex/config.toml" ]] && pass "agent leaves Codex config as regular file" || fail "agent leaves Codex config as regular file"
   assert_file_contains "$home_dir/.codex/config.toml" "\[mcp_servers.personal\]" "agent preserves Codex config content"
-  ! find "$home_dir/.harness-configs-backups" -name settings.json -o -name config.toml 2>/dev/null | grep -q . \
+  ! find "$home_dir/.roborepo-backups" -name settings.json -o -name config.toml 2>/dev/null | grep -q . \
     && pass "adopt/agent creates no root config backups" \
     || fail "adopt/agent creates no root config backups"
 }
@@ -207,19 +306,19 @@ send "n\r"
 expect "Selection*"
 send "2\r"
 expect "Agent merge prompt:"
-expect "Skip this config symlink for now?*"
+expect "Skip this root config export for now?*"
 send "\r"
 expect "Selection*"
 send "2\r"
 expect "Agent merge prompt:"
-expect "Skip this config symlink for now?*"
+expect "Skip this root config export for now?*"
 send "\r"
 EOF
 
   run_expect_install "$home_dir" "$home_dir/out" "$expect_file"
 
   assert_file_contains "$home_dir/out" "Agent merge prompt:" "agent prompt printed"
-  [[ ! -L "$home_dir/.claude/settings.json" && ! -L "$home_dir/.codex/config.toml" ]] && pass "agent prompt skips config symlinks" || fail "agent prompt skips config symlinks"
+  [[ ! -L "$home_dir/.claude/settings.json" && ! -L "$home_dir/.codex/config.toml" ]] && pass "agent prompt skips root config export" || fail "agent prompt skips root config export"
 }
 
 test_abort_no_config_replacement() {
@@ -246,12 +345,12 @@ test_idempotency_no_extra_backups() {
   local home_dir
   home_dir="$(make_home)"
 
-  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/first.out"
-  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" >"$home_dir/second.out"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/first.out"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/second.out"
 
   assert_file_contains "$home_dir/second.out" "ok: $home_dir/.claude/settings.json" "idempotent Claude config ok"
   assert_file_contains "$home_dir/second.out" "ok: $home_dir/.codex/config.toml" "idempotent Codex config ok"
-  ! find "$home_dir/.harness-configs-backups" -name settings.json -o -name config.toml 2>/dev/null | grep -q . \
+  ! find "$home_dir/.roborepo-backups" -name settings.json -o -name config.toml 2>/dev/null | grep -q . \
     && pass "idempotent managed run creates no config backups" \
     || fail "idempotent managed run creates no config backups"
 }
@@ -262,7 +361,7 @@ test_malformed_claude_config() {
   printf '{bad json\n' > "$home_dir/.claude/settings.json"
   printf 'model = "o3"\n' > "$home_dir/.codex/config.toml"
 
-  HOME="$home_dir" "$repo_root/scripts/roborepo-install.sh" --dry-run >"$home_dir/out"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" --dry-run >"$home_dir/out"
 
   assert_file_contains "$home_dir/out" "invalid JSON" "malformed Claude config is reported"
   assert_file_contains "$home_dir/out" "collision: $home_dir/.claude/settings.json" "malformed Claude config still prompts"
@@ -375,19 +474,49 @@ test_windows_installer_root_preflight_order() {
   local windows_script root_line claude_line
   windows_script="$repo_root/scripts/install/install-windows.ps1"
   root_line="$(awk '/^Invoke-RootConfigPreflight$/ { print NR; exit }' "$windows_script")"
-  claude_line="$(awk '/^# Claude symlinks$/ { print NR; exit }' "$windows_script")"
+  claude_line="$(awk '/^# Claude managed links and root config export$/ { print NR; exit }' "$windows_script")"
 
   [[ -n "$root_line" && -n "$claude_line" && "$root_line" -lt "$claude_line" ]] \
     && pass "Windows installer resolves root config collisions before linking" \
     || fail "Windows installer resolves root config collisions before linking" "$windows_script"
   assert_file_contains "$windows_script" 'if \(-not \$adoptClaudeConfig\)' "Windows installer skips adopted Claude root config"
   assert_file_contains "$windows_script" 'if \(-not \$adoptCodexConfig\)' "Windows installer skips adopted Codex root config"
+  assert_file_contains "$windows_script" 'Export-UserConfig "claude" "claude/settings.json"' "Windows installer exports Claude root config"
+  assert_file_contains "$windows_script" 'Export-UserConfig "codex" "codex/config.toml"' "Windows installer exports Codex root config"
   assert_file_contains "$windows_script" 'Link-Item "agents/skills"[[:space:]]+\(Join-Path \$agentsHome "skills"\)' "Windows installer links canonical Codex skills to .agents"
   assert_file_contains "$windows_script" 'Link-Item "agents/skills"[[:space:]]+\(Join-Path \$codexHome "skills"\)' "Windows installer links transitional Codex skills to .codex"
   assert_file_not_contains "$windows_script" 'Link-Item "codex/skills"' "Windows installer does not reference removed codex/skills source"
 }
 
+test_repo_local_codex_skill_layer_removed() {
+  "$repo_root/scripts/link-skills.sh" --check >/dev/null
+  [[ ! -e "$repo_root/.codex/skills/harness-platform-dev" ]] \
+    && pass "repo-local .codex skill link is absent" \
+    || fail "repo-local .codex skill link is absent"
+}
+
+test_write_guard_root_config_message() {
+  local home_dir root_out skill_out
+  home_dir="$(make_home)"
+  root_out="$home_dir/root-guard.out"
+  skill_out="$home_dir/skill-guard.out"
+
+  printf '{"tool_input":{"file_path":"%s/.codex/config.toml"}}\n' "$home_dir" \
+    | HOME="$home_dir" node "$repo_root/claude/hooks/harness-config-write-guard.mjs" >"$root_out"
+  printf '{"tool_input":{"file_path":"%s/.claude/skills/new-skill/SKILL.md"}}\n' "$home_dir" \
+    | HOME="$home_dir" node "$repo_root/claude/hooks/harness-config-write-guard.mjs" >"$skill_out"
+
+  assert_file_contains "$root_out" "mutable active root config" "write guard identifies root config as local"
+  assert_file_contains "$root_out" "not a repo symlink" "write guard does not call root config a symlink"
+  assert_file_contains "$skill_out" "Create it in the repo" "write guard still redirects new symlinked assets"
+}
+
 test_fresh_managed
+test_existing_root_symlinks_convert_to_local_copies
+test_direct_harness_installers_export_root_configs
+test_direct_harness_installers_convert_root_symlinks
+test_direct_claude_installer_removes_stale_plugin_symlink
+test_verify_install_requires_active_root_configs
 test_dry_run_collision_no_mutation
 test_noninteractive_block_no_mutation
 test_non_root_conflict_blocks_before_mutation
@@ -402,5 +531,7 @@ test_sync_guard
 test_sync_interactive_choices
 test_sync_overwrite_rollback_on_replace_failure
 test_windows_installer_root_preflight_order
+test_repo_local_codex_skill_layer_removed
+test_write_guard_root_config_message
 
 echo "all install collision tests passed"

@@ -254,7 +254,7 @@ Skills can contain `SKILL.md`, references, and scripts. The skill can call the C
 Project Context should live in the existing `roborepo` CLI in:
 
 ```txt
-/Users/kirinmurphy/projects/live_projects/harness_configs
+<repo>
 ```
 
 `roborepo` already owns agentic repo operations such as code indexing, docs indexing, skill management, MCP setup, and trimmed command running. Project Context inventory belongs in that same surface because it is a repo-local agent-support operation.
@@ -738,7 +738,7 @@ Full doc rewrites should be explicit, not the default behavior.
 
 1. Add `roborepo project-context inventory`.
 2. Emit generated JSON and markdown summary.
-3. Add `project-context` shared skill under `harness_configs/agents/skills/project-context`.
+3. Add `project-context` shared skill under `agents/skills/project-context`.
 4. Link the skill for Claude with the harness skill-link script.
 5. Add Project Context docs and references to the skill.
 6. Add lean user docs: `README.md`, `glossary.md`, `inventory.md`, and optional `extension-paths.md`.

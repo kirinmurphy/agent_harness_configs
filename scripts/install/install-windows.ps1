@@ -8,7 +8,7 @@
 #
 # Usage:
 #   From PowerShell:  .\scripts\install\install-windows.ps1
-#   From Git Bash:    called automatically by roborepo-install.sh
+#   From Git Bash:    called automatically by install/main.sh
 #
 # Less tested than macOS/Linux. Report issues or submit PRs.
 
@@ -49,7 +49,7 @@ function Link-Item {
       throw "install has non-root config conflicts; no replacement was made for $HomePath"
     }
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $backupRoot = Join-Path $env:USERPROFILE ".harness-configs-backups\$timestamp"
+    $backupRoot = Join-Path $env:USERPROFILE ".roborepo-backups\$timestamp"
     $backupPath = Join-Path $backupRoot $HomePath.TrimStart('\').TrimStart('/')
     if (-not $DryRun) {
       New-Item -ItemType Directory -Path (Split-Path -Parent $backupPath) -Force | Out-Null
@@ -86,7 +86,7 @@ Compare harness config at:
 With local user config at:
   $HomePath
 
-Default stance: adopt the local user config as source of truth. Preserve existing local behavior unless you can prove a harness change can be added safely.
+Default stance: keep the local user config as source of truth. Preserve existing local behavior unless you can prove a harness change can be added safely.
 
 Selected install direction: $Mode.
 
@@ -110,7 +110,7 @@ function Confirm-Choice {
   return ($answer -eq "" -or $answer -eq "y" -or $answer -eq "Y" -or $answer -eq "yes" -or $answer -eq "YES")
 }
 
-function Link-UserConfig {
+function Export-UserConfig {
   param($Harness, $RepoRel, $HomePath)
   $src = Join-Path $repoRoot $RepoRel
 
@@ -122,17 +122,33 @@ function Link-UserConfig {
   if (Test-Path $HomePath) {
     $existing = Get-Item $HomePath -Force
     if ($existing.LinkType -eq "SymbolicLink" -and $existing.Target -eq $src) {
-      Write-Host "ok: $HomePath"
+      if (-not $DryRun) {
+        Remove-Item $HomePath
+        Copy-Item $src $HomePath
+      }
+      Write-Host "copy: $HomePath <- $src (converted from repo symlink)"
       return
     }
+    if ($existing.LinkType -ne "SymbolicLink" -and (Test-Path $HomePath -PathType Leaf)) {
+      $srcHash = (Get-FileHash $src).Hash
+      $homeHash = (Get-FileHash $HomePath).Hash
+      if ($srcHash -eq $homeHash) {
+        Write-Host "ok: $HomePath"
+        return
+      }
+    }
   } else {
-    Link-Item $RepoRel $HomePath
+    if (-not $DryRun) {
+      New-Item -ItemType Directory -Force -Path (Split-Path $HomePath) | Out-Null
+      Copy-Item $src $HomePath
+    }
+    Write-Host "copy: $HomePath <- $src"
     return
   }
 
   if ($DryRun) {
     Write-Host "collision: $HomePath"
-    Write-Host "dry-run: would ask whether to adopt existing config or print agent merge prompt"
+    Write-Host "dry-run: would ask whether to keep existing config or print agent merge prompt"
     return
   }
 
@@ -164,7 +180,7 @@ function Link-UserConfig {
       }
       { $_ -in @("2", "agent", "prompt") } {
         Write-AgentMergePrompt $Harness "manual agent merge before install" $RepoRel $HomePath
-        if (Confirm-Choice "Skip this config symlink for now?") {
+        if (Confirm-Choice "Skip this root config export for now?") {
           Write-Host "skip: $HomePath left in place"
           return
         }
@@ -193,13 +209,20 @@ function Resolve-UserConfigCollision {
     if ($existing.LinkType -eq "SymbolicLink" -and $existing.Target -eq $src) {
       return $false
     }
+    if ($existing.LinkType -ne "SymbolicLink" -and (Test-Path $HomePath -PathType Leaf)) {
+      $srcHash = (Get-FileHash $src).Hash
+      $homeHash = (Get-FileHash $HomePath).Hash
+      if ($srcHash -eq $homeHash) {
+        return $false
+      }
+    }
   } else {
     return $false
   }
 
   if ($DryRun) {
     Write-Host "collision: $HomePath"
-    Write-Host "dry-run: would ask whether to adopt existing config or print agent merge prompt"
+    Write-Host "dry-run: would ask whether to keep existing config or print agent merge prompt"
     return $false
   }
 
@@ -231,7 +254,7 @@ function Resolve-UserConfigCollision {
       }
       { $_ -in @("2", "agent", "prompt") } {
         Write-AgentMergePrompt $Harness "manual agent merge before install" $RepoRel $HomePath
-        if (Confirm-Choice "Skip this config symlink for now?") {
+        if (Confirm-Choice "Skip this root config export for now?") {
           Write-Host "skip: $HomePath left in place"
           return $true
         }
@@ -324,13 +347,13 @@ if (-not $hasClaude -and -not $hasCodex) {
 Invoke-CleanTargetPreflight
 Invoke-RootConfigPreflight
 
-# Claude symlinks
+# Claude managed links and root config export
 if ($hasClaude) {
   Write-Host ""
   Write-Host "--- Claude ---"
   $claudeHome = Join-Path $env:APPDATA "Claude"
   if (-not $adoptClaudeConfig) {
-    Link-UserConfig "claude" "claude/settings.json"  (Join-Path $claudeHome "settings.json")
+    Export-UserConfig "claude" "claude/settings.json"  (Join-Path $claudeHome "settings.json")
   }
   Link-Item "claude/CLAUDE.md"                     (Join-Path $claudeHome "CLAUDE.md")
   Link-Item "claude/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $claudeHome "MANAGED_BY_HARNESS_CONFIGS.md")
@@ -341,14 +364,14 @@ if ($hasClaude) {
   Write-Host "skip: Claude — AppData\Roaming\Claude not found"
 }
 
-# Codex symlinks
+# Codex managed links and root config export
 if ($hasCodex) {
   Write-Host ""
   Write-Host "--- Codex ---"
   $codexHome = Join-Path $env:USERPROFILE ".codex"
   $agentsHome = Join-Path $env:USERPROFILE ".agents"
   if (-not $adoptCodexConfig) {
-    Link-UserConfig "codex" "codex/config.toml"     (Join-Path $codexHome "config.toml")
+    Export-UserConfig "codex" "codex/config.toml"     (Join-Path $codexHome "config.toml")
   }
   Link-Item "codex/AGENTS.md"                     (Join-Path $codexHome "AGENTS.md")
   Link-Item "codex/hooks.json"                    (Join-Path $codexHome "hooks.json")

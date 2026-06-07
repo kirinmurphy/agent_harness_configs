@@ -6,18 +6,17 @@ set -euo pipefail
 # SHARED layer (advisory, global + exportable):
 #   agents/skills/<name>  ->  claude/skills/<name>   (../../agents/skills/<name>)
 #   agents/skills/ is the canonical shared source. claude/skills is symlinked into
-#   ~/.claude/skills by roborepo-install.sh (Claude reads ~/.claude/skills). Codex has NO
-#   per-skill intermediate dir: Codex reads ~/.agents/skills, which roborepo-install.sh
+#   ~/.claude/skills by install/main.sh (Claude reads ~/.claude/skills). Codex has NO
+#   per-skill intermediate dir: Codex reads ~/.agents/skills, which install/main.sh
 #   points straight at agents/skills/ (Codex scans .agents/skills exclusively — there is no
 #   .codex/skills fallback). The export tool reads agents/skills/ directly.
 #
 # INTERNAL layer (repo-only firewall, NEVER global, NEVER exported):
-#   skills-local/<name>  ->  .claude/skills/<name>, .codex/skills/<name>, .agents/skills/<name>
+#   skills-local/<name>  ->  .claude/skills/<name>, .agents/skills/<name>
 #                            (../../skills-local/<name>)
 #   The repo dotdirs are project-scope only; Claude Code auto-loads <repo>/.claude/skills/
-#   and Codex scans <repo>/.agents/skills/ when an agent works inside harness_configs. The
-#   .codex/skills copy is kept as a transitional cross-compat link. These are not symlinked
-#   to global and have no path into the export tool — the separation is structural.
+#   and Codex scans <repo>/.agents/skills/ when an agent works inside this repo. These are
+#   not symlinked to global and have no path into the export tool — the separation is structural.
 #
 # Idempotent: creates what's missing, prunes symlinks whose source is gone, leaves correct
 # links untouched. Run after adding/removing a skill, or anytime to heal drift. Use --check
@@ -136,10 +135,9 @@ prune_layer() {
 link_layer  "agents/skills" "../../agents/skills" "claude/skills"
 prune_layer "agents/skills" "../../agents/skills" "claude/skills"
 
-# INTERNAL layer (repo-only): Claude project dir, plus Codex via both .agents (canonical)
-# and .codex (transitional cross-compat).
-link_layer  "skills-local" "../../skills-local" ".claude/skills" ".agents/skills" ".codex/skills"
-prune_layer "skills-local" "../../skills-local" ".claude/skills" ".agents/skills" ".codex/skills"
+# INTERNAL layer (repo-only): Claude project dir, plus Codex via .agents (canonical).
+link_layer  "skills-local" "../../skills-local" ".claude/skills" ".agents/skills"
+prune_layer "skills-local" "../../skills-local" ".claude/skills" ".agents/skills"
 
 if [[ ${check_only} -eq 1 ]]; then
   if [[ ${missing} -gt 0 || ${orphans} -gt 0 ]]; then

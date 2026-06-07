@@ -8,8 +8,8 @@ This repo installs downloaded harness defaults next to user-curated Claude and C
 
 | Workflow | What it means | What lives where |
 | --- | --- | --- |
-| `managed` | Logic stays in this repo and global config observes it through symlinks. | Repo file is active through a symlink in `~/.claude`, `~/.codex`, or `~/.local/bin`. |
-| `adopt` | Repo defaults are copied, staged, or merged into user-owned global config. | User-owned config remains the long-term place where local choices live. |
+| `managed` | Read-mostly logic stays in this repo and global paths observe it through symlinks. Mutable root config is exported as a local file. | Skills, hooks, commands, rules, and managed marker files are symlinked. Root config is copied/merged into `~/.claude/settings.json` and `~/.codex/config.toml`. |
+| `adopt` | Existing user-owned root config remains active and repo defaults are copied, staged, or merged only by explicit choice. | User-owned config remains the long-term place where local choices live. |
 
 `agent prompt` is a sub-option of `adopt`, not a separate ownership mode. It means "help me adopt by giving an agent the comparison and merge instructions."
 
@@ -30,7 +30,14 @@ Non-root harness targets include skills, hooks, commands, rules, managed marker 
 
 ## `managed`
 
-`managed` gives the simplest update path. The downloaded repo code is the source of truth, and the tool home path points to it through a symlink. Repo updates become active immediately after pull or edit.
+`managed` gives the simplest update path for read-mostly harness assets. The downloaded repo code is the source of truth for skills, hooks, commands, rules, generated guidance, and helper links. Those home paths point to the repo through symlinks, so repo updates become active immediately after pull or edit.
+
+Mutable root config is the explicit exception:
+
+- `~/.claude/settings.json`
+- `~/.codex/config.toml`
+
+Those files are active local files, not symlinks. If missing, the installer copies the repo baseline into place. If already symlinked to the repo from an older install, the installer converts the symlink to a local copy. If a user-owned file exists, the installer asks whether to keep it or print an agent merge prompt.
 
 Best when:
 
@@ -40,15 +47,15 @@ Best when:
 
 Tradeoffs:
 
-- direct edits under `~/.claude` or `~/.codex` may actually edit repo files through symlinks
-- personal settings can leak into repo diffs if the user edits managed root config carelessly
+- direct edits under `~/.claude` or `~/.codex` may edit repo files through symlinks for read-mostly assets
+- root config updates do not automatically track repo baseline changes; they need explicit merge/adoption
 - tool-generated changes need review with `scripts/sync-from-home.sh` or normal git diff
 
 User responsibility:
 
 - inspect repo diffs before commit
 - keep machine-specific secrets and local state out of tracked config
-- use `scripts/sync-from-home.sh` when tools write useful changes into live config
+- merge root config intentionally when the repo baseline changes
 
 ## `adopt`
 
@@ -71,7 +78,7 @@ User responsibility:
 
 - review archived local files, staged repo candidates, or agent output
 - copy only wanted settings into the active global config
-- rerun `./scripts/roborepo-install.sh --dry-run` or future update command to confirm expected state
+- rerun `./scripts/install/main.sh --dry-run` or future update command to confirm expected state
 
 ## Known Gaps
 
@@ -86,13 +93,13 @@ User responsibility:
 Run a preview first:
 
 ```sh
-./scripts/roborepo-install.sh --dry-run
+./scripts/install/main.sh --dry-run
 ```
 
 If preview is clean, run install:
 
 ```sh
-./scripts/roborepo-install.sh
+./scripts/install/main.sh
 ```
 
 For exact prompt behavior, noninteractive behavior, backups, sync, and regression tests, see [../reference/internal/config-collision-handling.md](../reference/internal/config-collision-handling.md).

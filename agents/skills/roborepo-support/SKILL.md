@@ -1,37 +1,37 @@
 ---
-name: harness-config
+name: roborepo-support
 description: >
-  Work on the harness_configs repo — the version-controlled global config that
+  Work on this repo — the version-controlled global config that
   symlinks into ~/.claude and ~/.codex. Use when adding or editing a shared skill,
   changing global agent rules (CLAUDE.md / AGENTS.md), hooks, settings, commands,
   or keeping Claude/Codex parity. Activates only when the task touches global harness
   config or skill authoring, in any repo. Triggers: "add a skill", "edit global
-  rules", "harness config", "skill authoring", editing files under harness_configs/.
+  rules", "roborepo support", "harness config", "skill authoring", editing files in this repo.
 ---
 
-# Harness Config & Skill Authoring
+# Roborepo Support & Skill Authoring
 
-For work on the **harness_configs** repo: the version-controlled source for global
-Claude + Codex configuration. Lives at `~/projects/live_projects/harness_configs`
-and symlinks into `~/.claude` and `~/.codex`. This skill carries the gotchas that
-are easy to get wrong; it does not duplicate the repo's own docs.
+For work on this repo: the version-controlled source for global
+Claude + Codex configuration. The local checkout path is user-specific; install
+scripts link the relevant HOME config paths back to this repo. This skill carries
+the gotchas that are easy to get wrong; it does not duplicate the repo's own docs.
 
 **Read these first when relevant** (they are the source of truth):
-- `harness_configs/README.md` — overview of what's shared and per-harness.
-- `harness_configs/docs/architecture.md` — Relationship, Symlink Map, Sync Flow.
-- `harness_configs/docs/config-collision-handling.md` — conflict rules.
-- `harness_configs/docs/claude-hooks.md`, `docs/codex-hooks.md` — hook behavior.
+- `README.md` — overview of what's shared and per-harness.
+- `docs/architecture.md` — Relationship, Symlink Map, Sync Flow.
+- `docs/config-collision-handling.md` — conflict rules.
+- `docs/claude-hooks.md`, `docs/codex-hooks.md` — hook behavior.
 
 ## The skill symlink model (the #1 thing to get right)
 
 The canonical shared source is **`agents/skills/<name>/`**. The two harnesses reach it
 differently because Codex and Claude scan different paths:
 
-1. **HOME → repo (install-time).** `scripts/roborepo-install.sh` links HOME dirs into the
+1. **HOME → repo (install-time).** `scripts/install/main.sh` links HOME dirs into the
    repo. Codex scans `~/.agents/skills` **exclusively** (no `~/.codex/skills` fallback), so
-   the canonical link is `~/.agents/skills -> harness_configs/agents/skills` (plus a
-   transitional `~/.codex/skills -> harness_configs/agents/skills` for cross-compat). Claude
-   scans `~/.claude/skills -> harness_configs/claude/skills`. Already done on a set-up machine;
+   the canonical link is `~/.agents/skills -> <repo>/agents/skills` (plus a
+   transitional `~/.codex/skills -> <repo>/agents/skills` for cross-compat). Claude
+   scans `~/.claude/skills -> <repo>/claude/skills`. Already done on a set-up machine;
    you normally do NOT touch this.
 
 2. **Claude per-skill → shared source (in-repo).** Inside the repo, `claude/skills/<name>` is
@@ -62,9 +62,10 @@ reliable, so run it after adding any skill.
 
 A `Write|Edit` PreToolUse hook (`claude/hooks/harness-config-write-guard.mjs`,
 registered in `claude/settings.json`) fires from any repo when a path under
-`~/.claude` or `~/.codex` is written: it reminds that the file is symlinked into
-this repo, and on a NEW path tells the agent to author in `agents/skills/` + link rather
-than dropping a plain file into HOME. It is a reminder, not a block.
+`~/.claude` or `~/.codex` is written. For read-mostly assets, it reminds that the
+file is symlinked into this repo. For mutable root config (`~/.claude/settings.json`,
+`~/.codex/config.toml`), it reminds that the active file is local and only portable
+defaults should be merged back into the repo baseline. It is a reminder, not a block.
 
 ## SKILL.md frontmatter
 
@@ -81,7 +82,9 @@ than dropping a plain file into HOME. It is a reminder, not a block.
 - Hooks: `claude/hooks/` + `claude/settings.json`; `codex/hooks.json`. Automated
   "always do X" behaviors must be hooks — the harness runs them, not the model.
 - Settings/permissions: `claude/settings.json`, `codex/config.toml`.
-- After editing a symlinked file, the change is live immediately (no copy/sync).
+- After editing a symlinked read-mostly asset, the change is live immediately (no copy/sync).
+  Mutable root config (`claude/settings.json`, `codex/config.toml`) is exported into HOME as
+  active local files, not symlinked.
 - On collisions between HOME and repo, follow `docs/config-collision-handling.md` —
   flag conflicts, don't guess.
 

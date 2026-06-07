@@ -2,7 +2,7 @@
 
 > **Status: IMPLEMENTED** (revised from this plan). Shipped as the `roborepo skill install`
 > subcommand, with `roborepo skill link` kept as a compatibility alias (Node,
-> `scripts/roborepo.mjs` + shared `scripts/cli/skill-lib.mjs::linkLocalSkills`),
+> `scripts/cli/main.mjs` + shared `scripts/cli/skill-lib.mjs::linkLocalSkills`),
 > chosen Node-over-bash for cross-platform reach incl. Windows. **Scope was corrected during
 > implementation:** the tool is *purely in-repo* — it symlinks the client repo's own
 > `.agents/skills/<name>` into selected repo `.claude/skills` and/or `.codex/skills`
@@ -13,7 +13,7 @@
 
 ## Problem
 
-Global shared skills live in `harness_configs/agents/skills/`. Claude reaches them through
+Global shared skills live in `agents/skills/`. Claude reaches them through
 per-skill links in `~/.claude/skills/`; Codex reaches them through the whole-dir
 `~/.agents/skills -> agents/skills` link. App-specific skills (deploy flows,
 domain-specific agents) need the same local dual-harness treatment but should live in the app
@@ -64,10 +64,10 @@ Per-skill, non-fatal. Matches the `link_item_clean` pattern in `scripts/install-
 
 | File | Change |
 |------|--------|
-| `scripts/roborepo.mjs` | Dispatches `roborepo skill install` and the `skill link` alias |
+| `scripts/cli/main.mjs` | Dispatches `roborepo skill install` and the `skill link` alias |
 | `scripts/cli/skills.mjs` | Implements user-facing skill commands |
 | `scripts/cli/skill-lib.mjs` | Implements `linkLocalSkills` |
-| `scripts/test-roborepo.sh` | Covers install/link alias, prune, uninstall, dry-run, conflict behavior |
+| `scripts/test/test-roborepo.sh` | Covers install/link alias, prune, uninstall, dry-run, conflict behavior |
 
 ## Historical Script Skeleton
 

@@ -7,7 +7,7 @@ allowed-tools: Read, Glob, Grep, Edit, Write, Bash(git diff:*), Bash(git log:*),
 
 Review the current conversation to extract **new conventions and app behaviors** established during this session. Persist them into the appropriate repo's documentation so they survive context clearing.
 
-**Route each item to the right repo** — local project conventions go into the current repo; harness-wide behaviors go into `harness_configs`. See Step 5.
+**Route each item to the right repo** — local project conventions go into the current repo; harness-wide behaviors go into the harness config repo. See Step 5.
 
 ## Step 1: Confirm project root
 
@@ -65,7 +65,7 @@ Compare every item against existing docs from Step 2. Drop anything already cove
 > Does this rule apply only in this repo? → **local**
 > Does it describe how the agent should behave in *any* repo? → **global harness**
 
-Global harness items (caveman behavior, jcodemunch defaults, verification discipline, hook patterns) go into `~/projects/live_projects/harness_configs/claude/CLAUDE.md` or a new doc under `harness_configs/docs/`. Do not invent new global rules — only promote items explicitly confirmed as cross-repo behavior.
+Global harness items (caveman behavior, jcodemunch defaults, verification discipline, hook patterns) go into `claude/CLAUDE.md` or a new doc under `docs/`. Do not invent new global rules — only promote items explicitly confirmed as cross-repo behavior.
 
 **Bucket A (local conventions):**
 - Add to the current repo's `CLAUDE.md` under a relevant section

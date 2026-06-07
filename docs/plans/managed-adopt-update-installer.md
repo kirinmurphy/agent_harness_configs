@@ -7,11 +7,13 @@ Design and implement the next installer model for managed/adopt/update behavior.
 ## Context
 
 - This repo installs global Claude/Codex harness config.
-- Current root config model is binary:
-  - `managed`: `~/.codex/config.toml` or `~/.claude/settings.json` is symlinked to repo file.
-  - adopted/user-owned: local root config remains a regular file; repo root config is skipped.
+- Current root config model separates read-mostly symlinks from mutable active config:
+  - `managed`: read-mostly assets are symlinked to repo files; `~/.codex/config.toml` and
+    `~/.claude/settings.json` are exported as local files.
+  - adopted/user-owned: local root config remains a regular file; repo root config is skipped
+    unless explicitly merged.
 - Desired mental model:
-  - `managed`: repo-hosted logic; global config observes repo through symlinks.
+  - `managed`: repo-hosted read-mostly logic; mutable root config is copied or merged locally.
   - `adopt`: copy/replicate/merge repo defaults into user-owned global config.
   - `agent prompt`: sub-option of `adopt`, not a top-level mode.
 
@@ -21,10 +23,10 @@ Design and implement the next installer model for managed/adopt/update behavior.
 - `docs/guides/install-workflows.md`
 - `docs/reference/services/architecture.md`
 - `docs/reference/internal/config-collision-handling.md`
-- `scripts/roborepo-install.sh`
+- `scripts/install/main.sh`
 - `scripts/install-lib.sh`
 - `scripts/sync-from-home.sh`
-- `scripts/test-install-collisions.sh`
+- `scripts/test/test-install-collisions.sh`
 
 ## Work Items
 
@@ -43,7 +45,7 @@ Design and implement the next installer model for managed/adopt/update behavior.
    - repeated adopt-keep should refresh or stabilize staged repo candidates
    - agent prompt should be non-mutating except output
 5. Define update behavior:
-   - decide whether `roborepo-install.sh` handles updates or a separate update command/script is needed
+   - decide whether `install/main.sh` handles updates or a separate update command/script is needed
    - account for repo updates after initial adopt
 6. Explore true layered root-config inheritance:
    - desired: harness repo baseline -> user global overlay -> local repo overlay
@@ -56,7 +58,7 @@ Design and implement the next installer model for managed/adopt/update behavior.
 
 Run the smallest checks that prove changed behavior:
 
-- `scripts/test-install-collisions.sh` if installer behavior or tests are touched
+- `scripts/test/test-install-collisions.sh` if installer behavior or tests are touched
 - `./scripts/doctor.sh`
 - `./scripts/verify-install.sh` if install behavior changed
 

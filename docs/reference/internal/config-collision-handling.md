@@ -8,16 +8,17 @@ For user-facing tradeoffs between `managed`, `adopt`, and `agent prompt`, start 
 
 ## Concept Model
 
-- **Managed config**: a home config file is a symlink to this repo. Repo changes flow into the tool automatically.
+- **Managed read-mostly asset**: a home path such as skills, hooks, commands, rules, guidance, or marker files is a symlink to this repo. Repo changes flow into the tool automatically.
+- **Root config baseline**: `claude/settings.json` or `codex/config.toml` in this repo. These are portable templates, not live symlink targets.
 - **User-owned config**: a home config file is a regular file, or a symlink somewhere other than this repo.
-- **Collision**: the installer finds a user-owned `~/.claude/settings.json` or `~/.codex/config.toml` where it would normally create a harness symlink.
+- **Collision**: the installer finds a user-owned `~/.claude/settings.json` or `~/.codex/config.toml` where it would otherwise copy the harness baseline.
 - **Non-root harness target**: a harness path such as skills, hooks, commands, rules, or managed marker files. These are not merged by the installer.
 
 ## Installer Choices
 
 The installer has three different workflows:
 
-- `managed`: target path is missing or already symlinked to this repo. The installer creates or keeps the symlink. Repo defaults are the active source.
+- `managed`: read-mostly target path is missing or already symlinked to this repo. The installer creates or keeps the symlink. Root config is copied into a local active file, never symlinked.
 - `adopt`: root config exists outside this repo. The installer leaves the local root config in place, marks that harness as adopted for this install run, and still installs other clean harness links.
 - `agent prompt`: root config exists outside this repo and needs manual comparison. The installer prints a merge prompt, leaves the root config unchanged, and continues only after user confirmation.
 
@@ -26,7 +27,7 @@ Root config collisions are interactive because root config files are likely to c
 - `~/.claude/settings.json`
 - `~/.codex/config.toml`
 
-Managed root config is only automatic when the target path is missing or already managed by this repo. The installer does not auto-merge config or silently replace non-root conflicts. Claude and Codex do not have identical layering behavior, and MCP/server settings can include machine-specific assumptions.
+Root config export is only automatic when the target path is missing or already symlinked to this repo from an older install. Existing repo symlinks are converted to local copies. The installer does not auto-merge config or silently replace non-root conflicts. Claude and Codex do not have identical layering behavior, and MCP/server settings can include machine-specific assumptions.
 
 If any non-root harness target or global command target already exists and is not managed by this repo, install stops before changing files and prints an agent prompt. This keeps `managed` and `adopt` limited to clean installs instead of forcing the user to recover from backups.
 
@@ -41,13 +42,13 @@ For install conflicts, the default stance is `adopt`: preserve local behavior an
 Run a preview first:
 
 ```sh
-./scripts/roborepo-install.sh --dry-run
+./scripts/install/main.sh --dry-run
 ```
 
 If the preview reports no collisions, run:
 
 ```sh
-./scripts/roborepo-install.sh
+./scripts/install/main.sh
 ```
 
 If a collision is reported, choose:
@@ -62,7 +63,7 @@ For non-root conflicts, resolve or move the local path first, then rerun the ins
 Config collision handling avoids replacement instead of depending on backups. The installer still backs up unrelated shell/global-command files when those helper installers intentionally edit or replace them. Those backups are written under:
 
 ```text
-~/.harness-configs-backups/<timestamp>/
+~/.roborepo-backups/<timestamp>/
 ```
 
 If a backup path already exists, the installer adds a numeric suffix instead of overwriting the older backup.
@@ -95,7 +96,7 @@ Still inspect the final repo diff before committing.
 Run the collision regression tests:
 
 ```sh
-./scripts/test-install-collisions.sh
+./scripts/test/test-install-collisions.sh
 ```
 
 The test uses temporary `HOME` directories only. It covers fresh installs, dry-run collisions, noninteractive blocking, interactive choices, aborts, backup uniqueness, malformed config reporting, idempotency, and sync guards.

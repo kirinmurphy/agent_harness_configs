@@ -1,4 +1,4 @@
-// Shared Node core for skill tooling, used by the roborepo CLI (scripts/roborepo.mjs).
+// Shared Node core for skill tooling, used by the roborepo CLI (scripts/cli/main.mjs).
 //
 // Cross-platform by design: uses only node: built-ins (fs, path, zlib, readline).
 // No shelling out to `zip`/`unzip`/`ln`, so the same code runs on macOS, Linux, and
