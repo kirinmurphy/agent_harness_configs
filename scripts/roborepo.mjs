@@ -4,7 +4,7 @@
 // This file is the orchestrator: usage text, the interactive menu, and the dispatch table.
 // The actual subcommand implementations live under scripts/cli/, grouped by category:
 //
-//   cli/skills.mjs   skill export / skill link
+//   cli/skills.mjs   skill export / skill install
 //   cli/index.mjs    index code|docs, watch code, run
 //   cli/mcp.mjs      mcp add (Claude + Codex registration)
 //   cli/paths.mjs    shared repoRoot / sharedSkillsDir
@@ -16,7 +16,9 @@
 //
 //   skill   work with skills in the current repo
 //     roborepo skill export        bundle shared skills into a .zip + copy into this repo
-//     roborepo skill link          symlink this repo's .agents/skills into .claude/skills + .codex/skills
+//     roborepo skill install       symlink this repo's .agents/skills into existing .claude/.codex homes
+//     roborepo skill link          alias for skill install
+//     roborepo skill sync          sync harness_configs shared skill links (maintainer)
 //
 //   index   index the current repo for the MCP servers
 //     roborepo index code [path]   jcodemunch  (code index)
@@ -39,12 +41,14 @@
 //     roborepo sync                  review/pull live config back into the repo
 //     roborepo doctor  [--installed] health check
 //     roborepo verify                post-install verification
+//     roborepo rules   [--check]     render/check generated agent rules (maintainer)
 //
 // [path] is optional everywhere it appears; it defaults to the current directory and may be
 // relative or absolute — roborepo always resolves it to an absolute path before use.
 //
-// MAINTAINER-only scripts (render-rules.sh, link-skills.sh, test-*.sh) are deliberately NOT
-// exposed here — they edit the harness_configs source itself, not anything a consumer touches.
+// Most maintainer-only scripts (test-*.sh) are deliberately NOT exposed here — they edit the
+// harness_configs source itself, not anything a consumer touches. The exceptions are `skill sync`
+// and `rules`, because shared-skill and generated-rule editing are documented workflows.
 // The lifecycle verbs above dispatch to the existing bash scripts (roborepo-install.sh, etc.);
 // those filenames are an internal detail.
 
@@ -68,7 +72,9 @@ usage:
   roborepo                       interactive menu
 
   roborepo skill export [--yes] [--on-conflict=skip|override]
-  roborepo skill link  [--dry-run] [--uninstall]
+  roborepo skill install [--dry-run] [--uninstall]
+  roborepo skill link    [--dry-run] [--uninstall]   alias for "skill install"
+  roborepo skill sync    [--check]                    sync harness shared skill links
 
   roborepo index code  [path]
   roborepo index docs  [path]
@@ -82,6 +88,7 @@ usage:
   roborepo sync                  pull live config back into the repo
   roborepo doctor  [--installed] health check
   roborepo verify                post-install verification
+  roborepo rules   [--check]     render/check generated agent rules
 
   roborepo --help | -h
 
@@ -121,12 +128,14 @@ async function interactiveMenu() {
 
     { header: "Skills" },
     { label: "skill export", value: ["skill", "export"], desc: "copy shared skills into this repo" },
-    { label: "skill link", value: ["skill", "link"], desc: "link this repo's .agents/skills into .claude + .codex" },
+    { label: "skill install", value: ["skill", "install"], desc: "link .agents/skills into existing .claude/.codex" },
+    { label: "skill sync", value: ["skill", "sync"], desc: "sync harness shared skill links" },
 
     { header: "Maintenance" },
     { label: "sync", value: ["sync"], desc: "pull live config back into the repo" },
     { label: "doctor", value: ["doctor"], desc: "health check" },
     { label: "verify", value: ["verify"], desc: "post-install verification" },
+    { label: "rules", value: ["rules"], desc: "render/check generated agent rules" },
 
     { header: "Other" },
     { label: "help", value: ["--help"], desc: "show full usage" },
@@ -165,7 +174,8 @@ async function dispatch(args) {
 
     case "skill":
       if (sub === "export") return skillExport(new Set(rest));
-      if (sub === "link") return skillLink(flags);
+      if (sub === "install" || sub === "link") return skillLink(flags);
+      if (sub === "sync") return runRepoScript("scripts/link-skills.sh", rest);
       console.error(`unknown: roborepo skill ${sub ?? ""}`.trim());
       return usage();
 
@@ -202,6 +212,8 @@ async function dispatch(args) {
       return runRepoScript("scripts/doctor.sh", [sub, ...rest].filter(Boolean));
     case "verify":
       return runRepoScript("scripts/verify-install.sh", [sub, ...rest].filter(Boolean));
+    case "rules":
+      return runRepoScript("scripts/render-rules.sh", [sub, ...rest].filter(Boolean));
 
     default:
       console.error(`unknown command: ${args.join(" ")}`);

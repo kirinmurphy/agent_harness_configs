@@ -76,7 +76,7 @@ export function ensureSymlink(srcAbs, target, { dryRun = false, uninstall = fals
 
   if (uninstall) {
     if (current === srcAbs) {
-      if (!dryRun) fs.rmSync(target);
+      if (!dryRun) fs.unlinkSync(target);
       return "unlinked";
     }
     return "skip"; // not owned by us
@@ -111,8 +111,10 @@ const LOCAL_LINK_PREFIX = path.join("..", "..", ".agents", "skills");
 
 /**
  * In-repo skill linking for a CLIENT repo: source <repoRoot>/.agents/skills/<name> becomes a
- * per-harness symlink in <repoRoot>/.claude/skills and <repoRoot>/.codex/skills, each
+ * per-harness symlink in <repoRoot>/.claude/skills and/or <repoRoot>/.codex/skills, each
  * pointing at ../../.agents/skills/<name>. Purely local — never touches ~/.claude or ~/.codex.
+ * A harness destination participates when its root folder already exists, or when the CLI
+ * explicitly selected it after prompting the user.
  *
  * .agents/skills is the single canonical source (Codex reads it directly as project-scope
  * skills; the per-harness links let Claude and the transitional .codex path see it too).
@@ -122,14 +124,22 @@ const LOCAL_LINK_PREFIX = path.join("..", "..", ".agents", "skills");
  *
  * Returns a tally { linked, ok, conflicts, unlinked, denied, pruned, skills }.
  */
-export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false } = {}) {
+export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false, targetRoots = null } = {}) {
   const srcDir = path.join(repoRoot, ".agents", "skills");
-  const harnessDirs = [
-    path.join(repoRoot, ".claude", "skills"),
-    path.join(repoRoot, ".codex", "skills"),
-  ];
+  const harnessRoots =
+    targetRoots ?? [path.join(repoRoot, ".claude"), path.join(repoRoot, ".codex")].filter((root) => fs.existsSync(root));
+  const harnessDirs = harnessRoots.map((root) => path.join(root, "skills"));
   const names = listSourceSkills(srcDir);
-  const tally = { linked: 0, ok: 0, conflicts: 0, unlinked: 0, denied: 0, pruned: 0, skills: names.length };
+  const tally = {
+    linked: 0,
+    ok: 0,
+    conflicts: 0,
+    unlinked: 0,
+    denied: 0,
+    pruned: 0,
+    skills: names.length,
+    targetDirs: harnessDirs.length,
+  };
 
   for (const name of names) {
     // Relative target keeps the client repo portable: ../../.agents/skills/<name>.
@@ -165,7 +175,7 @@ export function linkLocalSkills(repoRoot, { dryRun = false, uninstall = false } 
         // Only links we own: target shaped like ../../.agents/skills/<name>.
         if (path.dirname(tgt) !== LOCAL_LINK_PREFIX) continue;
         if (live.has(ent.name)) continue; // source still exists — keep
-        if (!dryRun) fs.rmSync(link);
+        if (!dryRun) fs.unlinkSync(link);
         console.log(`prune: ${link} (source gone)`);
         tally.pruned++;
       }

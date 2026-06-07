@@ -1,4 +1,4 @@
-// roborepo `skill` subcommands: link this repo's .agents/skills into .claude/.codex, and
+// roborepo `skill` subcommands: link this repo's .agents/skills into existing .claude/.codex, and
 // export the shared harness skills into a consumer repo (+ a shareable zip).
 
 import fs from "node:fs";
@@ -16,27 +16,69 @@ import {
 } from "./skill-lib.mjs";
 import { repoRoot, sharedSkillsDir } from "./paths.mjs";
 
-export function skillLink(flags) {
+async function resolveSkillInstallTargets(repo, { dryRun = false, uninstall = false } = {}) {
+  const targets = [
+    { name: "Claude", root: path.join(repo, ".claude") },
+    { name: "Codex", root: path.join(repo, ".codex") },
+  ];
+  const existing = targets.filter((target) => fs.existsSync(target.root));
+  const missing = targets.filter((target) => !fs.existsSync(target.root));
+
+  if (missing.length === 0 || uninstall) return existing.map((target) => target.root);
+
+  const prompter = makePrompter();
+  if (!prompter.ask) return existing.map((target) => target.root);
+
+  const selected = [...existing];
+  for (const target of missing) {
+    const include = await confirmYesNo(prompter, `Symlink skills to ${target.name}?`, true);
+    if (include) selected.push(target);
+  }
+  prompter.close();
+
+  if (!dryRun) {
+    for (const target of selected) fs.mkdirSync(target.root, { recursive: true });
+  }
+  return selected.map((target) => target.root);
+}
+
+export async function skillLink(flags) {
   for (const f of flags) {
     if (f === "--dry-run" || f === "--uninstall") continue;
-    console.error(`unknown flag for "skill link": ${f}`);
+    console.error(`unknown flag for "skill install": ${f}`);
     process.exit(2);
   }
 
   const dryRun = flags.has("--dry-run");
   const uninstall = flags.has("--uninstall");
   const repo = process.cwd();
+  const agentsRoot = path.join(repo, ".agents");
   const srcDir = path.join(repo, ".agents", "skills");
 
-  if (!fs.existsSync(srcDir)) {
-    console.error(`no .agents/skills directory found at ${srcDir}`);
-    console.error(`create .agents/skills/<skill-name>/SKILL.md in this repo first, then re-run.`);
+  if (!fs.existsSync(agentsRoot)) {
+    console.error(`no .agents directory found at ${agentsRoot}`);
+    console.error(`move repo skills into .agents/skills/<skill-name>/SKILL.md first, then run:`);
+    console.error(`  roborepo skill install`);
     process.exit(1);
   }
 
-  const t = linkLocalSkills(repo, { dryRun, uninstall });
+  if (!fs.existsSync(srcDir)) {
+    console.error(`no .agents/skills directory found at ${srcDir}`);
+    console.error(`move repo skills into .agents/skills/<skill-name>/SKILL.md first, then run:`);
+    console.error(`  roborepo skill install`);
+    process.exit(1);
+  }
+
+  const targetRoots = await resolveSkillInstallTargets(repo, { dryRun, uninstall });
+  const t = linkLocalSkills(repo, { dryRun, uninstall, targetRoots });
   const dry = dryRun ? " (dry-run)" : "";
   console.log("");
+  if (t.targetDirs === 0) {
+    console.log(`0 existing agent target folder(s) found (.claude or .codex); no skill links installed${dry}.`);
+    console.log(`Run interactively to choose Claude/Codex targets, or create .claude/ or .codex/ first, then re-run:`);
+    console.log(`  roborepo skill install`);
+    return;
+  }
   if (uninstall) {
     console.log(`${t.unlinked} link(s) removed${dry}, ${t.pruned} pruned, ${t.conflicts} conflict(s).`);
   } else {
@@ -47,8 +89,8 @@ export function skillLink(flags) {
     console.log(`${line}.`);
     console.log("");
     console.log("Reminder: add a new skill at .agents/skills/<name>/SKILL.md? Re-run");
-    console.log("  roborepo skill link");
-    console.log("so Claude and transitional .codex/skills links pick it up — the source folder alone is not enough for Claude.");
+    console.log("  roborepo skill install");
+    console.log("so existing Claude and transitional .codex/skills links pick it up.");
   }
 }
 

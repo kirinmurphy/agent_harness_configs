@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Functional smoke tests for roborepo (skill export/link, run, lifecycle dispatch).
+# Functional smoke tests for roborepo (skill export/link/sync, rules, run, lifecycle dispatch).
 # Runs subcommands against throwaway temp repos and asserts on results. The consumer-facing
 # subcommands operate on a target repo dir and never touch ~/.claude / ~/.codex.
 #
@@ -42,70 +42,91 @@ mk_skill() {
 }
 
 # ---------------------------------------------------------------------------
-# roborepo skill link
+# roborepo skill install / link
 # ---------------------------------------------------------------------------
 local_repo="${work}/local"
+mkdir -p "${local_repo}/.claude" "${local_repo}/.codex"
 mk_skill "${local_repo}/.agents/skills" "app-deploy"
 mk_skill "${local_repo}/.agents/skills" "app-test"
 
-( cd "${local_repo}" && node "${cli}" skill link >/dev/null )
-assert "skill link: .claude link created" test -L "${local_repo}/.claude/skills/app-deploy"
-assert "skill link: .codex link created"  test -L "${local_repo}/.codex/skills/app-test"
-assert "skill link: link is relative to source" \
+( cd "${local_repo}" && node "${cli}" skill install >/dev/null )
+assert "skill install: .claude link created" test -L "${local_repo}/.claude/skills/app-deploy"
+assert "skill install: .codex link created"  test -L "${local_repo}/.codex/skills/app-test"
+assert "skill install: link is relative to source" \
   test "$(readlink "${local_repo}/.claude/skills/app-deploy")" = "../../.agents/skills/app-deploy"
 
-rerun="$( cd "${local_repo}" && node "${cli}" skill link )"
-assert "skill link: idempotent re-run reports already ok" \
+rerun="$( cd "${local_repo}" && node "${cli}" skill install )"
+assert "skill install: idempotent re-run reports already ok" \
   bash -c "echo '${rerun}' | grep -q 'already ok'"
 
 # Prune: delete a source skill, re-run, stale links removed.
 rm -rf "${local_repo}/.agents/skills/app-test"
-( cd "${local_repo}" && node "${cli}" skill link >/dev/null )
-assert "skill link: orphan .claude link pruned" \
+( cd "${local_repo}" && node "${cli}" skill install >/dev/null )
+assert "skill install: orphan .claude link pruned" \
   bash -c "! test -e '${local_repo}/.claude/skills/app-test'"
-assert "skill link: orphan .codex link pruned" \
+assert "skill install: orphan .codex link pruned" \
   bash -c "! test -e '${local_repo}/.codex/skills/app-test'"
-assert "skill link: live link kept after prune" test -L "${local_repo}/.claude/skills/app-deploy"
+assert "skill install: live link kept after prune" test -L "${local_repo}/.claude/skills/app-deploy"
 
 # Uninstall: removes only owned links.
-( cd "${local_repo}" && node "${cli}" skill link --uninstall >/dev/null )
-assert "skill link: uninstall removes owned links" \
+( cd "${local_repo}" && node "${cli}" skill install --uninstall >/dev/null )
+assert "skill install: uninstall removes owned links" \
   bash -c "! test -e '${local_repo}/.claude/skills/app-deploy'"
 
 # Dry-run: reports planned links without creating harness skill dirs.
 dry_repo="${work}/dry-link"
+mkdir -p "${dry_repo}/.claude" "${dry_repo}/.codex"
 mk_skill "${dry_repo}/.agents/skills" "app-deploy"
-( cd "${dry_repo}" && node "${cli}" skill link --dry-run >/dev/null )
-assert "skill link: dry-run does not create .claude link" \
+( cd "${dry_repo}" && node "${cli}" skill install --dry-run >/dev/null )
+assert "skill install: dry-run does not create .claude link" \
   bash -c "! test -e '${dry_repo}/.claude/skills/app-deploy'"
-assert "skill link: dry-run does not create .codex link" \
+assert "skill install: dry-run does not create .codex link" \
   bash -c "! test -e '${dry_repo}/.codex/skills/app-deploy'"
+
+no_agent_repo="${work}/no-agent-target"
+mk_skill "${no_agent_repo}/.agents/skills" "app-deploy"
+( cd "${no_agent_repo}" && node "${cli}" skill install >/dev/null )
+assert "skill install: skips .claude when .claude root is absent" \
+  bash -c "! test -e '${no_agent_repo}/.claude/skills/app-deploy'"
+assert "skill install: skips .codex when .codex root is absent" \
+  bash -c "! test -e '${no_agent_repo}/.codex/skills/app-deploy'"
 
 # Conflict: a real (non-symlink) dir at the target is never clobbered.
 conflict_repo="${work}/conflict"
 mk_skill "${conflict_repo}/.agents/skills" "app-deploy"
 mkdir -p "${conflict_repo}/.claude/skills/app-deploy"
 echo "REAL" > "${conflict_repo}/.claude/skills/app-deploy/marker"
-( cd "${conflict_repo}" && node "${cli}" skill link >/dev/null 2>&1 ) || true
-assert "skill link: real dir at target left intact (conflict)" \
+( cd "${conflict_repo}" && node "${cli}" skill install >/dev/null 2>&1 ) || true
+assert "skill install: real dir at target left intact (conflict)" \
   test -f "${conflict_repo}/.claude/skills/app-deploy/marker"
 
 foreign_repo="${work}/foreign-link"
 mk_skill "${foreign_repo}/.agents/skills" "app-deploy"
 mkdir -p "${foreign_repo}/elsewhere" "${foreign_repo}/.codex/skills"
 ln -s "../../elsewhere/app-deploy" "${foreign_repo}/.codex/skills/app-deploy"
-( cd "${foreign_repo}" && node "${cli}" skill link --uninstall >/dev/null 2>&1 ) || true
-assert "skill link: uninstall leaves foreign symlink intact" \
+( cd "${foreign_repo}" && node "${cli}" skill install --uninstall >/dev/null 2>&1 ) || true
+assert "skill install: uninstall leaves foreign symlink intact" \
   test "$(readlink "${foreign_repo}/.codex/skills/app-deploy")" = "../../elsewhere/app-deploy"
 
 # Missing .agents/skills dir: clear error, non-zero exit.
 empty_repo="${work}/empty"
 mkdir -p "${empty_repo}"
-assert "skill link: missing .agents/skills exits non-zero" \
-  bash -c "cd '${empty_repo}' && ! node '${cli}' skill link >/dev/null 2>&1"
+assert "skill install: missing .agents exits non-zero" \
+  bash -c "cd '${empty_repo}' && ! node '${cli}' skill install >/dev/null 2>&1"
+
+empty_agents_repo="${work}/empty-agents"
+mkdir -p "${empty_agents_repo}/.agents"
+assert "skill install: missing .agents/skills exits non-zero" \
+  bash -c "cd '${empty_agents_repo}' && ! node '${cli}' skill install >/dev/null 2>&1"
+
+assert "skill link: compatibility alias works" \
+  bash -c "cd '${local_repo}' && node '${cli}' skill link >/dev/null"
 
 assert "skill link: unknown flag rejected" \
   bash -c "cd '${local_repo}' && ! node '${cli}' skill link --nonsense >/dev/null 2>&1"
+
+assert "skill sync: check dispatches link-skills verifier" \
+  bash -c "cd '${repo_root}' && node '${cli}' skill sync --check >/dev/null"
 
 # ---------------------------------------------------------------------------
 # roborepo skill export
@@ -276,6 +297,8 @@ assert "lifecycle: roborepo install verb removed (first install is the shell boo
   bash -c "! node '${cli}' install --dry-run >/dev/null 2>&1"
 assert "lifecycle: roborepo verify dispatches and exits non-zero when not installed" \
   bash -c "! HOME='${work}/not-installed-home' node '${cli}' verify >/dev/null 2>&1"
+assert "lifecycle: roborepo rules --check dispatches render verifier" \
+  bash -c "cd '${repo_root}' && node '${cli}' rules --check >/dev/null"
 
 # ---------------------------------------------------------------------------
 # roborepo menu (numbered fallback via pipe)
@@ -296,7 +319,7 @@ assert "menu: numbered fallback cancels on out-of-range/blank" \
 # never touching the real ~). Verifies: profile chosen by SHELL, PATH line appended once,
 # and the unknown-shell branch warns instead of writing a profile the shell won't read.
 # ---------------------------------------------------------------------------
-igc="${repo_root}/scripts/install-global-commands.sh"
+igc="${repo_root}/scripts/install/install-global-commands.sh"
 
 # zsh: writes ~/.zshrc (created if missing) with the PATH line.
 zhome="${work}/home-zsh"
@@ -335,7 +358,7 @@ assert "install: unknown shell does not create ~/.zshrc" \
 # Isolated via a fake HOME.
 # ---------------------------------------------------------------------------
 # Stale ~/.zshrc snippet source lines for removed helpers.
-iss="${repo_root}/scripts/install-shell-snippets.sh"
+iss="${repo_root}/scripts/install/install-shell-snippets.sh"
 shome="${work}/home-snip"
 mkdir -p "${shome}"
 {

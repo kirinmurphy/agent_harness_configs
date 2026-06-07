@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 backup_root="${HARNESS_CONFIG_BACKUP_ROOT:-${HOME}/.harness-configs-backups/$(date +%Y%m%d-%H%M%S)}"
 dry_run=0
 
@@ -11,8 +11,8 @@ case "${1:-}" in
   *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
 esac
 
-# shellcheck source=scripts/install-lib.sh
-source "${repo_root}/scripts/install-lib.sh"
+# shellcheck source=scripts/install/install-lib.sh
+source "${repo_root}/scripts/install/install-lib.sh"
 
 if [[ ! -d "${HOME}/.claude" ]]; then
   echo "skip: ~/.claude not found — Claude Code does not appear to be installed" >&2

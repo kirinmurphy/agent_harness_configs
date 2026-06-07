@@ -56,7 +56,7 @@ Everything else (the two symlink levels, the layer table) lives in
 - **The firewall is code, not convention.** `link-skills.sh` runs one pass per layer;
   `roborepo` reads only `agents/skills/`. There is no code path from `skills-local/` to global
   config or to a client export. Don't add one.
-- **Reuse the link/conflict primitives.** Bash: `scripts/install-lib.sh` (`link_item`,
+- **Reuse the link/conflict primitives.** Bash: `scripts/install/install-lib.sh` (`link_item`,
   `link_item_clean`, collision prompts) and `scripts/skill-lib.sh` (`list_source_skills`). Node:
   `scripts/cli/skill-lib.mjs` (`listSourceSkills`, `ensureSymlink`, `linkLocalSkills`, `writeZip`).
   Don't re-derive the "what is a skill" rule or hand-roll `ln`/`symlink` logic.

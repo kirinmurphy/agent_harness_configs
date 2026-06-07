@@ -1,14 +1,15 @@
 # Per-Repo Skill Installer
 
-> **Status: IMPLEMENTED** (revised from this plan). Shipped as the `roborepo skill link`
-> subcommand (Node, `scripts/roborepo.mjs` + shared `scripts/cli/skill-lib.mjs::linkLocalSkills`),
+> **Status: IMPLEMENTED** (revised from this plan). Shipped as the `roborepo skill install`
+> subcommand, with `roborepo skill link` kept as a compatibility alias (Node,
+> `scripts/roborepo.mjs` + shared `scripts/cli/skill-lib.mjs::linkLocalSkills`),
 > chosen Node-over-bash for cross-platform reach incl. Windows. **Scope was corrected during
 > implementation:** the tool is *purely in-repo* — it symlinks the client repo's own
-> `.agents/skills/<name>` into that repo's `.claude/skills` + `.codex/skills` and does NOT touch
-> the global `~/.claude`/`~/.codex` (this plan's original "symlink into `~/.claude/skills`"
-> wording was the wrong scope). Source convention is `.agents/skills/` in the client repo — the
-> dir Codex scans for project skills, doubling as the canonical source. The bash skeleton below
-> is historical context only.
+> `.agents/skills/<name>` into selected repo `.claude/skills` and/or `.codex/skills`
+> homes and does NOT touch the global `~/.claude`/`~/.codex` (this plan's original "symlink
+> into `~/.claude/skills`" wording was the wrong scope). Source convention is `.agents/skills/`
+> in the client repo — the dir Codex scans for project skills, doubling as the canonical source.
+> The bash skeleton below is historical context only.
 
 ## Problem
 
@@ -23,23 +24,34 @@ repo, not the global harness.
 App skills live at `.agents/skills/<skill-name>/` inside the app repo.
 
 - `.agents/skills/` is the canonical source because Codex scans it for project skills
-- `roborepo skill link` creates per-harness links into `.claude/skills` and `.codex/skills`
+- `roborepo skill install` creates per-harness links into existing `.claude/skills` and
+  `.codex/skills`; when run interactively and a root is missing, it asks whether to create/link
+  that agent target
+- `roborepo skill link` remains a compatibility alias for `roborepo skill install`
 - Prefix skill names with the app name (e.g., `myapp-deploy`) to avoid collisions with global skills
 
-## Command: `roborepo skill link`
+## Command: `roborepo skill install`
 
-Run from any app repo. Detects `$PWD/.agents/skills/`, then symlinks each skill into that
-repo's `.claude/skills/` and `.codex/skills/`. It never touches global `~/.claude`,
-`~/.codex`, or `~/.agents`.
+Run from any app repo. Requires `$PWD/.agents/skills/`, then symlinks each skill into selected
+repo `.claude/skills/` and/or `.codex/skills/`. Existing `.claude` and `.codex` roots are used
+automatically. If one is missing and the command is running interactively, the command asks
+whether to create/link that target. Noninteractive runs do not create new agent roots. It never
+touches global `~/.claude`, `~/.codex`, or `~/.agents`.
 
 ```
-roborepo skill link [--dry-run] [--uninstall]
+roborepo skill install [--dry-run] [--uninstall]
+roborepo skill link    [--dry-run] [--uninstall]  # compatibility alias
 ```
 
 ### Behavior
 
 - Iterates subdirectories of `.agents/skills/`
-- For each skill, creates relative symlinks in `.claude/skills/` and `.codex/skills/`
+- If `.agents/` or `.agents/skills/` is missing, exits non-zero and tells the user to move repo
+  skills into `.agents/skills/<skill-name>/SKILL.md` first
+- For each skill, creates relative symlinks in `.claude/skills/` and `.codex/skills/` for
+  existing agent roots and any missing roots selected in the interactive prompt
+- If no target roots exist in a noninteractive run, reports that no links were installed and
+  exits successfully without creating `.claude` or `.codex`
 - **Conflict**: if target exists and points elsewhere, prints a warning and skips — does not abort
 - **`--dry-run`**: prints what would happen, makes no changes
 - **`--uninstall`**: removes symlinks only if they point back to the current app (ownership check)
@@ -52,10 +64,10 @@ Per-skill, non-fatal. Matches the `link_item_clean` pattern in `scripts/install-
 
 | File | Change |
 |------|--------|
-| `scripts/roborepo.mjs` | Dispatches `roborepo skill link` |
+| `scripts/roborepo.mjs` | Dispatches `roborepo skill install` and the `skill link` alias |
 | `scripts/cli/skills.mjs` | Implements user-facing skill commands |
 | `scripts/cli/skill-lib.mjs` | Implements `linkLocalSkills` |
-| `scripts/test-roborepo.sh` | Covers link, prune, uninstall, dry-run, conflict behavior |
+| `scripts/test-roborepo.sh` | Covers install/link alias, prune, uninstall, dry-run, conflict behavior |
 
 ## Historical Script Skeleton
 
@@ -123,8 +135,9 @@ done
 ## Verification
 
 1. Create `.agents/skills/test-skill/` with a dummy `SKILL.md` in any test repo.
-2. `roborepo skill link --dry-run` — confirm expected output, no changes.
-3. `roborepo skill link` — confirm symlinks in `.claude/skills/` and `.codex/skills/`.
-4. `roborepo skill link --uninstall` — confirm symlinks removed.
-5. `roborepo update --dry-run` — confirm global command wiring remains healthy.
-6. `which roborepo` resolves correctly.
+2. With no `.claude/` or `.codex/`, run noninteractively and confirm no target roots are created.
+3. Run interactively and answer the Claude/Codex prompts; confirm selected roots and symlinks are created.
+4. Re-run `roborepo skill install` and confirm existing symlinks report as already ok.
+5. `roborepo skill install --uninstall` — confirm symlinks removed.
+6. `roborepo update --dry-run` — confirm global command wiring remains healthy.
+7. `which roborepo` resolves correctly.

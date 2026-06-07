@@ -176,14 +176,24 @@ There are two distinct, firewalled skill layers:
 ### Client utilities (same model, for other repos)
 
 One Node command, `roborepo`, is the consumer front door (see the README for the full subcommand
-list). For the dual-harness skill model it offers `skill export` (bundle shared skills into a
-`.zip` + copy into a target repo's `.claude/skills` + `.agents/skills`) and `skill link` (in the
-target repo, symlink its own `.agents/skills/<name>` into `.claude/skills` + `.codex/skills` —
-purely in-repo, never global; `.agents/skills` is the client's canonical source, which Codex also
-scans directly). It also folds in `mcp add`/`index`/`watch`/`run` and dispatches the lifecycle
-verbs `update`/`sync`/`doctor`/`verify` to the existing bash scripts (the first install is the shell
-bootstrap `roborepo-install.sh`, so there is no `install` verb). Shared skill logic lives in
-`scripts/cli/skill-lib.mjs`.
+list). For the dual-harness skill model it offers:
+
+- `skill export`: bundles shared skills into a `.zip` and copies them into a target repo's
+  `.agents/skills` plus harness-specific skill folders.
+- `skill install`: treats the target repo's own `.agents/skills/<name>` as the canonical project
+  skill source, then symlinks those skills into selected `.claude/skills` and/or `.codex/skills`
+  folders. Existing `.claude` and `.codex` roots are used automatically; when run interactively and
+  a root is missing, it asks whether to create/link that target. Noninteractive runs do not create
+  new agent roots. `skill link` is a compatibility alias.
+
+This is purely in-repo and never touches global `~/.claude`, `~/.codex`, or `~/.agents`.
+`.agents/skills` is canonical because Codex scans that path directly; Claude and the transitional
+Codex path are fan-out links from that source.
+
+`roborepo` also folds in `mcp add`/`index`/`watch`/`run` and dispatches the lifecycle verbs
+`update`/`sync`/`doctor`/`verify` to the existing bash scripts (the first install is the shell
+bootstrap `roborepo-install.sh`, so there is no root-level `install` verb). Shared skill logic lives
+in `scripts/cli/skill-lib.mjs`.
 
 ## Sync Flow
 

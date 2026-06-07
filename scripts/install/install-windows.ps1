@@ -7,7 +7,7 @@
 #     (hook scripts are bash — they will not run without Git Bash or WSL)
 #
 # Usage:
-#   From PowerShell:  .\scripts\install-windows.ps1
+#   From PowerShell:  .\scripts\install\install-windows.ps1
 #   From Git Bash:    called automatically by roborepo-install.sh
 #
 # Less tested than macOS/Linux. Report issues or submit PRs.
@@ -17,7 +17,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 function Link-Item {
   param($RepoRel, $HomePath, [switch]$AllowReplace)

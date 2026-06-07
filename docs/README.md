@@ -1,30 +1,26 @@
 # Harness Config Docs
 
-Docs are split by reader need.
+Docs are split by reader need: user surface first, implementation reference second.
 
-## Guides
+## User Surface
 
 Use these when setting up, operating, or deciding what to do:
 
+- [First-Time Setup](guides/first-time-setup.md)
 - [Setup and Daily Use](guides/setup-and-daily-use.md)
 - [Install Workflows](guides/install-workflows.md)
-
-## Service Reference
-
-Use these when inspecting installed behavior available in repos where this harness is active:
-
-- [Architecture](reference/services/architecture.md)
 - [roborepo CLI](reference/services/roborepo.md)
-- [Claude Hooks](reference/services/claude-hooks.md)
-- [Codex Hooks](reference/services/codex-hooks.md)
-- [Convention Capture](reference/services/convention-capture.md)
 - [jcodemunch](reference/services/jcodemunch.md)
 - [jdocmunch](reference/services/jdocmunch.md)
+- [Convention Capture](reference/services/convention-capture.md)
 
-## Internal Reference
+## Under The Hood
 
-Use these when changing this harness repo itself:
+Use these when changing or debugging how the harness is wired:
 
+- [Architecture](reference/services/architecture.md)
+- [Claude Hooks](reference/services/claude-hooks.md)
+- [Codex Hooks](reference/services/codex-hooks.md)
 - [Config Collision Handling](reference/internal/config-collision-handling.md)
 - [Rules Parity and Layering](reference/internal/rules-parity-and-layering.md)
 

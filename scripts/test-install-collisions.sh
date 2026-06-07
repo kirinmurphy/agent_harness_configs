@@ -154,7 +154,7 @@ test_direct_harness_conflict_blocks_before_mutation() {
   home_dir="$(make_home)"
   printf 'existing agents\n' > "$home_dir/.codex/AGENTS.md"
 
-  if HOME="$home_dir" "$repo_root/scripts/install-codex.sh" --dry-run >"$home_dir/out" 2>&1; then
+  if HOME="$home_dir" "$repo_root/scripts/install/install-codex.sh" --dry-run >"$home_dir/out" 2>&1; then
     fail "direct Codex installer blocks non-root conflict" "$home_dir/out"
   fi
 
@@ -373,7 +373,7 @@ EOF
 
 test_windows_installer_root_preflight_order() {
   local windows_script root_line claude_line
-  windows_script="$repo_root/scripts/install-windows.ps1"
+  windows_script="$repo_root/scripts/install/install-windows.ps1"
   root_line="$(awk '/^Invoke-RootConfigPreflight$/ { print NR; exit }' "$windows_script")"
   claude_line="$(awk '/^# Claude symlinks$/ { print NR; exit }' "$windows_script")"
 

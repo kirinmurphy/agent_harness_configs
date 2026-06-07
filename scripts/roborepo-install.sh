@@ -15,8 +15,8 @@ esac
 dry_args=()
 [[ $dry_run -eq 1 ]] && dry_args=(--dry-run)
 
-# shellcheck source=scripts/install-lib.sh
-source "${repo_root}/scripts/install-lib.sh"
+# shellcheck source=scripts/install/install-lib.sh
+source "${repo_root}/scripts/install/install-lib.sh"
 
 run_with_dry_args() {
   if [[ $dry_run -eq 1 ]]; then
@@ -32,17 +32,17 @@ case "$(uname -s 2>/dev/null || echo unknown)" in
     echo "Windows + bash detected (Git Bash or similar)."
     if command -v powershell.exe &>/dev/null; then
       echo "Running PowerShell installer for symlinks..."
-      ps_args=(-ExecutionPolicy Bypass -File "${repo_root}/scripts/install-windows.ps1")
+      ps_args=(-ExecutionPolicy Bypass -File "${repo_root}/scripts/install/install-windows.ps1")
       [[ $dry_run -eq 1 ]] && ps_args+=(-DryRun)
       powershell.exe "${ps_args[@]}"
     else
-      echo "powershell.exe not found. Run scripts/install-windows.ps1 from PowerShell manually."
+      echo "powershell.exe not found. Run scripts/install/install-windows.ps1 from PowerShell manually."
     fi
     # Shell snippets and global commands still need bash — continue below
-    run_with_dry_args "${repo_root}/scripts/install-gitignore-globals.sh"
+    run_with_dry_args "${repo_root}/scripts/install/install-gitignore-globals.sh"
     if [[ $dry_run -eq 0 ]]; then
-      "${repo_root}/scripts/install-global-commands.sh"
-      "${repo_root}/scripts/install-shell-snippets.sh"
+      "${repo_root}/scripts/install/install-global-commands.sh"
+      "${repo_root}/scripts/install/install-shell-snippets.sh"
     fi
     exit 0
     ;;
@@ -63,8 +63,8 @@ if [[ $has_claude -eq 0 && $has_codex -eq 0 ]]; then
 fi
 
 preflight_shell_setup() {
-  "${repo_root}/scripts/install-global-commands.sh" --dry-run
-  "${repo_root}/scripts/install-shell-snippets.sh" --dry-run
+  "${repo_root}/scripts/install/install-global-commands.sh" --dry-run
+  "${repo_root}/scripts/install/install-shell-snippets.sh" --dry-run
 }
 
 check_clean_target() {
@@ -178,25 +178,25 @@ if [[ $has_codex -eq 1 ]]; then
 fi
 
 # Harness-agnostic setup
-run_with_dry_args "${repo_root}/scripts/install-gitignore-globals.sh"
+run_with_dry_args "${repo_root}/scripts/install/install-gitignore-globals.sh"
 
 # Harness-specific symlinks
 if [[ $has_claude -eq 1 ]]; then
-  run_with_dry_args "${repo_root}/scripts/install-claude.sh"
+  run_with_dry_args "${repo_root}/scripts/install/install-claude.sh"
 else
   echo "skip: Claude — ~/.claude not found"
 fi
 
 if [[ $has_codex -eq 1 ]]; then
-  run_with_dry_args "${repo_root}/scripts/install-codex.sh"
+  run_with_dry_args "${repo_root}/scripts/install/install-codex.sh"
 else
   echo "skip: Codex — ~/.codex not found"
 fi
 
 # Shell and PATH setup (harness-agnostic, bash only)
 if [[ $dry_run -eq 0 ]]; then
-  "${repo_root}/scripts/install-global-commands.sh"
-  "${repo_root}/scripts/install-shell-snippets.sh"
+  "${repo_root}/scripts/install/install-global-commands.sh"
+  "${repo_root}/scripts/install/install-shell-snippets.sh"
 fi
 
 # Post-install summary

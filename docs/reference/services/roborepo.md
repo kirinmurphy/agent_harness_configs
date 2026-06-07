@@ -11,7 +11,7 @@ subcommand implementations live under `scripts/cli/`, one module per category:
 
 | Module | Owns |
 | --- | --- |
-| `scripts/cli/skills.mjs` | `skill export`, `skill link` |
+| `scripts/cli/skills.mjs` | `skill export`, `skill install` (`skill link` alias) |
 | `scripts/cli/index.mjs` | `index code\|docs`, `watch code`, `run` |
 | `scripts/cli/mcp.mjs` | `mcp add` (Claude + Codex registration) |
 | `scripts/cli/paths.mjs` | shared `repoRoot` / `sharedSkillsDir` |
@@ -24,7 +24,7 @@ Pure `node:` built-ins — no external `zip`/`unzip`/`ln` — so it runs on macO
 ## Install and PATH
 
 `roborepo` is wired automatically by the installer — there is no manual PATH step on macOS/Linux.
-`scripts/install-global-commands.sh` (run by `scripts/roborepo-install.sh`, and again by every
+`scripts/install/install-global-commands.sh` (run by `scripts/roborepo-install.sh`, and again by every
 `roborepo update`):
 
 1. symlinks `bin/roborepo` into `~/.local/bin/roborepo`, and
@@ -79,12 +79,14 @@ roborepo — choose an action:
 
   Skills
   skill export   copy shared skills into this repo
-  skill link     link this repo's .agents/skills into .claude + .codex
+  skill install  link this repo's .agents/skills into selected agent folders
+  skill sync     sync harness shared skill links
 
   Maintenance
   sync           pull live config back into the repo
   doctor         health check
   verify         post-install verification
+  rules          render/check generated agent rules
 
   Other
   help           show full usage
@@ -95,7 +97,9 @@ roborepo — choose an action:
 
 ```
 roborepo skill export [--yes] [--on-conflict=skip|override]
-roborepo skill link  [--dry-run] [--uninstall]
+roborepo skill install [--dry-run] [--uninstall]
+roborepo skill link    [--dry-run] [--uninstall]
+roborepo skill sync    [--check]
 
 roborepo index code  [path]
 roborepo index docs  [path]
@@ -109,6 +113,7 @@ roborepo update  [--dry-run]
 roborepo sync
 roborepo doctor  [--installed]
 roborepo verify
+roborepo rules   [--check]
 
 roborepo --help | -h
 ```
@@ -127,18 +132,25 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   registers MCP servers with Claude + Codex; `run` executes a command and prints only a trimmed
   tail of its output.
 - **Skills** — `skill export` bundles the shared skills into a `.zip` and copies them into the
-  current repo's `.claude/skills` (+ `.agents/skills`, which Codex scans) with per-skill
-  override/skip (override backs the old one up under `archived/`). `skill link` symlinks the current
-  repo's own `.agents/skills/<name>` (its canonical source, also what Codex scans) into its
-  `.claude/skills` + `.codex/skills` (purely in-repo, never global) and prunes links whose source is
-  gone. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
+  current repo's `.agents/skills` plus harness-specific skill folders with per-skill override/skip
+  (override backs the old one up under `archived/`). `skill install` symlinks the current repo's own
+  `.agents/skills/<name>` into selected `.claude/skills` and/or `.codex/skills` folders, then prunes
+  links whose source is gone. `.agents/skills` is the canonical project skill source because Codex
+  scans it directly; Claude and the transitional `.codex/skills` path are fan-out links from that
+  source. Existing `.claude`/`.codex` roots are used automatically; interactive runs ask before
+  creating a missing root, and noninteractive runs never create missing roots. `skill link` is a
+  compatibility alias. `skill sync` is the maintainer command for this repo: it creates/prunes
+  Claude per-skill links after shared skills are added or removed, and `--check` verifies without
+  changing links. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
 - **Maintenance** — `sync` pulls live config back into the repo; `doctor` and `verify` are health
-  and post-install checks. These dispatch to the existing bash scripts.
+  and post-install checks; `rules` renders generated Claude/Codex global instruction files, or
+  verifies them with `--check`. These dispatch to the existing bash scripts.
 
 The lifecycle verbs dispatch to `scripts/roborepo-install.sh`, `scripts/sync-from-home.sh`,
 `scripts/doctor.sh`, and `scripts/verify-install.sh`; those filenames are an internal detail.
-Maintainer-only scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) are intentionally not
-exposed through `roborepo`.
+Most maintainer-only scripts (`test-*.sh`) are intentionally not exposed through `roborepo`.
+`skill sync` and `rules` are exposed because shared-skill and generated-rule editing are documented
+maintainer workflows.
 
 ## MCP registration
 
@@ -158,7 +170,7 @@ touching anything.
 
 ## Tests
 
-`scripts/test-roborepo.sh` smoke-tests the subcommands (skill link/prune/uninstall/conflict,
-export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real Codex/Claude writes
-against a throwaway harness root, lifecycle dispatch, menu fallback) against throwaway temp repos.
+`scripts/test-roborepo.sh` smoke-tests the subcommands (skill install/link alias/sync/prune/uninstall/
+conflict, export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real Codex/Claude writes
+against a throwaway harness root, lifecycle/rules dispatch, menu fallback) against throwaway temp repos.
 It touches no global state.

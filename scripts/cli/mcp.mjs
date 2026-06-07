@@ -153,7 +153,13 @@ function ensureClaudeMcpPermission(serverName) {
     return;
   }
 
-  const insertAt = settings.permissions.allow.findLastIndex((item) => item.startsWith("mcp__")) + 1;
+  let insertAt = 0;
+  for (let i = settings.permissions.allow.length - 1; i >= 0; i--) {
+    if (settings.permissions.allow[i].startsWith("mcp__")) {
+      insertAt = i + 1;
+      break;
+    }
+  }
   if (insertAt > 0) {
     settings.permissions.allow.splice(insertAt, 0, permission);
   } else {
