@@ -115,6 +115,8 @@ mkdir -p "${export_repo}"
 ( cd "${export_repo}" && node "${cli}" skill export --yes >/dev/null )
 assert "skill export: .claude/skills created and populated" \
   test -f "${export_repo}/.claude/skills/test-harness/SKILL.md"
+assert "skill export: fresh repo creates .agents/skills for Codex" \
+  test -f "${export_repo}/.agents/skills/test-harness/SKILL.md"
 assert "skill export: shareable zip produced" \
   bash -c "ls '${export_repo}'/global_agent_skills_*.zip >/dev/null 2>&1"
 if command -v unzip >/dev/null 2>&1; then
@@ -136,6 +138,12 @@ assert "skill export: existing .agents/skills is populated" \
   test -f "${skip_repo}/.agents/skills/test-harness/SKILL.md"
 assert "skill export: invalid on-conflict rejected" \
   bash -c "cd '${skip_repo}' && ! node '${cli}' skill export --yes --on-conflict=merge >/dev/null 2>&1"
+
+claude_only_repo="${work}/export-claude-only"
+mkdir -p "${claude_only_repo}/.claude/skills"
+( cd "${claude_only_repo}" && node "${cli}" skill export --yes >/dev/null )
+assert "skill export: creates .agents/skills even when only .claude exists" \
+  test -f "${claude_only_repo}/.agents/skills/test-harness/SKILL.md"
 
 assert "skill export: internal skill NOT exported (firewall)" \
   bash -c "! test -e '${export_repo}/.claude/skills/harness-platform-dev'"

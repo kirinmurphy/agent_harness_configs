@@ -1,7 +1,7 @@
 # Per-Repo Skill Installer
 
 > **Status: IMPLEMENTED** (revised from this plan). Shipped as the `roborepo skill link`
-> subcommand (Node, `scripts/roborepo.mjs` + shared `scripts/skill-lib.mjs::linkLocalSkills`),
+> subcommand (Node, `scripts/roborepo.mjs` + shared `scripts/cli/skill-lib.mjs::linkLocalSkills`),
 > chosen Node-over-bash for cross-platform reach incl. Windows. **Scope was corrected during
 > implementation:** the tool is *purely in-repo* — it symlinks the client repo's own
 > `.agents/skills/<name>` into that repo's `.claude/skills` + `.codex/skills` and does NOT touch
@@ -12,29 +12,34 @@
 
 ## Problem
 
-Global skills in `harness_configs/skills/` are symlinked into both `~/.claude/skills/` and `~/.codex/skills/`. App-specific skills (deploy flows, domain-specific agents) need the same dual-harness treatment but should live in the app repo, not the global harness.
+Global shared skills live in `harness_configs/agents/skills/`. Claude reaches them through
+per-skill links in `~/.claude/skills/`; Codex reaches them through the whole-dir
+`~/.agents/skills -> agents/skills` link. App-specific skills (deploy flows,
+domain-specific agents) need the same local dual-harness treatment but should live in the app
+repo, not the global harness.
 
 ## Convention
 
-App skills live at `.claude/skills/<skill-name>/` inside the app repo.
+App skills live at `.agents/skills/<skill-name>/` inside the app repo.
 
-- `.claude/` is the natural per-project config home for Claude Code
-- Codex skills use the same format — one source directory, two symlink targets
+- `.agents/skills/` is the canonical source because Codex scans it for project skills
+- `roborepo skill link` creates per-harness links into `.claude/skills` and `.codex/skills`
 - Prefix skill names with the app name (e.g., `myapp-deploy`) to avoid collisions with global skills
 
-## Script: `bin/harness-install-local-skills`
+## Command: `roborepo skill link`
 
-Run from any app repo. Detects `$PWD/.claude/skills/`, symlinks each skill into `~/.claude/skills/` and `~/.codex/skills/` (whichever harnesses exist).
+Run from any app repo. Detects `$PWD/.agents/skills/`, then symlinks each skill into that
+repo's `.claude/skills/` and `.codex/skills/`. It never touches global `~/.claude`,
+`~/.codex`, or `~/.agents`.
 
 ```
-harness-install-local-skills [--dry-run] [--uninstall]
+roborepo skill link [--dry-run] [--uninstall]
 ```
 
 ### Behavior
 
-- Detects which harnesses are present (`~/.claude`, `~/.codex`, or both)
-- Iterates subdirectories of `.claude/skills/`
-- For each skill, creates an absolute symlink in each harness skills dir
+- Iterates subdirectories of `.agents/skills/`
+- For each skill, creates relative symlinks in `.claude/skills/` and `.codex/skills/`
 - **Conflict**: if target exists and points elsewhere, prints a warning and skips — does not abort
 - **`--dry-run`**: prints what would happen, makes no changes
 - **`--uninstall`**: removes symlinks only if they point back to the current app (ownership check)
@@ -47,19 +52,19 @@ Per-skill, non-fatal. Matches the `link_item_clean` pattern in `scripts/install-
 
 | File | Change |
 |------|--------|
-| `bin/harness-install-local-skills` | New script |
-| `scripts/install-global-commands.sh` | Add `link_command "harness-install-local-skills"` alongside existing four |
-| `scripts/doctor.sh` | Add `check_file "bin/harness-install-local-skills"` and `check_link` for `~/.local/bin/harness-install-local-skills` |
-| `scripts/verify-install.sh` | Add `check_link "bin/harness-install-local-skills" "${HOME}/.local/bin/harness-install-local-skills"` |
+| `scripts/roborepo.mjs` | Dispatches `roborepo skill link` |
+| `scripts/cli/skills.mjs` | Implements user-facing skill commands |
+| `scripts/cli/skill-lib.mjs` | Implements `linkLocalSkills` |
+| `scripts/test-roborepo.sh` | Covers link, prune, uninstall, dry-run, conflict behavior |
 
-## Script Skeleton
+## Historical Script Skeleton
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
 app_root="$(pwd)"
-skills_src="${app_root}/.claude/skills"
+skills_src="${app_root}/.agents/skills"
 dry_run=0
 uninstall=0
 
@@ -74,17 +79,11 @@ done
 
 if [[ ! -d "${skills_src}" ]]; then
   echo "no skills found at ${skills_src}" >&2
-  echo "create .claude/skills/<skill-name>/ in this repo first." >&2
+  echo "create .agents/skills/<skill-name>/ in this repo first." >&2
   exit 1
 fi
 
-harness_dirs=()
-[[ -d "${HOME}/.claude" ]] && harness_dirs+=("${HOME}/.claude/skills")
-[[ -d "${HOME}/.codex"  ]] && harness_dirs+=("${HOME}/.codex/skills")
-
-if [[ ${#harness_dirs[@]} -eq 0 ]]; then
-  echo "error: neither ~/.claude nor ~/.codex found." >&2; exit 1
-fi
+harness_dirs=("${app_root}/.claude/skills" "${app_root}/.codex/skills")
 
 for skill_path in "${skills_src}"/*/; do
   [[ -d "${skill_path}" ]] || continue
@@ -115,7 +114,7 @@ for skill_path in "${skills_src}"/*/; do
       continue
     fi
 
-    [[ $dry_run -eq 0 ]] && ln -s "${skill_abs}" "${target}"
+    [[ $dry_run -eq 0 ]] && mkdir -p "${harness_skills_dir}" && ln -s "${skill_abs}" "${target}"
     echo "link: ${target} -> ${skill_abs}"
   done
 done
@@ -123,9 +122,9 @@ done
 
 ## Verification
 
-1. Create `.claude/skills/test-skill/` with a dummy `SKILL.md` in any test repo
-2. `harness-install-local-skills --dry-run` — confirm expected output, no changes
-3. `harness-install-local-skills` — confirm symlinks in `~/.claude/skills/` and `~/.codex/skills/`
-4. `harness-install-local-skills --uninstall` — confirm symlinks removed
-5. Re-run `scripts/install-symlinks.sh` to wire script into `~/.local/bin`
-6. `which harness-install-local-skills` resolves correctly
+1. Create `.agents/skills/test-skill/` with a dummy `SKILL.md` in any test repo.
+2. `roborepo skill link --dry-run` — confirm expected output, no changes.
+3. `roborepo skill link` — confirm symlinks in `.claude/skills/` and `.codex/skills/`.
+4. `roborepo skill link --uninstall` — confirm symlinks removed.
+5. `roborepo update --dry-run` — confirm global command wiring remains healthy.
+6. `which roborepo` resolves correctly.

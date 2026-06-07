@@ -382,6 +382,9 @@ test_windows_installer_root_preflight_order() {
     || fail "Windows installer resolves root config collisions before linking" "$windows_script"
   assert_file_contains "$windows_script" 'if \(-not \$adoptClaudeConfig\)' "Windows installer skips adopted Claude root config"
   assert_file_contains "$windows_script" 'if \(-not \$adoptCodexConfig\)' "Windows installer skips adopted Codex root config"
+  assert_file_contains "$windows_script" 'Link-Item "agents/skills"[[:space:]]+\(Join-Path \$agentsHome "skills"\)' "Windows installer links canonical Codex skills to .agents"
+  assert_file_contains "$windows_script" 'Link-Item "agents/skills"[[:space:]]+\(Join-Path \$codexHome "skills"\)' "Windows installer links transitional Codex skills to .codex"
+  assert_file_not_contains "$windows_script" 'Link-Item "codex/skills"' "Windows installer does not reference removed codex/skills source"
 }
 
 test_fresh_managed

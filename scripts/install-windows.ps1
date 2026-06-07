@@ -278,11 +278,13 @@ function Invoke-CleanTargetPreflight {
 
   if ($hasCodex) {
     $codexHome = Join-Path $env:USERPROFILE ".codex"
+    $agentsHome = Join-Path $env:USERPROFILE ".agents"
     if (-not (Test-CleanTarget "codex/AGENTS.md" (Join-Path $codexHome "AGENTS.md"))) { $conflict = $true }
     if (-not (Test-CleanTarget "codex/hooks.json" (Join-Path $codexHome "hooks.json"))) { $conflict = $true }
     if (-not (Test-CleanTarget "codex/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $codexHome "MANAGED_BY_HARNESS_CONFIGS.md"))) { $conflict = $true }
     if (-not (Test-CleanTarget "codex/rules" (Join-Path $codexHome "rules"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "codex/skills" (Join-Path $codexHome "skills"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "agents/skills" (Join-Path $agentsHome "skills"))) { $conflict = $true }
+    if (-not (Test-CleanTarget "agents/skills" (Join-Path $codexHome "skills"))) { $conflict = $true }
   }
 
   if ($conflict) {
@@ -311,10 +313,10 @@ function Invoke-RootConfigPreflight {
 
 # Detect which harnesses are present
 $hasClaude = Test-Path (Join-Path $env:APPDATA "Claude")
-$hasCodex  = Test-Path (Join-Path $env:USERPROFILE ".codex")
+$hasCodex  = (Test-Path (Join-Path $env:USERPROFILE ".codex")) -or (Test-Path (Join-Path $env:USERPROFILE ".agents"))
 
 if (-not $hasClaude -and -not $hasCodex) {
-  Write-Warning "Neither Claude Code (~AppData\Roaming\Claude) nor Codex (~\.codex) found."
+  Write-Warning "Neither Claude Code (~AppData\Roaming\Claude) nor Codex (~\.codex/~\.agents) found."
   Write-Warning "Install Claude Code or Codex first, then re-run this script."
   exit 1
 }
@@ -344,6 +346,7 @@ if ($hasCodex) {
   Write-Host ""
   Write-Host "--- Codex ---"
   $codexHome = Join-Path $env:USERPROFILE ".codex"
+  $agentsHome = Join-Path $env:USERPROFILE ".agents"
   if (-not $adoptCodexConfig) {
     Link-UserConfig "codex" "codex/config.toml"     (Join-Path $codexHome "config.toml")
   }
@@ -351,9 +354,10 @@ if ($hasCodex) {
   Link-Item "codex/hooks.json"                    (Join-Path $codexHome "hooks.json")
   Link-Item "codex/MANAGED_BY_HARNESS_CONFIGS.md" (Join-Path $codexHome "MANAGED_BY_HARNESS_CONFIGS.md")
   Link-Item "codex/rules"                         (Join-Path $codexHome "rules")
-  Link-Item "codex/skills"                        (Join-Path $codexHome "skills")
+  Link-Item "agents/skills"                       (Join-Path $agentsHome "skills")
+  Link-Item "agents/skills"                       (Join-Path $codexHome "skills")
 } else {
-  Write-Host "skip: Codex — ~/.codex not found"
+  Write-Host "skip: Codex — ~/.codex/~/.agents not found"
 }
 
 # Post-install summary
@@ -362,7 +366,7 @@ Write-Host "Install complete."
 Write-Host "  Claude: $(if ($hasClaude) { 'linked' } else { 'skipped — not installed' })"
 Write-Host "  Codex:  $(if ($hasCodex)  { 'linked' } else { 'skipped — not installed' })"
 Write-Host ""
-Write-Host "IMPORTANT: Hook scripts (jcmwatch, jcmindex, bin/ commands) require bash."
+Write-Host "IMPORTANT: Hook scripts and bin/ commands require bash."
 Write-Host "  Install Git for Windows: https://git-scm.com"
 Write-Host "  Then add $(Join-Path $repoRoot 'bin') to your PATH or run install-global-commands.sh from Git Bash."
 Write-Host ""

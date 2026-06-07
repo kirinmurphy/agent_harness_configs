@@ -118,7 +118,7 @@ check_roborepo_on_path() {
     echo "      (Windows PowerShell: add ${bin_dir} via System Environment Variables or"
     echo "       \$PROFILE, then restart the shell. Re-run 'roborepo doctor' to confirm.)"
   else
-    fail "roborepo not found on PATH and no symlink at ${bin_dir}/roborepo — run roborepo install"
+    fail "roborepo not found on PATH and no symlink at ${bin_dir}/roborepo — run scripts/roborepo-install.sh"
   fi
 }
 

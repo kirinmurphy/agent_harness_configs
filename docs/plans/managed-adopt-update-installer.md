@@ -21,7 +21,7 @@ Design and implement the next installer model for managed/adopt/update behavior.
 - `docs/guides/install-workflows.md`
 - `docs/reference/services/architecture.md`
 - `docs/reference/internal/config-collision-handling.md`
-- `scripts/install-symlinks.sh`
+- `scripts/roborepo-install.sh`
 - `scripts/install-lib.sh`
 - `scripts/sync-from-home.sh`
 - `scripts/test-install-collisions.sh`
@@ -43,7 +43,7 @@ Design and implement the next installer model for managed/adopt/update behavior.
    - repeated adopt-keep should refresh or stabilize staged repo candidates
    - agent prompt should be non-mutating except output
 5. Define update behavior:
-   - decide whether `install-symlinks.sh` handles updates or a separate update command/script is needed
+   - decide whether `roborepo-install.sh` handles updates or a separate update command/script is needed
    - account for repo updates after initial adopt
 6. Explore true layered root-config inheritance:
    - desired: harness repo baseline -> user global overlay -> local repo overlay

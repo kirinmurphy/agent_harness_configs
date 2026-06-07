@@ -38,22 +38,20 @@ export function listSourceSkills(srcDir) {
 /**
  * Resolve client-repo skill destination dirs under repoRoot, canonical = .claude/skills
  * (Claude reads it) and .agents/skills (Codex scans it exclusively). If neither exists,
- * create .claude/skills (and .agents/skills only when a .agents dir already exists at repo
- * root). Returns absolute dir paths.
+ * create both so a fresh export works for both harnesses. Returns absolute dir paths.
  */
 export function resolveClientSkillDirs(repoRoot, { create = false } = {}) {
   const candidates = [
     { dir: path.join(repoRoot, ".claude", "skills"), parent: path.join(repoRoot, ".claude") },
     { dir: path.join(repoRoot, ".agents", "skills"), parent: path.join(repoRoot, ".agents") },
   ];
-  const existing = candidates.filter((c) => fs.existsSync(c.dir));
-  if (existing.length > 0) return existing.map((c) => c.dir);
+  if (!create) {
+    const existing = candidates.filter((c) => fs.existsSync(c.dir));
+    return existing.map((c) => c.dir);
+  }
 
-  if (!create) return [];
-
-  // Nothing exists yet: always seed .claude/skills; add .agents/skills if a .agents dir is there.
-  const dests = [candidates[0].dir];
-  if (fs.existsSync(candidates[1].parent)) dests.push(candidates[1].dir);
+  // Nothing exists yet: seed both harness homes so fresh exports are visible to Claude and Codex.
+  const dests = candidates.map((c) => c.dir);
   for (const d of dests) fs.mkdirSync(d, { recursive: true });
   return dests;
 }

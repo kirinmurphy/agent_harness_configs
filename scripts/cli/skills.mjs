@@ -46,9 +46,9 @@ export function skillLink(flags) {
     if (t.denied > 0) line += `, ${t.denied} denied (OS refused symlink)`;
     console.log(`${line}.`);
     console.log("");
-    console.log("Reminder: add a new skill at .agents/skills/<name>/SKILL.md ? Re-run");
+    console.log("Reminder: add a new skill at .agents/skills/<name>/SKILL.md? Re-run");
     console.log("  roborepo skill link");
-    console.log("so .claude/skills and .codex/skills pick it up — the source folder alone is not enough.");
+    console.log("so Claude and transitional .codex/skills links pick it up — the source folder alone is not enough for Claude.");
   }
 }
 
