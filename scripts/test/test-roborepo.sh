@@ -35,6 +35,15 @@ assert() {
   fi
 }
 
+assert "source layout: globals shared skills exist" test -d "${repo_root}/globals/agents/skills"
+assert "source layout: globals Claude source exists" test -d "${repo_root}/globals/claude"
+assert "source layout: globals Codex source exists" test -d "${repo_root}/globals/codex"
+assert "source layout: local internal skills exist" test -d "${repo_root}/local/skills"
+assert "source layout: legacy agents root absent" bash -c "! test -e '${repo_root}/agents'"
+assert "source layout: legacy claude root absent" bash -c "! test -e '${repo_root}/claude'"
+assert "source layout: legacy codex root absent" bash -c "! test -e '${repo_root}/codex'"
+assert "source layout: legacy skills-local root absent" bash -c "! test -e '${repo_root}/skills-local'"
+
 mk_skill() {
   local dir="$1" name="$2"
   mkdir -p "${dir}/${name}"
@@ -190,11 +199,11 @@ assert "run: no command exits non-zero" \
 # ---------------------------------------------------------------------------
 mcp_jdoc="$( node "${cli}" mcp add jdocmunch --dry-run )"
 assert "mcp add: jdocmunch preset maps to Claude user-scope uvx command" \
-  test "${mcp_jdoc}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\nwould add permission: mcp__jdocmunch -> claude/settings.json\ncodex MCP already present: jdocmunch'
+  test "${mcp_jdoc}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\nwould add permission: mcp__jdocmunch -> globals/claude/settings.json\ncodex MCP already present: jdocmunch'
 
 mcp_jcode="$( node "${cli}" mcp add jcodemunch --dry-run )"
 assert "mcp add: jcodemunch preset maps to Claude user-scope uvx command" \
-  test "${mcp_jcode}" = $'claude mcp add --scope user jcodemunch -- uvx jcodemunch-mcp\nwould add permission: mcp__jcodemunch -> claude/settings.json\ncodex MCP already present: jcodemunch'
+  test "${mcp_jcode}" = $'claude mcp add --scope user jcodemunch -- uvx jcodemunch-mcp\nwould add permission: mcp__jcodemunch -> globals/claude/settings.json\ncodex MCP already present: jcodemunch'
 
 mcp_alias="$( node "${cli}" addMCP jdocmunch --dry-run )"
 assert "mcp add: addMCP alias maps to same command" \
@@ -202,11 +211,11 @@ assert "mcp add: addMCP alias maps to same command" \
 
 mcp_pkg="$( node "${cli}" mcp add example-mcp --name=example --dry-run -- --flag value )"
 assert "mcp add: generic package supports name override and passthrough args" \
-  test "${mcp_pkg}" = $'claude mcp add --scope user example -- uvx example-mcp --flag value\nwould add permission: mcp__example -> claude/settings.json\nwould add Codex MCP: example -> codex/config.toml\n[mcp_servers.example]\ncommand = "uvx"\nargs = ["example-mcp", "--flag", "value"]'
+  test "${mcp_pkg}" = $'claude mcp add --scope user example -- uvx example-mcp --flag value\nwould add permission: mcp__example -> globals/claude/settings.json\nwould add Codex MCP: example -> globals/codex/config.toml\n[mcp_servers.example]\ncommand = "uvx"\nargs = ["example-mcp", "--flag", "value"]'
 
 mcp_url="$( node "${cli}" mcp add https://mcp.example.com/mcp --name=example --dry-run )"
 assert "mcp add: URL defaults to http transport" \
-  test "${mcp_url}" = $'claude mcp add --scope user --transport http example https://mcp.example.com/mcp\nwould add permission: mcp__example -> claude/settings.json\nwould add Codex MCP: example -> codex/config.toml\n[mcp_servers.example]\nurl = "https://mcp.example.com/mcp"'
+  test "${mcp_url}" = $'claude mcp add --scope user --transport http example https://mcp.example.com/mcp\nwould add permission: mcp__example -> globals/claude/settings.json\nwould add Codex MCP: example -> globals/codex/config.toml\n[mcp_servers.example]\nurl = "https://mcp.example.com/mcp"'
 
 mcp_skip_permission="$( node "${cli}" mcp add jdocmunch --dry-run --skip-claude-permission )"
 assert "mcp add: --skip-claude-permission skips settings update" \
@@ -214,7 +223,7 @@ assert "mcp add: --skip-claude-permission skips settings update" \
 
 mcp_only_claude="$( node "${cli}" mcp add jdocmunch --dry-run --only-claude )"
 assert "mcp add: --only-claude skips Codex config update" \
-  test "${mcp_only_claude}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\nwould add permission: mcp__jdocmunch -> claude/settings.json'
+  test "${mcp_only_claude}" = $'claude mcp add --scope user jdocmunch -- uvx jdocmunch-mcp\nwould add permission: mcp__jdocmunch -> globals/claude/settings.json'
 
 mcp_only_codex="$( node "${cli}" mcp add jdocmunch --dry-run --only-codex )"
 assert "mcp add: --only-codex skips Claude registration and settings update" \
@@ -234,24 +243,24 @@ assert "mcp add: invalid transport rejected" \
 # plus every module) lets us test writes without touching this repo. main.mjs imports every
 # cli/ module at load time.
 mcp_harness="${work}/mcp-harness"
-mkdir -p "${mcp_harness}/scripts/cli" "${mcp_harness}/codex" "${mcp_harness}/claude"
+mkdir -p "${mcp_harness}/scripts/cli" "${mcp_harness}/globals/codex" "${mcp_harness}/globals/claude"
 cp "${repo_root}"/scripts/cli/*.mjs "${mcp_harness}/scripts/cli/"
-printf '[features]\nhooks = true\n' > "${mcp_harness}/codex/config.toml"
-printf '{"permissions":{"allow":["Read"]}}\n' > "${mcp_harness}/claude/settings.json"
+printf '[features]\nhooks = true\n' > "${mcp_harness}/globals/codex/config.toml"
+printf '{"permissions":{"allow":["Read"]}}\n' > "${mcp_harness}/globals/claude/settings.json"
 
 ( cd "${work}" && node "${mcp_harness}/scripts/cli/main.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
 assert "mcp add: writes Codex HTTP url block" \
-  grep -q 'url = "https://mcp.example.com/mcp"' "${mcp_harness}/codex/config.toml"
+  grep -q 'url = "https://mcp.example.com/mcp"' "${mcp_harness}/globals/codex/config.toml"
 
 ( cd "${work}" && node "${mcp_harness}/scripts/cli/main.mjs" mcp add example-mcp --name=stdio-example --only-codex -- --flag value >/dev/null )
 assert "mcp add: writes Codex stdio command block" \
-  grep -q 'command = "uvx"' "${mcp_harness}/codex/config.toml"
+  grep -q 'command = "uvx"' "${mcp_harness}/globals/codex/config.toml"
 assert "mcp add: writes Codex stdio args block" \
-  grep -q 'args = \["example-mcp", "--flag", "value"\]' "${mcp_harness}/codex/config.toml"
+  grep -q 'args = \["example-mcp", "--flag", "value"\]' "${mcp_harness}/globals/codex/config.toml"
 
 ( cd "${work}" && node "${mcp_harness}/scripts/cli/main.mjs" mcp add https://mcp.example.com/mcp --name=example --only-codex >/dev/null )
 assert "mcp add: Codex write is idempotent" \
-  bash -c "test \"\$(grep -c '^\\[mcp_servers.example\\]' '${mcp_harness}/codex/config.toml')\" = 1"
+  bash -c "test \"\$(grep -c '^\\[mcp_servers.example\\]' '${mcp_harness}/globals/codex/config.toml')\" = 1"
 
 fake_bin="${work}/fake-bin"
 mkdir -p "${fake_bin}"
@@ -264,15 +273,15 @@ chmod +x "${fake_bin}/claude"
 assert "mcp add: Claude registration command invoked" \
   grep -q 'mcp add --scope user permtest -- uvx perm-mcp' "${work}/fake-claude-args.txt"
 assert "mcp add: Claude permission written after successful registration" \
-  grep -q '"mcp__permtest"' "${mcp_harness}/claude/settings.json"
+  grep -q '"mcp__permtest"' "${mcp_harness}/globals/claude/settings.json"
 
 ( cd "${work}" && PATH="${fake_bin}:${PATH}" node "${mcp_harness}/scripts/cli/main.mjs" mcp add all-mcp --name=alltest -- --all-flag >/dev/null )
 assert "mcp add: default target invokes Claude registration" \
   grep -q 'mcp add --scope user alltest -- uvx all-mcp --all-flag' "${work}/fake-claude-args.txt"
 assert "mcp add: default target writes Claude permission" \
-  grep -q '"mcp__alltest"' "${mcp_harness}/claude/settings.json"
+  grep -q '"mcp__alltest"' "${mcp_harness}/globals/claude/settings.json"
 assert "mcp add: default target writes Codex config" \
-  grep -q 'args = \["all-mcp", "--all-flag"\]' "${mcp_harness}/codex/config.toml"
+  grep -q 'args = \["all-mcp", "--all-flag"\]' "${mcp_harness}/globals/codex/config.toml"
 
 {
   printf '#!/usr/bin/env bash\n'
@@ -282,17 +291,33 @@ chmod +x "${fake_bin}/claude"
 assert "mcp add: Claude registration failure exits non-zero" \
   bash -c "cd '${work}' && ! env PATH='${fake_bin}':\"\${PATH}\" node '${mcp_harness}/scripts/cli/main.mjs' mcp add fail-mcp --name=failtest >/dev/null 2>&1"
 assert "mcp add: Claude failure does not write permission" \
-  bash -c "! grep -q '\"mcp__failtest\"' '${mcp_harness}/claude/settings.json'"
+  bash -c "! grep -q '\"mcp__failtest\"' '${mcp_harness}/globals/claude/settings.json'"
 assert "mcp add: Claude failure does not write Codex config" \
-  bash -c "! grep -q '^\\[mcp_servers.failtest\\]' '${mcp_harness}/codex/config.toml'"
+  bash -c "! grep -q '^\\[mcp_servers.failtest\\]' '${mcp_harness}/globals/codex/config.toml'"
 
 # ---------------------------------------------------------------------------
 # roborepo lifecycle dispatch (doctor + update --dry-run, both read-only)
 # ---------------------------------------------------------------------------
+update_home="${work}/update-home"
+mkdir -p "${update_home}/.claude" "${update_home}/.codex" "${update_home}/.agents"
+cp "${repo_root}/globals/claude/settings.json" "${update_home}/.claude/settings.json"
+cp "${repo_root}/globals/codex/config.toml" "${update_home}/.codex/config.toml"
+ln -s "${repo_root}/globals/claude/CLAUDE.md" "${update_home}/.claude/CLAUDE.md"
+ln -s "${repo_root}/globals/claude/MANAGED_BY_ROBOREPO.md" "${update_home}/.claude/MANAGED_BY_ROBOREPO.md"
+ln -s "${repo_root}/globals/claude/commands" "${update_home}/.claude/commands"
+ln -s "${repo_root}/globals/claude/hooks" "${update_home}/.claude/hooks"
+ln -s "${repo_root}/globals/claude/skills" "${update_home}/.claude/skills"
+ln -s "${repo_root}/globals/codex/AGENTS.md" "${update_home}/.codex/AGENTS.md"
+ln -s "${repo_root}/globals/codex/hooks.json" "${update_home}/.codex/hooks.json"
+ln -s "${repo_root}/globals/codex/MANAGED_BY_ROBOREPO.md" "${update_home}/.codex/MANAGED_BY_ROBOREPO.md"
+ln -s "${repo_root}/globals/codex/rules" "${update_home}/.codex/rules"
+ln -s "${repo_root}/globals/agents/skills" "${update_home}/.agents/skills"
+# ~/.codex/skills intentionally NOT pre-linked — it is no longer managed (Codex owns it).
+
 assert "lifecycle: roborepo doctor dispatches and passes" \
   bash -c "node '${cli}' doctor >/dev/null 2>&1"
 assert "lifecycle: roborepo update --dry-run dispatches (no changes)" \
-  bash -c "node '${cli}' update --dry-run >/dev/null 2>&1"
+  bash -c "HOME='${update_home}' node '${cli}' update --dry-run >/dev/null 2>&1"
 assert "lifecycle: roborepo install verb removed (first install is the shell bootstrap)" \
   bash -c "! node '${cli}' install --dry-run >/dev/null 2>&1"
 assert "lifecycle: roborepo verify dispatches and exits non-zero when not installed" \

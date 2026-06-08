@@ -102,8 +102,8 @@ test_existing_root_symlinks_convert_to_local_copies() {
   local home_dir
   home_dir="$(make_home)"
 
-  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
-  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+  ln -s "$repo_root/globals/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/globals/codex/config.toml" "$home_dir/.codex/config.toml"
 
   HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/out"
 
@@ -121,17 +121,17 @@ test_direct_harness_installers_export_root_configs() {
 
   assert_regular_file_contains "$home_dir/.claude/settings.json" "permissions" "direct Claude installer copies root config as local file"
   assert_regular_file_contains "$home_dir/.codex/config.toml" "mcp_servers.jcodemunch" "direct Codex installer copies root config as local file"
-  assert_symlink_target "$home_dir/.claude/CLAUDE.md" "$repo_root/claude/CLAUDE.md" "direct Claude installer links read-mostly assets"
-  assert_symlink_target "$home_dir/.codex/AGENTS.md" "$repo_root/codex/AGENTS.md" "direct Codex installer links read-mostly assets"
-  assert_symlink_target "$home_dir/.agents/skills" "$repo_root/agents/skills" "direct Codex installer links canonical .agents skills"
+  assert_symlink_target "$home_dir/.claude/CLAUDE.md" "$repo_root/globals/claude/CLAUDE.md" "direct Claude installer links read-mostly assets"
+  assert_symlink_target "$home_dir/.codex/AGENTS.md" "$repo_root/globals/codex/AGENTS.md" "direct Codex installer links read-mostly assets"
+  assert_symlink_target "$home_dir/.agents/skills" "$repo_root/globals/agents/skills" "direct Codex installer links canonical .agents skills"
 }
 
 test_direct_harness_installers_convert_root_symlinks() {
   local home_dir
   home_dir="$(make_home)"
 
-  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
-  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+  ln -s "$repo_root/globals/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/globals/codex/config.toml" "$home_dir/.codex/config.toml"
 
   HOME="$home_dir" "$repo_root/scripts/install/install-claude.sh" >"$home_dir/claude.out"
   HOME="$home_dir" "$repo_root/scripts/install/install-codex.sh" >"$home_dir/codex.out"
@@ -142,17 +142,50 @@ test_direct_harness_installers_convert_root_symlinks() {
   assert_not_symlink "$home_dir/.codex/config.toml" "direct Codex converted config is not a symlink"
 }
 
-test_direct_claude_installer_removes_stale_plugin_symlink() {
+test_old_repo_managed_symlinks_are_migrated() {
   local home_dir
   home_dir="$(make_home)"
-  mkdir -p "$home_dir/.claude/plugins"
-  ln -s "$repo_root/claude/plugins/blocklist.json" "$home_dir/.claude/plugins/blocklist.json"
+  mkdir -p "$home_dir/.agents"
+
+  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+  ln -s "$repo_root/claude/CLAUDE.md" "$home_dir/.claude/CLAUDE.md"
+  ln -s "$repo_root/claude/hooks" "$home_dir/.claude/hooks"
+  ln -s "$repo_root/claude/skills" "$home_dir/.claude/skills"
+  ln -s "$repo_root/codex/AGENTS.md" "$home_dir/.codex/AGENTS.md"
+  ln -s "$repo_root/codex/hooks.json" "$home_dir/.codex/hooks.json"
+  ln -s "$repo_root/codex/rules" "$home_dir/.codex/rules"
+  ln -s "$repo_root/agents/skills" "$home_dir/.agents/skills"
+  ln -s "$repo_root/agents/skills" "$home_dir/.codex/skills"
+
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/out"
+
+  assert_regular_file_contains "$home_dir/.claude/settings.json" "permissions" "old Claude root config symlink converts to local file"
+  assert_regular_file_contains "$home_dir/.codex/config.toml" "mcp_servers.jcodemunch" "old Codex root config symlink converts to local file"
+  assert_symlink_target "$home_dir/.claude/CLAUDE.md" "$repo_root/globals/claude/CLAUDE.md" "old Claude asset symlink relinks to globals"
+  assert_symlink_target "$home_dir/.claude/hooks" "$repo_root/globals/claude/hooks" "old Claude hooks symlink relinks to globals"
+  assert_symlink_target "$home_dir/.claude/skills" "$repo_root/globals/claude/skills" "old Claude skills symlink relinks to globals"
+  assert_symlink_target "$home_dir/.codex/AGENTS.md" "$repo_root/globals/codex/AGENTS.md" "old Codex AGENTS symlink relinks to globals"
+  assert_symlink_target "$home_dir/.codex/hooks.json" "$repo_root/globals/codex/hooks.json" "old Codex hooks symlink relinks to globals"
+  assert_symlink_target "$home_dir/.codex/rules" "$repo_root/globals/codex/rules" "old Codex rules symlink relinks to globals"
+  assert_symlink_target "$home_dir/.agents/skills" "$repo_root/globals/agents/skills" "old .agents skills symlink relinks to globals"
+  # ~/.codex/skills is no longer managed (it is Codex's own writable skill dir). An old
+  # repo-symlink there must be PRUNED, not relinked — so installs don't land in the repo.
+  [[ ! -e "$home_dir/.codex/skills" && ! -L "$home_dir/.codex/skills" ]] \
+    && pass "old transitional Codex skills symlink is pruned" \
+    || fail "old transitional Codex skills symlink is pruned"
+}
+
+test_direct_claude_installer_removes_stale_retired_symlink() {
+  local home_dir
+  home_dir="$(make_home)"
+  ln -s "$repo_root/claude/MANAGED_BY_HARNESS_CONFIGS.md" "$home_dir/.claude/MANAGED_BY_HARNESS_CONFIGS.md"
 
   HOME="$home_dir" "$repo_root/scripts/install/install-claude.sh" >"$home_dir/out"
 
-  [[ ! -e "$home_dir/.claude/plugins/blocklist.json" && ! -L "$home_dir/.claude/plugins/blocklist.json" ]] \
-    && pass "direct Claude installer removes stale repo plugin symlink" \
-    || fail "direct Claude installer removes stale repo plugin symlink"
+  [[ ! -e "$home_dir/.claude/MANAGED_BY_HARNESS_CONFIGS.md" && ! -L "$home_dir/.claude/MANAGED_BY_HARNESS_CONFIGS.md" ]] \
+    && pass "direct Claude installer removes stale retired symlink" \
+    || fail "direct Claude installer removes stale retired symlink"
 }
 
 test_verify_install_requires_active_root_configs() {
@@ -170,8 +203,8 @@ test_verify_install_requires_active_root_configs() {
     || fail "verify-install accepts copied active root configs" "$home_dir/verify-pass.out"
 
   rm "$home_dir/.claude/settings.json" "$home_dir/.codex/config.toml"
-  ln -s "$repo_root/claude/settings.json" "$home_dir/.claude/settings.json"
-  ln -s "$repo_root/codex/config.toml" "$home_dir/.codex/config.toml"
+  ln -s "$repo_root/globals/claude/settings.json" "$home_dir/.claude/settings.json"
+  ln -s "$repo_root/globals/codex/config.toml" "$home_dir/.codex/config.toml"
 
   if PATH="$home_dir/.local/bin:$PATH" HOME="$home_dir" "$repo_root/scripts/verify-install.sh" --quiet >"$home_dir/verify-fail.out" 2>&1; then
     fail "verify-install rejects stale root config symlinks" "$home_dir/verify-fail.out"
@@ -372,13 +405,17 @@ test_sync_guard() {
   home_dir="$(make_home)"
   sync_repo="$(mktemp -d)"
   seed_user_configs "$home_dir"
-  mkdir -p "$sync_repo/codex" "$sync_repo/claude"
-  cp "$repo_root/codex/config.toml" "$sync_repo/codex/config.toml"
-  cp "$repo_root/claude/settings.json" "$sync_repo/claude/settings.json"
+  mkdir -p "$sync_repo/globals/codex" "$sync_repo/globals/claude" "$sync_repo/scripts/lib"
+  cp "$repo_root/globals/codex/config.toml" "$sync_repo/globals/codex/config.toml"
+  cp "$repo_root/globals/claude/settings.json" "$sync_repo/globals/claude/settings.json"
+  # sync-from-home reads the manifest via scripts/lib/globals-data.sh; the fake repo root
+  # needs both so manifest_rows resolves against this fixture.
+  cp "$repo_root/globals/manifest.tsv" "$sync_repo/globals/manifest.tsv"
+  cp "$repo_root/scripts/lib/globals-data.sh" "$sync_repo/scripts/lib/globals-data.sh"
 
-  before_hash="$(shasum "$sync_repo/codex/config.toml" "$sync_repo/claude/settings.json")"
+  before_hash="$(shasum "$sync_repo/globals/codex/config.toml" "$sync_repo/globals/claude/settings.json")"
   ROBOREPO_REPO_ROOT="$sync_repo" HOME="$home_dir" "$repo_root/scripts/sync-from-home.sh" >"$home_dir/out"
-  after_hash="$(shasum "$sync_repo/codex/config.toml" "$sync_repo/claude/settings.json")"
+  after_hash="$(shasum "$sync_repo/globals/codex/config.toml" "$sync_repo/globals/claude/settings.json")"
 
   [[ "$before_hash" == "$after_hash" ]] && pass "sync guard leaves repo config baseline unchanged" || fail "sync guard leaves repo config baseline unchanged"
   assert_file_contains "$home_dir/out" "skip user-owned config: $home_dir/.codex/config.toml" "sync guard skips Codex user config"
@@ -394,21 +431,27 @@ test_sync_interactive_choices() {
   local home_dir sync_repo expect_file
   home_dir="$(make_home)"
   sync_repo="$(mktemp -d)"
-  mkdir -p "$sync_repo/codex" "$home_dir/.codex"
-  printf 'repo agents\n' > "$sync_repo/codex/AGENTS.md"
+  mkdir -p "$sync_repo/globals/codex" "$sync_repo/scripts/lib" "$home_dir/.codex"
+  cp "$repo_root/globals/manifest.tsv" "$sync_repo/globals/manifest.tsv"
+  cp "$repo_root/scripts/lib/globals-data.sh" "$sync_repo/scripts/lib/globals-data.sh"
+  printf 'repo agents\n' > "$sync_repo/globals/codex/AGENTS.md"
   printf 'home agents\n' > "$home_dir/.codex/AGENTS.md"
-  printf 'repo hooks\n' > "$sync_repo/codex/hooks.json"
+  printf 'repo hooks\n' > "$sync_repo/globals/codex/hooks.json"
   printf 'home hooks\n' > "$home_dir/.codex/hooks.json"
-  printf 'repo marker\n' > "$sync_repo/codex/MANAGED_BY_ROBOREPO.md"
+  printf 'repo marker\n' > "$sync_repo/globals/codex/MANAGED_BY_ROBOREPO.md"
   printf 'home marker\n' > "$home_dir/.codex/MANAGED_BY_ROBOREPO.md"
+  # sync processes items in manifest order; for this fixture the present items prompt as:
+  #   1) AGENTS.md   2) MANAGED_BY_ROBOREPO.md   3) hooks.json
+  # Answer so AGENTS is kept, hooks.json is overwritten, MANAGED_BY gets the agent prompt
+  # (matches the assertions below, which are keyed by file, not by prompt order).
   expect_file="$home_dir/expect.tcl"
   cat >"$expect_file" <<'EOF'
 expect "Selection*"
 send "1\r"
 expect "Selection*"
-send "2\r"
-expect "Selection*"
 send "3\r"
+expect "Selection*"
+send "2\r"
 expect eof
 EOF
 
@@ -422,9 +465,9 @@ set exit_code [lindex $wait_result 3]
 exit $exit_code
 EOF
 
-  assert_file_contains "$sync_repo/codex/AGENTS.md" "repo agents" "sync keep repo leaves item unchanged"
-  assert_file_contains "$sync_repo/codex/hooks.json" "home hooks" "sync overwrite copies home item"
-  assert_file_contains "$sync_repo/codex/MANAGED_BY_ROBOREPO.md" "repo marker" "sync agent prompt skips item"
+  assert_file_contains "$sync_repo/globals/codex/AGENTS.md" "repo agents" "sync keep repo leaves item unchanged"
+  assert_file_contains "$sync_repo/globals/codex/hooks.json" "home hooks" "sync overwrite copies home item"
+  assert_file_contains "$sync_repo/globals/codex/MANAGED_BY_ROBOREPO.md" "repo marker" "sync agent prompt skips item"
   assert_file_contains "$home_dir/out" "Agent merge prompt:" "sync agent prompt printed"
   assert_file_contains "$home_dir/out" "Required first step: compute your own complete comparison" "sync prompt requires full comparison"
   assert_file_contains "$home_dir/out" "Default stance: keep the repo baseline" "sync prompt defaults to repo baseline"
@@ -435,8 +478,10 @@ test_sync_overwrite_rollback_on_replace_failure() {
   home_dir="$(make_home)"
   sync_repo="$(mktemp -d)"
   fake_bin="$(mktemp -d)"
-  mkdir -p "$sync_repo/codex" "$home_dir/.codex"
-  printf 'repo hooks\n' > "$sync_repo/codex/hooks.json"
+  mkdir -p "$sync_repo/globals/codex" "$sync_repo/scripts/lib" "$home_dir/.codex"
+  cp "$repo_root/globals/manifest.tsv" "$sync_repo/globals/manifest.tsv"
+  cp "$repo_root/scripts/lib/globals-data.sh" "$sync_repo/scripts/lib/globals-data.sh"
+  printf 'repo hooks\n' > "$sync_repo/globals/codex/hooks.json"
   printf 'home hooks\n' > "$home_dir/.codex/hooks.json"
   expect_file="$home_dir/expect.tcl"
   cat >"$expect_file" <<'EOF'
@@ -467,7 +512,7 @@ EOF
   fi
 
   assert_file_contains "$home_dir/out" "failed to replace" "sync overwrite reports replace failure"
-  assert_file_contains "$sync_repo/codex/hooks.json" "repo hooks" "sync overwrite restores original repo file"
+  assert_file_contains "$sync_repo/globals/codex/hooks.json" "repo hooks" "sync overwrite restores original repo file"
 }
 
 test_windows_installer_root_preflight_order() {
@@ -479,17 +524,19 @@ test_windows_installer_root_preflight_order() {
   [[ -n "$root_line" && -n "$claude_line" && "$root_line" -lt "$claude_line" ]] \
     && pass "Windows installer resolves root config collisions before linking" \
     || fail "Windows installer resolves root config collisions before linking" "$windows_script"
-  assert_file_contains "$windows_script" 'if \(-not \$adoptClaudeConfig\)' "Windows installer skips adopted Claude root config"
-  assert_file_contains "$windows_script" 'if \(-not \$adoptCodexConfig\)' "Windows installer skips adopted Codex root config"
-  assert_file_contains "$windows_script" 'Export-UserConfig "claude" "claude/settings.json"' "Windows installer exports Claude root config"
-  assert_file_contains "$windows_script" 'Export-UserConfig "codex" "codex/config.toml"' "Windows installer exports Codex root config"
-  assert_file_contains "$windows_script" 'Link-Item "agents/skills"[[:space:]]+\(Join-Path \$agentsHome "skills"\)' "Windows installer links canonical Codex skills to .agents"
-  assert_file_contains "$windows_script" 'Link-Item "agents/skills"[[:space:]]+\(Join-Path \$codexHome "skills"\)' "Windows installer links transitional Codex skills to .codex"
-  assert_file_not_contains "$windows_script" 'Link-Item "codex/skills"' "Windows installer does not reference removed codex/skills source"
+  assert_file_contains "$windows_script" 'function Get-ManifestRows' "Windows installer reads manifest rows"
+  assert_file_contains "$windows_script" 'Resolve-ManifestHomeRoot' "Windows installer resolves manifest home roots"
+  assert_file_contains "$windows_script" 'Invoke-ManifestRows "Claude" @\("claude"\)' "Windows installer applies Claude manifest rows"
+  assert_file_contains "$windows_script" 'Invoke-ManifestRows "Codex" @\("codex", "agents"\)' "Windows installer applies Codex and agents manifest rows"
+  assert_file_contains "$windows_script" 'if \(-not \$adoptRootConfig\[\$row.Harness\]\)' "Windows installer skips adopted root config from manifest"
+  assert_file_not_contains "$windows_script" 'Link-Item "globals/codex/AGENTS.md"' "Windows installer does not hand-list Codex AGENTS link"
+  assert_file_not_contains "$windows_script" 'Link-Item "globals/agents/skills"[[:space:]]+\(Join-Path \$agentsHome "skills"\)' "Windows installer does not hand-list canonical Codex skills link"
+  assert_file_not_contains "$windows_script" 'Link-Item "globals/agents/skills"[[:space:]]+\(Join-Path \$codexHome "skills"\)' "Windows installer does not link ~/.codex/skills (Codex owns it)"
+  assert_file_not_contains "$windows_script" 'Link-Item "globals/codex/skills"' "Windows installer does not reference removed globals/codex/skills source"
 }
 
 test_repo_local_codex_skill_layer_removed() {
-  "$repo_root/scripts/link-skills.sh" --check >/dev/null
+  "$repo_root/scripts/build/link-skills.sh" --check >/dev/null
   [[ ! -e "$repo_root/.codex/skills/harness-platform-dev" ]] \
     && pass "repo-local .codex skill link is absent" \
     || fail "repo-local .codex skill link is absent"
@@ -502,9 +549,9 @@ test_write_guard_root_config_message() {
   skill_out="$home_dir/skill-guard.out"
 
   printf '{"tool_input":{"file_path":"%s/.codex/config.toml"}}\n' "$home_dir" \
-    | HOME="$home_dir" node "$repo_root/claude/hooks/roborepo-write-guard.mjs" >"$root_out"
+    | HOME="$home_dir" node "$repo_root/globals/claude/hooks/roborepo-write-guard.mjs" >"$root_out"
   printf '{"tool_input":{"file_path":"%s/.claude/skills/new-skill/SKILL.md"}}\n' "$home_dir" \
-    | HOME="$home_dir" node "$repo_root/claude/hooks/roborepo-write-guard.mjs" >"$skill_out"
+    | HOME="$home_dir" node "$repo_root/globals/claude/hooks/roborepo-write-guard.mjs" >"$skill_out"
 
   assert_file_contains "$root_out" "mutable active root config" "write guard identifies root config as local"
   assert_file_contains "$root_out" "not a repo symlink" "write guard does not call root config a symlink"
@@ -515,7 +562,8 @@ test_fresh_managed
 test_existing_root_symlinks_convert_to_local_copies
 test_direct_harness_installers_export_root_configs
 test_direct_harness_installers_convert_root_symlinks
-test_direct_claude_installer_removes_stale_plugin_symlink
+test_old_repo_managed_symlinks_are_migrated
+test_direct_claude_installer_removes_stale_retired_symlink
 test_verify_install_requires_active_root_configs
 test_dry_run_collision_no_mutation
 test_noninteractive_block_no_mutation

@@ -38,6 +38,15 @@ link_item() {
       echo "ok: ${home_path}"
       return 0
     fi
+    case "${current}" in
+      "${repo_root}"/*)
+        if [[ "${dry_run}" -eq 0 ]]; then
+          ln -sfn "${src}" "${home_path}"
+        fi
+        echo "relink: ${home_path} -> ${src}"
+        return 0
+        ;;
+    esac
   fi
 
   if [[ -e "${home_path}" || -L "${home_path}" ]]; then
@@ -111,6 +120,15 @@ link_item_clean() {
       echo "ok: ${home_path}"
       return 0
     fi
+    case "${current}" in
+      "${repo_root}"/*)
+        if [[ "${dry_run}" -eq 0 ]]; then
+          ln -sfn "${src}" "${home_path}"
+        fi
+        echo "relink: ${home_path} -> ${src}"
+        return 0
+        ;;
+    esac
   fi
 
   if [[ -e "${home_path}" || -L "${home_path}" ]]; then
@@ -143,14 +161,16 @@ export_user_config() {
   if [[ -L "${home_path}" ]]; then
     local current
     current="$(readlink "${home_path}")"
-    if [[ "${current}" == "${src}" ]]; then
+    case "${current}" in
+      "${src}"|"${repo_root}"/*)
       if [[ "${dry_run}" -eq 0 ]]; then
         rm "${home_path}"
         cp "${src}" "${home_path}"
       fi
       echo "copy: ${home_path} <- ${src} (converted from repo symlink)"
       return 0
-    fi
+      ;;
+    esac
   fi
 
   if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
@@ -203,8 +223,10 @@ preflight_clean_item() {
     return 0
   fi
 
-  if [[ -L "${home_path}" && "$(readlink "${home_path}")" == "${src}" ]]; then
-    return 0
+  if [[ -L "${home_path}" ]]; then
+    case "$(readlink "${home_path}")" in
+      "${src}"|"${repo_root}"/*) return 0 ;;
+    esac
   fi
 
   echo "conflict: ${home_path} already exists; not replacing it" >&2
@@ -268,28 +290,12 @@ print_agent_merge_prompt() {
   echo ""
   echo "Agent merge prompt:"
   echo "-----"
-  cat <<EOF
-Compare harness config at:
-  ${src}
-
-With local user config at:
-  ${home_path}
-
-Default stance: keep the local user config as source of truth. Preserve existing local behavior unless you can prove a harness change can be added safely.
-
-Selected install direction: ${mode}.
-
-Required first step: compute your own complete comparison of both files. Do not rely on this prompt as an exhaustive conflict summary. Parse the file format when possible and identify all changed keys/tables/arrays/sections before editing.
-
-Merge instructions:
-- Keep user-specific MCP servers, model preferences, permissions, hooks, profiles, trusted projects, plugin settings, and local state by default.
-- Add harness defaults only when additive or clearly non-conflicting.
-- If both sides set the same scalar, table, hook, permission, plugin, profile, project, or MCP/server entry differently, flag it as a conflict instead of guessing.
-- Do not replace the local config with the harness config.
-- Do not delete local config entries unless the user explicitly approves that exact deletion.
-- Report the final changed file and any conflicts left unresolved.
-Harness: ${harness}
-EOF
+  sed \
+    -e "s#{{SRC}}#${src}#g" \
+    -e "s#{{HOME_PATH}}#${home_path}#g" \
+    -e "s#{{MODE}}#${mode}#g" \
+    -e "s#{{HARNESS}}#${harness}#g" \
+    "${repo_root}/globals/prompts/install-root-config-merge.md"
   echo "-----"
   echo ""
 }

@@ -1,6 +1,6 @@
 # Claude Hooks
 
-Configured in `claude/settings.json` under `"hooks"`.
+Configured in `globals/claude/settings.json` under `"hooks"`.
 
 ## SessionStart
 

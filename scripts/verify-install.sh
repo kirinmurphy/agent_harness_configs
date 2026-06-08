@@ -14,8 +14,10 @@ for arg in "$@"; do
   esac
 done
 
-# shellcheck source=scripts/skill-lib.sh
-source "${repo_root}/scripts/skill-lib.sh"
+# shellcheck source=scripts/build/skill-lib.sh
+source "${repo_root}/scripts/build/skill-lib.sh"
+# shellcheck source=scripts/lib/globals-data.sh
+source "${repo_root}/scripts/lib/globals-data.sh"
 
 # Record a passing check. Honors --quiet (count always, print only when verbose).
 pass_msg() {
@@ -80,29 +82,23 @@ check_active_file() {
   fi
 }
 
-check_link "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
-check_active_file "${HOME}/.codex/config.toml"
-check_link "codex/hooks.json" "${HOME}/.codex/hooks.json"
-check_link "codex/MANAGED_BY_ROBOREPO.md" "${HOME}/.codex/MANAGED_BY_ROBOREPO.md"
-check_link "codex/rules" "${HOME}/.codex/rules"
-# Codex skills: canonical ~/.agents/skills + transitional ~/.codex/skills, both -> agents/skills.
-check_link "agents/skills" "${HOME}/.agents/skills"
-check_link "agents/skills" "${HOME}/.codex/skills"
-
-check_link "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-check_active_file "${HOME}/.claude/settings.json"
-check_link "claude/MANAGED_BY_ROBOREPO.md" "${HOME}/.claude/MANAGED_BY_ROBOREPO.md"
-check_link "claude/commands" "${HOME}/.claude/commands"
-check_link "claude/hooks" "${HOME}/.claude/hooks"
-check_link "claude/skills" "${HOME}/.claude/skills"
+# Managed links + root configs come from globals/manifest.tsv (single source of truth,
+# shared with the installer/doctor/sync). link -> symlink check; root_config -> active
+# local file; cleanup rows are not verified here (they only ever get pruned, not created).
+while IFS=$'\t' read -r _harness kind src_rel home_abs _flags; do
+  case "${kind}" in
+    link)        check_link "${src_rel}" "${home_abs}" ;;
+    root_config) check_active_file "${home_abs}" ;;
+  esac
+done < <(manifest_rows)
 
 # Only Claude links skills per-skill (~/.claude/skills/<n> is its own symlink). Codex uses
-# whole-dir symlinks (~/.agents/skills, ~/.codex/skills -> agents/skills), verified above; the
-# <n> inside is the real source dir, not a link, so it is NOT checked per skill here.
+# the whole-dir ~/.agents/skills symlink to globals/agents/skills, verified above; the <n>
+# inside is the real source dir, not a link, so it is NOT checked per skill here.
 while IFS= read -r skill_name; do
   [[ -n "${skill_name}" ]] || continue
-  check_link "agents/skills/${skill_name}" "${HOME}/.claude/skills/${skill_name}"
-done < <(list_source_skills "${repo_root}/agents/skills")
+  check_link "globals/agents/skills/${skill_name}" "${HOME}/.claude/skills/${skill_name}"
+done < <(list_source_skills "${repo_root}/globals/agents/skills")
 check_link "bin/roborepo" "${HOME}/.local/bin/roborepo"
 
 if command -v node >/dev/null 2>&1; then
@@ -113,12 +109,9 @@ else
   echo "skip: node not found, JSON parse check not run"
 fi
 
-check_file_contains "${HOME}/.codex/config.toml" '^[[:space:]]*hooks[[:space:]]*=[[:space:]]*true[[:space:]]*$' "Codex hooks feature enabled"
-check_file_contains "${HOME}/.codex/hooks.json" 'CAVEMAN MODE ACTIVE' "Codex caveman startup hook configured"
-check_file_contains "${HOME}/.codex/AGENTS.md" 'Use caveman full by default' "Codex AGENTS caveman default configured"
-check_file_contains "${HOME}/.codex/config.toml" '^\[mcp_servers\.jcodemunch\]$' "Codex jcodemunch MCP configured"
-check_file_contains "${HOME}/.codex/config.toml" '^[[:space:]]*args[[:space:]]*=[[:space:]]*\["jcodemunch-mcp"\][[:space:]]*$' "Codex jcodemunch MCP args configured"
-check_file_contains "${HOME}/.codex/AGENTS.md" 'Verified: <command> -> <pass\|fail\|blocked>' "Codex verification receipt configured"
+while IFS=$'\t' read -r home_abs pattern label; do
+  check_file_contains "${home_abs}" "${pattern}" "${label}"
+done < <(verify_content_rows)
 
 doctor_args=(--installed)
 [[ "${quiet}" -eq 1 ]] && doctor_args+=(--quiet)

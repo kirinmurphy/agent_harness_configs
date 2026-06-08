@@ -1,7 +1,7 @@
 # Per-Repo Skill Installer
 
 > **Status: IMPLEMENTED** (revised from this plan). Shipped as the `roborepo skill install`
-> subcommand, with `roborepo skill link` kept as a compatibility alias (Node,
+> subcommand, with `roborepo skill link` kept as an alias (Node,
 > `scripts/cli/main.mjs` + shared `scripts/cli/skill-lib.mjs::linkLocalSkills`),
 > chosen Node-over-bash for cross-platform reach incl. Windows. **Scope was corrected during
 > implementation:** the tool is *purely in-repo* — it symlinks the client repo's own
@@ -13,9 +13,9 @@
 
 ## Problem
 
-Global shared skills live in `agents/skills/`. Claude reaches them through
+Global shared skills live in `globals/agents/skills/`. Claude reaches them through
 per-skill links in `~/.claude/skills/`; Codex reaches them through the whole-dir
-`~/.agents/skills -> agents/skills` link. App-specific skills (deploy flows,
+`~/.agents/skills -> globals/agents/skills` link. App-specific skills (deploy flows,
 domain-specific agents) need the same local dual-harness treatment but should live in the app
 repo, not the global harness.
 
@@ -27,7 +27,7 @@ App skills live at `.agents/skills/<skill-name>/` inside the app repo.
 - `roborepo skill install` creates per-harness links into existing `.claude/skills` and
   `.codex/skills`; when run interactively and a root is missing, it asks whether to create/link
   that agent target
-- `roborepo skill link` remains a compatibility alias for `roborepo skill install`
+- `roborepo skill link` remains an alias for `roborepo skill install`
 - Prefix skill names with the app name (e.g., `myapp-deploy`) to avoid collisions with global skills
 
 ## Command: `roborepo skill install`
@@ -40,7 +40,7 @@ touches global `~/.claude`, `~/.codex`, or `~/.agents`.
 
 ```
 roborepo skill install [--dry-run] [--uninstall]
-roborepo skill link    [--dry-run] [--uninstall]  # compatibility alias
+roborepo skill link    [--dry-run] [--uninstall]  # alias
 ```
 
 ### Behavior

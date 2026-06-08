@@ -1,0 +1,5 @@
+# Shell snippet catalog for scripts/install/install-shell-snippets.sh.
+# Columns: kind<TAB>path_or_glob
+# kind=active sources the exact repo-relative path.
+# kind=stale prunes matching old source lines from user shell profiles.
+stale	shell/*.zsh

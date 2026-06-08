@@ -12,9 +12,17 @@ case "${1:-}" in
   *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
 esac
 
-# No shell snippets are wired today — jcmwatch/jdmindex were folded into the `roborepo`
-# command. This array is intentionally empty; add entries here to source future helpers.
+# shellcheck source=scripts/lib/globals-data.sh
+source "${repo_root}/scripts/lib/globals-data.sh"
+
 source_snippets=()
+stale_snippet_globs=()
+while IFS=$'\t' read -r kind snippet_path; do
+  case "${kind}" in
+    active) source_snippets+=("${snippet_path}") ;;
+    stale)  stale_snippet_globs+=("${snippet_path}") ;;
+  esac
+done < <(shell_snippet_rows)
 
 # Only create ~/.zshrc if we actually have something to write into it. With no snippets wired
 # and no existing profile, do nothing — don't leave behind an empty ~/.zshrc the user never had.
@@ -55,31 +63,38 @@ done
 prune_stale_snippets() {
   [[ -e "${zshrc}" ]] || return 0
 
-  # Build the set of source lines we still want, to spare them from pruning.
   local wanted=()
-  local s
+  local s stale_regex
   for s in "${source_snippets[@]+"${source_snippets[@]}"}"; do
     wanted+=("source \"${repo_root}/${s}\"")
   done
 
+  stale_regex="^source \"${repo_root}/("
+  local sep=""
+  for s in "${stale_snippet_globs[@]+"${stale_snippet_globs[@]}"}"; do
+    s="${s//./\\.}"
+    s="${s//\*/.*}"
+    stale_regex+="${sep}${s}"
+    sep="|"
+  done
+  stale_regex+=")\"$"
+  [[ ${#stale_snippet_globs[@]} -eq 0 ]] && return 0
+
   # Find managed snippet source lines currently present but not wanted.
   local stale_found=0 line
   while IFS= read -r line; do
-    case "${line}" in
-      "source \"${repo_root}/shell/"*.zsh\")
-        local keep=0 w
-        for w in "${wanted[@]+"${wanted[@]}"}"; do
-          [[ "${line}" == "${w}" ]] && keep=1 && break
-        done
-        [[ "${keep}" -eq 0 ]] && stale_found=1
-        ;;
-    esac
+    [[ "${line}" =~ ${stale_regex} ]] || continue
+    local keep=0 w
+    for w in "${wanted[@]+"${wanted[@]}"}"; do
+      [[ "${line}" == "${w}" ]] && keep=1 && break
+    done
+    [[ "${keep}" -eq 0 ]] && stale_found=1
   done < "${zshrc}"
 
   [[ "${stale_found}" -eq 0 ]] && return 0
 
   if [[ "${dry_run}" -eq 1 ]]; then
-    echo "prune: would remove stale shell/*.zsh source line(s) from ${zshrc}"
+    echo "prune: would remove stale shell snippet source line(s) from ${zshrc}"
     return 0
   fi
 
@@ -93,10 +108,10 @@ prune_stale_snippets() {
   # Rewrite without the stale source lines and their immediately-preceding marker comment.
   local tmp
   tmp="$(mktemp "${TMPDIR:-/tmp}/zshrc.XXXXXX")"
-  awk -v repo="${repo_root}" '
+  awk -v stale_regex="${stale_regex}" '
     {
       line = $0
-      is_stale = (line ~ ("^source \"" repo "/shell/.*\\.zsh\"$"))
+      is_stale = (line ~ stale_regex)
       if (is_stale) {
         # Drop a buffered "# Harness config shell helpers" marker that preceded this line.
         if (held != "") { held = "" }
@@ -109,6 +124,6 @@ prune_stale_snippets() {
     END { if (held != "") print held }
   ' "${zshrc}" > "${tmp}"
   mv "${tmp}" "${zshrc}"
-  echo "prune: removed stale shell/*.zsh source line(s) from ${zshrc}"
+  echo "prune: removed stale shell snippet source line(s) from ${zshrc}"
 }
 prune_stale_snippets

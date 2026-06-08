@@ -109,15 +109,15 @@ roborepo index docs path/to/dir
 
 ### Add a shared skill
 
-A shared skill's content lives once in `agents/skills/<name>/`, the canonical source. Codex
+A shared skill's content lives once in `globals/agents/skills/<name>/`, the canonical source. Codex
 reaches it via `~/.agents/skills`; Claude reaches it through a per-skill symlink (see
 [architecture.md](../reference/services/architecture.md#shared-skills-canonical-source--per-harness-fan-out)).
-After creating `agents/skills/<name>/SKILL.md`, run the linker — it creates any missing
-Claude per-skill symlinks and prunes orphaned ones, deriving everything from `agents/skills/`:
+After creating `globals/agents/skills/<name>/SKILL.md`, run the linker — it creates any missing
+Claude per-skill symlinks and prunes orphaned ones, deriving everything from `globals/agents/skills/`:
 
 ```sh
-scripts/link-skills.sh          # create/prune links for all skills
-scripts/link-skills.sh --check  # verify only, non-zero exit if out of sync
+scripts/build/link-skills.sh          # create/prune links for all skills
+scripts/build/link-skills.sh --check  # verify only, non-zero exit if out of sync
 ```
 
 The source folder alone is not enough; without the symlinks the harnesses won't see the
@@ -127,25 +127,25 @@ skill (and the active skill list only refreshes on harness reload).
 
 Global instruction files are generated tracked outputs:
 
-- `claude/CLAUDE.md`
-- `codex/AGENTS.md`
+- `globals/claude/CLAUDE.md`
+- `globals/codex/AGENTS.md`
 
 Edit source fragments instead:
 
-- `rules/shared/` for behavior shared by Claude and Codex
-- `rules/claude/` for Claude-only behavior
-- `rules/codex/` for Codex-only behavior
+- `globals/rules/shared/` for behavior shared by Claude and Codex
+- `globals/rules/claude/` for Claude-only behavior
+- `globals/rules/codex/` for Codex-only behavior
 
 Then render and check:
 
 ```sh
-./scripts/render-rules.sh
-./scripts/render-rules.sh --check
+./scripts/build/render-rules.sh
+./scripts/build/render-rules.sh --check
 ```
 
 ### Check harness health
 
-Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies. The skill checks are derived from `agents/skills/`, so adding a skill needs no edit here.
+Something feels off — commands missing, config not loading, hooks not firing. Run this to verify key files, JSON/TOML config, helpers, and dependencies. The skill checks are derived from `globals/agents/skills/`, so adding a skill needs no edit here.
 
 ```sh
 roborepo doctor        # (dispatches to scripts/doctor.sh)

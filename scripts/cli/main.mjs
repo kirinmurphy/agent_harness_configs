@@ -62,37 +62,12 @@ import { indexCode, indexDocs, watchCode, runCmd } from "./index.mjs";
 import { mcpAdd } from "./mcp.mjs";
 
 const argv = process.argv.slice(2);
+const cliCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, "globals", "cli-commands.json"), "utf8"));
 
 // --------------------------------------------------------------------------- help
 
 function usage() {
-  console.log(`roborepo — harness config CLI
-
-usage:
-  roborepo                       interactive menu
-
-  roborepo skill export [--yes] [--on-conflict=skip|override]
-  roborepo skill install [--dry-run] [--uninstall]
-  roborepo skill link    [--dry-run] [--uninstall]   alias for "skill install"
-  roborepo skill sync    [--check]                    sync harness shared skill links
-
-  roborepo index code  [path]
-  roborepo index docs  [path]
-  roborepo mcp add <name-or-url> [--scope=user|local|project] [--name=<name>] [--dry-run] [--only-claude|--only-codex] [--skip-claude-permission]
-  roborepo addMCP <name-or-url>  alias for "mcp add"
-  roborepo watch code  [path]
-
-  roborepo run <cmd> [args...]
-
-  roborepo update  [--dry-run]   re-apply harness config (first install: scripts/install/main.sh)
-  roborepo sync                  pull live config back into the repo
-  roborepo doctor  [--installed] health check
-  roborepo verify                post-install verification
-  roborepo rules   [--check]     render/check generated agent rules
-
-  roborepo --help | -h
-
-[path] is optional (defaults to the current directory) and may be relative or absolute.`);
+  console.log(`roborepo — harness config CLI\n\nusage:\n  ${cliCatalog.usage.join("\n  ")}`);
 }
 
 // Dispatch to a maintainer/lifecycle bash script in this repo, passing through args and
@@ -114,34 +89,7 @@ function runRepoScript(relScript, args) {
 // --------------------------------------------------------------------------- menu
 
 async function interactiveMenu() {
-  // Ordered by significance: setup first, then day-to-day, then skills, then maintenance.
-  const items = [
-    { header: "Setup" },
-    { label: "update", value: ["update"], desc: "re-apply harness config on this machine (pick up new config)" },
-
-    { header: "Day to day" },
-    { label: "index code", value: ["index", "code"], desc: "index this repo's code for jcodemunch" },
-    { label: "index docs", value: ["index", "docs"], desc: "index this repo's docs for jdocmunch" },
-    { label: "mcp add", value: ["mcp", "add"], desc: "register an MCP server with Claude + Codex" },
-    { label: "watch code", value: ["watch", "code"], desc: "live-index code as files change" },
-    { label: "run", value: ["run"], desc: "run a command with trimmed output" },
-
-    { header: "Skills" },
-    { label: "skill export", value: ["skill", "export"], desc: "copy shared skills into this repo" },
-    { label: "skill install", value: ["skill", "install"], desc: "link .agents/skills into existing .claude/.codex" },
-    { label: "skill sync", value: ["skill", "sync"], desc: "sync harness shared skill links" },
-
-    { header: "Maintenance" },
-    { label: "sync", value: ["sync"], desc: "pull live config back into the repo" },
-    { label: "doctor", value: ["doctor"], desc: "health check" },
-    { label: "verify", value: ["verify"], desc: "post-install verification" },
-    { label: "rules", value: ["rules"], desc: "render/check generated agent rules" },
-
-    { header: "Other" },
-    { label: "help", value: ["--help"], desc: "show full usage" },
-    { label: "exit", value: null, desc: "quit" },
-  ];
-  const choice = await selectMenu("roborepo — choose an action:", items);
+  const choice = await selectMenu("roborepo — choose an action:", cliCatalog.menu);
   if (choice === null) {
     console.log("cancelled.");
     return;
@@ -175,7 +123,7 @@ async function dispatch(args) {
     case "skill":
       if (sub === "export") return skillExport(new Set(rest));
       if (sub === "install" || sub === "link") return skillLink(flags);
-      if (sub === "sync") return runRepoScript("scripts/link-skills.sh", rest);
+      if (sub === "sync") return runRepoScript("scripts/build/link-skills.sh", rest);
       console.error(`unknown: roborepo skill ${sub ?? ""}`.trim());
       return usage();
 
@@ -213,7 +161,7 @@ async function dispatch(args) {
     case "verify":
       return runRepoScript("scripts/verify-install.sh", [sub, ...rest].filter(Boolean));
     case "rules":
-      return runRepoScript("scripts/render-rules.sh", [sub, ...rest].filter(Boolean));
+      return runRepoScript("scripts/build/render-rules.sh", [sub, ...rest].filter(Boolean));
 
     default:
       console.error(`unknown command: ${args.join(" ")}`);

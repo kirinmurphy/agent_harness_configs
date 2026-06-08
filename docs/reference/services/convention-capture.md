@@ -40,7 +40,7 @@ Local items: naming conventions, component patterns, data-fetching rules, testin
 
 ### Codex parity
 
-Same inline flagging rule lives in generated `codex/AGENTS.md` and `claude/CLAUDE.md`. Codex has no slash command equivalent — user triggers capture by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
+Same inline flagging rule lives in generated `globals/codex/AGENTS.md` and `globals/claude/CLAUDE.md`. Codex has no slash command equivalent — user triggers capture by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
 
 ## Scratch directory
 

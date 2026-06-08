@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Claude and Codex should share the same global behavior defaults without hand-maintaining equivalent rule text in `claude/CLAUDE.md` and `codex/AGENTS.md`. The system also needs clear priority rules so global defaults do not accidentally override user-owned or repo-local context.
+Claude and Codex should share the same global behavior defaults without hand-maintaining equivalent rule text in `globals/claude/CLAUDE.md` and `globals/codex/AGENTS.md`. The system also needs clear priority rules so global defaults do not accidentally override user-owned or repo-local context.
 
 ## Current Behavior
 
-- `claude/CLAUDE.md` and `codex/AGENTS.md` are generated tracked files.
+- `globals/claude/CLAUDE.md` and `globals/codex/AGENTS.md` are generated tracked files.
 - Both files express the same core behavior through shared fragments: caveman mode, code/doc exploration, verification, and session capture.
 - Harness-specific fragments hold Claude-only or Codex-only differences.
 - Root harness config files are conditional defaults:
@@ -28,17 +28,17 @@ rules/
     10-exploration.md
     20-verification.md
     30-session-capture.md
-  claude/
+  globals/claude/
     90-claude-specific.md
-  codex/
+  globals/codex/
     90-codex-specific.md
 ```
 
 Generated outputs:
 
 ```text
-claude/CLAUDE.md
-codex/AGENTS.md
+globals/claude/CLAUDE.md
+globals/codex/AGENTS.md
 ```
 
 Generated files remain tracked because the harnesses read them directly and setup should work without running a build step first. The renderer adds a generated-file header that names the source fragments and command.
@@ -72,13 +72,13 @@ Repo-local context should refine or constrain global defaults for the active pro
 Edit rule fragments, then render outputs:
 
 ```sh
-./scripts/render-rules.sh
+./scripts/build/render-rules.sh
 ```
 
 Check generated output drift:
 
 ```sh
-./scripts/render-rules.sh --check
+./scripts/build/render-rules.sh --check
 ```
 
 `doctor.sh` also runs the drift check.

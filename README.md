@@ -88,7 +88,7 @@ Implemented across both Codex and Claude:
 | `roborepo skill export`         | Copies this repo's shared skills into the current target repo and leaves a shareable zip bundle.      |
 | `roborepo skill install`        | Links a target repo's `.agents/skills` into existing `.claude/skills` and/or `.codex/skills` folders. |
 | `roborepo skill link`           | Compatibility alias for `roborepo skill install`.                                                     |
-| `roborepo skill sync [--check]` | Syncs this repo's shared skill links after adding or removing `agents/skills/<name>`.                 |
+| `roborepo skill sync [--check]` | Syncs this repo's shared skill links after adding or removing `globals/agents/skills/<name>`.                 |
 
 ### MCP Setup
 
@@ -130,12 +130,23 @@ roborepo index docs
 
 These change the harness source repo itself.
 
+### Repository Layout
+
+Global harness source lives under `globals/`:
+
+- `globals/agents/skills/` — shared skill source, global and exportable
+- `globals/claude/` — Claude global rules, hooks, commands, settings baseline, and skill links
+- `globals/codex/` — Codex global rules, hooks, settings baseline, and managed markers
+
+Repo-only internal skills live under `local/skills/` and link only into this repo's
+project-scope `.claude/skills/` and `.agents/skills/` folders.
+
 ### Add or Edit Shared Skills
 
 Shared skills live under:
 
 ```text
-agents/skills/<name>/SKILL.md
+globals/agents/skills/<name>/SKILL.md
 ```
 
 After adding or removing a shared skill, update and verify harness links:
@@ -153,14 +164,14 @@ For the mechanics of how Claude and Codex see shared skills, see
 
 Generated global instruction files:
 
-- `claude/CLAUDE.md`
-- `codex/AGENTS.md`
+- `globals/claude/CLAUDE.md`
+- `globals/codex/AGENTS.md`
 
 Edit source fragments instead:
 
-- `rules/shared/` for shared behavior
-- `rules/claude/` for Claude-only behavior
-- `rules/codex/` for Codex-only behavior
+- `globals/rules/shared/` for shared behavior
+- `globals/rules/claude/` for Claude-only behavior
+- `globals/rules/codex/` for Codex-only behavior
 
 Then render and check:
 

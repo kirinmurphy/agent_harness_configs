@@ -6,7 +6,7 @@
 // Windows requires Developer Mode or an elevated shell; ensureSymlink() degrades gracefully
 // (returns "denied" instead of throwing) when the OS refuses.
 //
-// The "what is a real skill folder" rule mirrors scripts/skill-lib.sh:
+// The "what is a real skill folder" rule mirrors scripts/build/skill-lib.sh:
 //   a child directory containing a SKILL.md, that is not itself a symlink, not a dotfolder.
 
 import fs from "node:fs";
@@ -119,7 +119,7 @@ const LOCAL_LINK_PREFIX = path.join("..", "..", ".agents", "skills");
  * .agents/skills is the single canonical source (Codex reads it directly as project-scope
  * skills; the per-harness links let Claude and the transitional .codex path see it too).
  * Built on the shared ensureSymlink primitive so there is no duplicated link/conflict logic.
- * Like link-skills.sh, it also PRUNES orphaned links — symlinks this tool owns whose source
+ * Like build/link-skills.sh, it also PRUNES orphaned links — symlinks this tool owns whose source
  * skill no longer exists — so deleting a skill and re-running cleans up the dead link.
  *
  * Returns a tally { linked, ok, conflicts, unlinked, denied, pruned, skills }.

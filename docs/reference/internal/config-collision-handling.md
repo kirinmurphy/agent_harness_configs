@@ -9,7 +9,7 @@ For user-facing tradeoffs between `managed`, `adopt`, and `agent prompt`, start 
 ## Concept Model
 
 - **Managed read-mostly asset**: a home path such as skills, hooks, commands, rules, guidance, or marker files is a symlink to this repo. Repo changes flow into the tool automatically.
-- **Root config baseline**: `claude/settings.json` or `codex/config.toml` in this repo. These are portable templates, not live symlink targets.
+- **Root config baseline**: `globals/claude/settings.json` or `globals/codex/config.toml` in this repo. These are portable templates, not live symlink targets.
 - **User-owned config**: a home config file is a regular file, or a symlink somewhere other than this repo.
 - **Collision**: the installer finds a user-owned `~/.claude/settings.json` or `~/.codex/config.toml` where it would otherwise copy the harness baseline.
 - **Non-root harness target**: a harness path such as skills, hooks, commands, rules, or managed marker files. These are not merged by the installer.

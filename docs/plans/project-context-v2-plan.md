@@ -738,7 +738,7 @@ Full doc rewrites should be explicit, not the default behavior.
 
 1. Add `roborepo project-context inventory`.
 2. Emit generated JSON and markdown summary.
-3. Add `project-context` shared skill under `agents/skills/project-context`.
+3. Add `project-context` shared skill under `globals/agents/skills/project-context`.
 4. Link the skill for Claude with the harness skill-link script.
 5. Add Project Context docs and references to the skill.
 6. Add lean user docs: `README.md`, `glossary.md`, `inventory.md`, and optional `extension-paths.md`.

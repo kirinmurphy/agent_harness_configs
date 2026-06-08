@@ -10,6 +10,9 @@ case "${1:-}" in
   *) echo "usage: $0 [--include-root-config]" >&2; exit 2 ;;
 esac
 
+# shellcheck source=scripts/lib/globals-data.sh
+source "${repo_root}/scripts/lib/globals-data.sh"  # provides manifest_rows, manifest_has_flag
+
 print_agent_sync_prompt() {
   local home_path="$1"
   local repo_rel="$2"
@@ -18,25 +21,10 @@ print_agent_sync_prompt() {
   echo ""
   echo "Agent merge prompt:"
   echo "-----"
-  cat <<EOF
-Compare local live config at:
-  ${home_path}
-
-With repo baseline at:
-  ${dst}
-
-Default stance: keep the repo baseline as source of truth unless you can prove a local live change should be promoted.
-
-Required first step: compute your own complete comparison of both paths. Do not rely on this prompt as an exhaustive conflict summary. For directories, inspect the full recursive file list and content diffs. For structured files, parse the format when possible and identify all changed keys/tables/arrays/sections before editing.
-
-Merge instructions:
-- Keep repo-managed defaults by default.
-- Promote local live changes only when they are intentional and do not conflict with harness defaults.
-- Preserve user-specific MCP servers, model preferences, permissions, hooks, profiles, trusted projects, plugin settings, and local state unless they directly conflict with harness requirements.
-- If both sides set the same scalar, table, hook, permission, plugin, profile, project, rule, command, skill, or MCP/server entry differently, flag it as a conflict instead of guessing.
-- Do not blindly overwrite either side.
-- Report the final changed file/path and any conflicts left unresolved.
-EOF
+  sed \
+    -e "s#{{HOME_PATH}}#${home_path}#g" \
+    -e "s#{{DST}}#${dst}#g" \
+    "${repo_root}/globals/prompts/sync-merge.md"
   echo "-----"
   echo ""
 }
@@ -46,7 +34,10 @@ show_diff() {
   local dst="$2"
 
   if [[ -e "${dst}" ]]; then
-    git diff --no-index -- "${dst}" "${home_path}" || true
+    # --no-pager: this runs on a real tty (interactive sync, and the expect-driven
+    # tests spawn a pty), where git would otherwise page the diff through less and
+    # block waiting for a keypress the Selection prompt never gets past.
+    git --no-pager diff --no-index -- "${dst}" "${home_path}" || true
   else
     echo "new repo path: ${dst}"
     if [[ -f "${home_path}" ]]; then
@@ -186,16 +177,15 @@ sync_item() {
   done
 }
 
-sync_item "${HOME}/.codex/AGENTS.md" "codex/AGENTS.md"
-sync_item "${HOME}/.codex/config.toml" "codex/config.toml" "user_config"
-sync_item "${HOME}/.codex/hooks.json" "codex/hooks.json"
-sync_item "${HOME}/.codex/MANAGED_BY_ROBOREPO.md" "codex/MANAGED_BY_ROBOREPO.md"
-sync_item "${HOME}/.codex/rules" "codex/rules"
-sync_item "${HOME}/.claude/CLAUDE.md" "claude/CLAUDE.md"
-sync_item "${HOME}/.claude/settings.json" "claude/settings.json" "user_config"
-sync_item "${HOME}/.claude/MANAGED_BY_ROBOREPO.md" "claude/MANAGED_BY_ROBOREPO.md"
-sync_item "${HOME}/.claude/commands" "claude/commands"
-sync_item "${HOME}/.claude/hooks" "claude/hooks"
-sync_item "${HOME}/.claude/plugins/blocklist.json" "claude/plugins/blocklist.json"
+# Read the manifest on FD 3, not stdin: sync_item prompts the user interactively with `read`,
+# so the loop body's stdin must stay the terminal. Feeding the loop via `< <(manifest_rows)`
+# would hijack stdin with the process-substitution pipe and break every interactive prompt.
+while IFS=$'\t' read -r _harness kind src_rel home_abs _flags <&3; do
+  manifest_has_flag "${_flags}" nosync && continue
+  case "${kind}" in
+    link)        sync_item "${home_abs}" "${src_rel}" ;;
+    root_config) sync_item "${home_abs}" "${src_rel}" "user_config" ;;
+  esac
+done 3< <(manifest_rows)
 
-echo "skip shared skills: maintained in repo/agents/skills and symlinked into both harnesses"
+echo "skip shared skills: maintained in repo/globals/agents/skills and symlinked into both harnesses"

@@ -18,6 +18,53 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$adoptRootConfig = @{
+  claude = $false
+  codex = $false
+}
+
+function Resolve-ManifestHomeRoot {
+  param($HomeRoot)
+  switch ($HomeRoot) {
+    "claude" { return (Join-Path $env:APPDATA "Claude") }
+    "codex"  { return (Join-Path $env:USERPROFILE ".codex") }
+    "agents" { return (Join-Path $env:USERPROFILE ".agents") }
+    default { throw "manifest: unknown home_root '$HomeRoot'" }
+  }
+}
+
+function Get-ManifestRows {
+  param([string[]]$Harnesses)
+  $manifestPath = Join-Path $repoRoot "globals/manifest.tsv"
+  if (-not (Test-Path $manifestPath)) {
+    throw "missing manifest: $manifestPath"
+  }
+
+  foreach ($line in Get-Content $manifestPath) {
+    if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith("#")) {
+      continue
+    }
+
+    $cols = $line -split "`t", 6
+    if ($cols.Count -ne 6) {
+      throw "manifest: invalid row '$line'"
+    }
+
+    $harness = $cols[0]
+    if ($Harnesses -and ($harness -notin $Harnesses)) {
+      continue
+    }
+
+    $homeRoot = Resolve-ManifestHomeRoot $cols[4]
+    [PSCustomObject]@{
+      Harness = $harness
+      Kind = $cols[1]
+      RepoRel = $cols[2]
+      HomePath = Join-Path $homeRoot $cols[3]
+      Flags = $cols[5]
+    }
+  }
+}
 
 function Link-Item {
   param($RepoRel, $HomePath, [switch]$AllowReplace)
@@ -71,6 +118,29 @@ function Link-Item {
     Write-Warning "Enable Windows Developer Mode or run PowerShell as Administrator."
     Write-Warning "  Settings > System > For Developers > Developer Mode"
   }
+}
+
+function Remove-RepoLink {
+  param($HomePath)
+
+  $existing = Get-Item $HomePath -Force -ErrorAction SilentlyContinue
+  if ($null -eq $existing -or $existing.LinkType -ne "SymbolicLink") {
+    return
+  }
+
+  $target = [System.IO.Path]::GetFullPath($existing.Target)
+  $root = [System.IO.Path]::GetFullPath($repoRoot)
+  if (-not $target.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+    return
+  }
+
+  if ($DryRun) {
+    Write-Host "cleanup: $HomePath"
+    return
+  }
+
+  Remove-Item $HomePath -Force
+  Write-Host "cleanup: $HomePath"
 }
 
 function Write-AgentMergePrompt {
@@ -290,24 +360,13 @@ function Test-CleanTarget {
 function Invoke-CleanTargetPreflight {
   $conflict = $false
 
-  if ($hasClaude) {
-    $claudeHome = Join-Path $env:APPDATA "Claude"
-    if (-not (Test-CleanTarget "claude/CLAUDE.md" (Join-Path $claudeHome "CLAUDE.md"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "claude/MANAGED_BY_ROBOREPO.md" (Join-Path $claudeHome "MANAGED_BY_ROBOREPO.md"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "claude/commands" (Join-Path $claudeHome "commands"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "claude/hooks" (Join-Path $claudeHome "hooks"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "claude/skills" (Join-Path $claudeHome "skills"))) { $conflict = $true }
-  }
-
-  if ($hasCodex) {
-    $codexHome = Join-Path $env:USERPROFILE ".codex"
-    $agentsHome = Join-Path $env:USERPROFILE ".agents"
-    if (-not (Test-CleanTarget "codex/AGENTS.md" (Join-Path $codexHome "AGENTS.md"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "codex/hooks.json" (Join-Path $codexHome "hooks.json"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "codex/MANAGED_BY_ROBOREPO.md" (Join-Path $codexHome "MANAGED_BY_ROBOREPO.md"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "codex/rules" (Join-Path $codexHome "rules"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "agents/skills" (Join-Path $agentsHome "skills"))) { $conflict = $true }
-    if (-not (Test-CleanTarget "agents/skills" (Join-Path $codexHome "skills"))) { $conflict = $true }
+  foreach ($row in Get-PresentManifestRows) {
+    if ($row.Kind -ne "link") {
+      continue
+    }
+    if (-not (Test-CleanTarget $row.RepoRel $row.HomePath)) {
+      $conflict = $true
+    }
   }
 
   if ($conflict) {
@@ -316,20 +375,53 @@ function Invoke-CleanTargetPreflight {
 }
 
 function Invoke-RootConfigPreflight {
-  $script:adoptClaudeConfig = $false
-  $script:adoptCodexConfig = $false
+  $script:adoptRootConfig["claude"] = $false
+  $script:adoptRootConfig["codex"] = $false
 
-  if ($hasClaude) {
-    $claudeHome = Join-Path $env:APPDATA "Claude"
-    if (Resolve-UserConfigCollision "claude" "claude/settings.json" (Join-Path $claudeHome "settings.json")) {
-      $script:adoptClaudeConfig = $true
+  foreach ($row in Get-PresentManifestRows) {
+    if ($row.Kind -ne "root_config") {
+      continue
+    }
+    if (Resolve-UserConfigCollision $row.Harness $row.RepoRel $row.HomePath) {
+      $script:adoptRootConfig[$row.Harness] = $true
     }
   }
+}
 
+function Get-PresentHarnesses {
+  $harnesses = @()
+  if ($hasClaude) {
+    $harnesses += "claude"
+  }
   if ($hasCodex) {
-    $codexHome = Join-Path $env:USERPROFILE ".codex"
-    if (Resolve-UserConfigCollision "codex" "codex/config.toml" (Join-Path $codexHome "config.toml")) {
-      $script:adoptCodexConfig = $true
+    $harnesses += "codex"
+    $harnesses += "agents"
+  }
+  return $harnesses
+}
+
+function Get-PresentManifestRows {
+  return Get-ManifestRows (Get-PresentHarnesses)
+}
+
+function Invoke-ManifestRows {
+  param($HarnessLabel, [string[]]$Harnesses)
+
+  Write-Host ""
+  Write-Host "--- $HarnessLabel ---"
+  foreach ($row in Get-ManifestRows $Harnesses) {
+    switch ($row.Kind) {
+      "root_config" {
+        if (-not $adoptRootConfig[$row.Harness]) {
+          Export-UserConfig $row.Harness $row.RepoRel $row.HomePath
+        }
+      }
+      "link" {
+        Link-Item $row.RepoRel $row.HomePath
+      }
+      "cleanup" {
+        Remove-RepoLink $row.HomePath
+      }
     }
   }
 }
@@ -349,36 +441,14 @@ Invoke-RootConfigPreflight
 
 # Claude managed links and root config export
 if ($hasClaude) {
-  Write-Host ""
-  Write-Host "--- Claude ---"
-  $claudeHome = Join-Path $env:APPDATA "Claude"
-  if (-not $adoptClaudeConfig) {
-    Export-UserConfig "claude" "claude/settings.json"  (Join-Path $claudeHome "settings.json")
-  }
-  Link-Item "claude/CLAUDE.md"                     (Join-Path $claudeHome "CLAUDE.md")
-  Link-Item "claude/MANAGED_BY_ROBOREPO.md" (Join-Path $claudeHome "MANAGED_BY_ROBOREPO.md")
-  Link-Item "claude/commands"                      (Join-Path $claudeHome "commands")
-  Link-Item "claude/hooks"                         (Join-Path $claudeHome "hooks")
-  Link-Item "claude/skills"                        (Join-Path $claudeHome "skills")
+  Invoke-ManifestRows "Claude" @("claude")
 } else {
   Write-Host "skip: Claude — AppData\Roaming\Claude not found"
 }
 
 # Codex managed links and root config export
 if ($hasCodex) {
-  Write-Host ""
-  Write-Host "--- Codex ---"
-  $codexHome = Join-Path $env:USERPROFILE ".codex"
-  $agentsHome = Join-Path $env:USERPROFILE ".agents"
-  if (-not $adoptCodexConfig) {
-    Export-UserConfig "codex" "codex/config.toml"     (Join-Path $codexHome "config.toml")
-  }
-  Link-Item "codex/AGENTS.md"                     (Join-Path $codexHome "AGENTS.md")
-  Link-Item "codex/hooks.json"                    (Join-Path $codexHome "hooks.json")
-  Link-Item "codex/MANAGED_BY_ROBOREPO.md" (Join-Path $codexHome "MANAGED_BY_ROBOREPO.md")
-  Link-Item "codex/rules"                         (Join-Path $codexHome "rules")
-  Link-Item "agents/skills"                       (Join-Path $agentsHome "skills")
-  Link-Item "agents/skills"                       (Join-Path $codexHome "skills")
+  Invoke-ManifestRows "Codex" @("codex", "agents")
 } else {
   Write-Host "skip: Codex — ~/.codex/~/.agents not found"
 }

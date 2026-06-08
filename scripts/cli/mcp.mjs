@@ -1,6 +1,6 @@
 // roborepo `mcp add` subcommand: register an MCP server with Claude (via `claude mcp add`)
-// and Codex (by editing codex/config.toml), plus a matching permission entry in
-// claude/settings.json. Presets cover the bundled jcodemunch/jdocmunch servers; otherwise the
+// and Codex (by editing globals/codex/config.toml), plus a matching permission entry in
+// globals/claude/settings.json. Presets cover the bundled jcodemunch/jdocmunch servers; otherwise the
 // input is treated as an HTTP URL or a uvx package name.
 
 import fs from "node:fs";
@@ -8,12 +8,30 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot } from "./paths.mjs";
 
-const mcpPresets = new Map([
-  ["jcodemunch", { name: "jcodemunch", commandOrUrl: "uvx", args: ["jcodemunch-mcp"] }],
-  ["jcodemunch-mcp", { name: "jcodemunch", commandOrUrl: "uvx", args: ["jcodemunch-mcp"] }],
-  ["jdocmunch", { name: "jdocmunch", commandOrUrl: "uvx", args: ["jdocmunch-mcp"] }],
-  ["jdocmunch-mcp", { name: "jdocmunch", commandOrUrl: "uvx", args: ["jdocmunch-mcp"] }],
-]);
+function loadMcpPresets() {
+  const presetsPath = path.join(repoRoot, "globals", "mcp-presets.json");
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(presetsPath, "utf8"));
+  } catch (err) {
+    console.error(`failed to read ${presetsPath}: ${err.message}`);
+    process.exit(1);
+  }
+
+  const presets = new Map();
+  for (const preset of payload.presets || []) {
+    for (const alias of preset.aliases || []) {
+      presets.set(alias.toLowerCase(), {
+        name: preset.name,
+        commandOrUrl: preset.commandOrUrl,
+        args: [...(preset.args || [])],
+      });
+    }
+  }
+  return presets;
+}
+
+const mcpPresets = loadMcpPresets();
 
 function isHttpUrl(value) {
   return /^https?:\/\//i.test(value);
@@ -136,7 +154,7 @@ function shellQuote(arg) {
 }
 
 function ensureClaudeMcpPermission(serverName) {
-  const settingsPath = path.join(repoRoot, "claude", "settings.json");
+  const settingsPath = path.join(repoRoot, "globals", "claude", "settings.json");
   const permission = `mcp__${serverName}`;
   let settings;
   try {
@@ -199,7 +217,7 @@ function codexHasMcp(configText, serverName) {
 }
 
 function ensureCodexMcp(spec, { dryRun = false } = {}) {
-  const configPath = path.join(repoRoot, "codex", "config.toml");
+  const configPath = path.join(repoRoot, "globals", "codex", "config.toml");
   let configText;
   try {
     configText = fs.readFileSync(configPath, "utf8");
@@ -215,7 +233,7 @@ function ensureCodexMcp(spec, { dryRun = false } = {}) {
 
   const block = codexMcpBlock(spec);
   if (dryRun) {
-    console.log(`would add Codex MCP: ${spec.name} -> codex/config.toml`);
+    console.log(`would add Codex MCP: ${spec.name} -> globals/codex/config.toml`);
     console.log(block);
     return;
   }
@@ -237,7 +255,7 @@ export function mcpAdd(rest) {
   if (opts.dryRun) {
     if (opts.target !== "only-codex") console.log(display);
     if (opts.target !== "only-codex" && opts.updateClaudePermission) {
-      console.log(`would add permission: mcp__${spec.name} -> claude/settings.json`);
+      console.log(`would add permission: mcp__${spec.name} -> globals/claude/settings.json`);
     }
     if (opts.target !== "only-claude") ensureCodexMcp(spec, { dryRun: true });
     return;

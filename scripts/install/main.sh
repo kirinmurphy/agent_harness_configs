@@ -17,6 +17,8 @@ dry_args=()
 
 # shellcheck source=scripts/install/install-lib.sh
 source "${repo_root}/scripts/install/install-lib.sh"
+# shellcheck source=scripts/lib/globals-data.sh
+source "${repo_root}/scripts/lib/globals-data.sh"  # provides manifest_rows
 
 run_with_dry_args() {
   if [[ $dry_run -eq 1 ]]; then
@@ -48,13 +50,11 @@ case "$(uname -s 2>/dev/null || echo unknown)" in
     ;;
 esac
 
-# Detect which harnesses are present
+# Detect which harnesses are present.
 has_claude=0
 has_codex=0
-[[ -d "${HOME}/.claude" ]] && has_claude=1
-# Codex config lives under ~/.codex; Codex skills live under ~/.agents (scanned exclusively).
-# Treat either dir as "Codex present" so a skills-only ~/.agents home still installs.
-{ [[ -d "${HOME}/.codex" ]] || [[ -d "${HOME}/.agents" ]]; } && has_codex=1
+harness_present claude && has_claude=1
+harness_present codex && has_codex=1
 
 if [[ $has_claude -eq 0 && $has_codex -eq 0 ]]; then
   echo "error: neither ~/.claude nor ~/.codex/~/.agents found." >&2
@@ -76,8 +76,10 @@ check_clean_target() {
     return 0
   fi
 
-  if [[ -L "${home_path}" && "$(readlink "${home_path}")" == "${src}" ]]; then
-    return 0
+  if [[ -L "${home_path}" ]]; then
+    case "$(readlink "${home_path}")" in
+      "${src}"|"${repo_root}"/*) return 0 ;;
+    esac
   fi
 
   echo "conflict: ${home_path} already exists and is not managed by this repo." >&2
@@ -90,25 +92,25 @@ check_clean_target() {
   return 1
 }
 
+# Preflight every managed link target (from globals/manifest.tsv) for the present harnesses.
+# Claude uses the claude rows; Codex uses codex + agents rows (skills live under ~/.agents).
+# root_config and cleanup rows are not preflighted here — root config is mutable user state
+# handled by preflight_root_config below.
 preflight_clean_targets() {
   local conflict=0
+  local _h kind src_rel home_abs _flags
 
-  if [[ $has_claude -eq 1 ]]; then
-    check_clean_target "claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md" || conflict=1
-    check_clean_target "claude/MANAGED_BY_ROBOREPO.md" "${HOME}/.claude/MANAGED_BY_ROBOREPO.md" || conflict=1
-    check_clean_target "claude/commands" "${HOME}/.claude/commands" || conflict=1
-    check_clean_target "claude/hooks" "${HOME}/.claude/hooks" || conflict=1
-    check_clean_target "claude/skills" "${HOME}/.claude/skills" || conflict=1
-  fi
+  preflight_harness() {
+    while IFS=$'\t' read -r _h kind src_rel home_abs _flags; do
+      [[ "${kind}" == "link" ]] || continue
+      check_clean_target "${src_rel}" "${home_abs}" || conflict=1
+    done < <(manifest_rows "$1")
+  }
 
+  [[ $has_claude -eq 1 ]] && preflight_harness claude
   if [[ $has_codex -eq 1 ]]; then
-    check_clean_target "codex/AGENTS.md" "${HOME}/.codex/AGENTS.md" || conflict=1
-    check_clean_target "codex/hooks.json" "${HOME}/.codex/hooks.json" || conflict=1
-    check_clean_target "codex/MANAGED_BY_ROBOREPO.md" "${HOME}/.codex/MANAGED_BY_ROBOREPO.md" || conflict=1
-    check_clean_target "codex/rules" "${HOME}/.codex/rules" || conflict=1
-    # Skills: canonical ~/.agents/skills + transitional ~/.codex/skills, both -> agents/skills.
-    check_clean_target "agents/skills" "${HOME}/.agents/skills" || conflict=1
-    check_clean_target "agents/skills" "${HOME}/.codex/skills" || conflict=1
+    preflight_harness codex
+    preflight_harness agents
   fi
 
   if [[ $conflict -eq 1 ]]; then
@@ -128,13 +130,25 @@ preflight_root_config() {
   local src="${repo_root}/${repo_rel}"
   local current
 
+  # If the caller pre-declared adopt for this harness (e.g. an unattended `roborepo update`
+  # that intends to keep local root config), honor it without prompting. Without this the
+  # non-interactive guard below would hard-error on any divergent root config even when the
+  # caller already chose to leave it in place.
+  local adopt_var="HARNESS_ADOPT_$(echo "${harness}" | tr '[:lower:]' '[:upper:]')_CONFIG"
+  if [[ "${!adopt_var:-0}" == "1" ]]; then
+    echo "skip: ${home_path} left in place (adopt pre-declared)"
+    return 0
+  fi
+
   if [[ -L "${home_path}" ]]; then
     current="$(readlink "${home_path}")"
-    if [[ "${current}" == "${src}" ]]; then
+    case "${current}" in
+      "${src}"|"${repo_root}"/*)
       # Root config files are mutable user state. Existing repo symlinks are
       # converted to local copies during the install phase.
       return 0
-    fi
+      ;;
+    esac
   fi
 
   if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
@@ -178,11 +192,11 @@ preflight_root_config() {
 }
 
 if [[ $has_claude -eq 1 ]]; then
-  preflight_root_config "claude" "claude/settings.json" "${HOME}/.claude/settings.json"
+  preflight_root_config "claude" "globals/claude/settings.json" "${HOME}/.claude/settings.json"
 fi
 
 if [[ $has_codex -eq 1 ]]; then
-  preflight_root_config "codex" "codex/config.toml" "${HOME}/.codex/config.toml"
+  preflight_root_config "codex" "globals/codex/config.toml" "${HOME}/.codex/config.toml"
 fi
 
 # Harness-agnostic setup

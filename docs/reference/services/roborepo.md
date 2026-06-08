@@ -137,10 +137,10 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   (override backs the old one up under `archived/`). `skill install` symlinks the current repo's own
   `.agents/skills/<name>` into selected `.claude/skills` and/or `.codex/skills` folders, then prunes
   links whose source is gone. `.agents/skills` is the canonical project skill source because Codex
-  scans it directly; Claude and the transitional `.codex/skills` path are fan-out links from that
+  scans it directly; Claude fan-out links point at that
   source. Existing `.claude`/`.codex` roots are used automatically; interactive runs ask before
-  creating a missing root, and noninteractive runs never create missing roots. `skill link` is a
-  compatibility alias. `skill sync` is the maintainer command for this repo: it creates/prunes
+  creating a missing root, and noninteractive runs never create missing roots. `skill link` is an
+  alias. `skill sync` is the maintainer command for this repo: it creates/prunes
   Claude per-skill links after shared skills are added or removed, and `--check` verifies without
   changing links. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
 - **Maintenance** — `sync` pulls live config back into the repo; `doctor` and `verify` are health
@@ -158,9 +158,9 @@ maintainer workflows.
 `roborepo mcp add <name-or-url>` wraps the Claude registration step and the Codex config update so
 common MCP setup is repeatable instead of hand-typed. After Claude registration succeeds it also:
 
-- adds `mcp__<name>` to `claude/settings.json` so the server's tools are allowed without repeated
+- adds `mcp__<name>` to `globals/claude/settings.json` so the server's tools are allowed without repeated
   approval prompts (skip with `--skip-claude-permission`), and
-- adds an MCP block to `codex/config.toml`.
+- adds an MCP block to `globals/codex/config.toml`.
 
 Default target is both harnesses; `--only-claude` / `--only-codex` scope it. Presets exist for the
 two bundled servers (`jcodemunch`, `jdocmunch`, both `uvx`-based); any other non-URL value is
