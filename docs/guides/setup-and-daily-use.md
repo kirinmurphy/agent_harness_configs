@@ -78,6 +78,42 @@ By default, sync skips root config files: `~/.claude/settings.json` and `~/.code
 
 For the decision model, see [Config Collision Handling](../reference/internal/config-collision-handling.md#sync-workflow).
 
+### Choose Agent Permissions
+
+Agent permission defaults start in one manifest:
+
+```sh
+roborepo permissions --profile interactive
+```
+
+Profiles live in `manifests/agent-permissions.json`. The renderer updates the generated permission block in `globals/codex/config.toml`, the shell prefix rules in `globals/codex/rules/default.rules`, and Claude `permissions.allow` / `permissions.deny` in `globals/claude/settings.json`. Existing `~/.codex/config.toml` and `~/.claude/settings.json` files are local root config, so merge/export is required before a newly rendered session profile affects an already set up machine. `~/.codex/rules` is symlinked, so generated command rules are live immediately.
+
+During install or update, choose a profile with:
+
+```sh
+./scripts/install/main.sh --permissions readonly
+./scripts/install/main.sh --permissions interactive
+./scripts/install/main.sh --permissions workspace
+```
+
+Use the same profile flag through `roborepo update` after the first install:
+
+```sh
+roborepo update --permissions readonly
+roborepo update --permissions interactive
+roborepo update --permissions workspace
+```
+
+Profile scope:
+
+| Scope | How to set it | What changes |
+| --- | --- | --- |
+| This repo baseline | `roborepo permissions --profile <name>` | Re-renders tracked `globals/*` files from `manifests/agent-permissions.json`. |
+| One install/update run | `./scripts/install/main.sh --permissions <name>` or `roborepo update --permissions <name>` | Renders the chosen profile before export/link checks. |
+| Existing active root config | Merge/export root config after rendering | Required because `~/.claude/settings.json` and `~/.codex/config.toml` are local active files, not symlinks. |
+
+Per-project behavior comes from the active Claude/Codex session started in that project. This repo does not currently persist a different permission profile per consumer repo. To use different defaults for a repo, render the desired profile before installing/updating that machine's global harness config, or use the harness's own one-off launch flags for that session.
+
 ---
 
 ## Daily Use

@@ -10,8 +10,8 @@ case "${1:-}" in
   *) echo "usage: $0 [--include-root-config]" >&2; exit 2 ;;
 esac
 
-# shellcheck source=scripts/lib/globals-data.sh
-source "${repo_root}/scripts/lib/globals-data.sh"  # provides manifest_rows, manifest_has_flag
+# shellcheck source=scripts/lib/manifests-data.sh
+source "${repo_root}/scripts/lib/manifests-data.sh"  # provides manifest_rows, manifest_has_flag
 
 print_agent_sync_prompt() {
   local home_path="$1"
@@ -24,7 +24,7 @@ print_agent_sync_prompt() {
   sed \
     -e "s#{{HOME_PATH}}#${home_path}#g" \
     -e "s#{{DST}}#${dst}#g" \
-    "${repo_root}/globals/prompts/sync-merge.md"
+    "${repo_root}/manifests/prompts/sync-merge.md"
   echo "-----"
   echo ""
 }

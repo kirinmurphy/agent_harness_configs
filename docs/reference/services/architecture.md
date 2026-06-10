@@ -91,6 +91,14 @@ Repo files are portable baselines. Active global files are local copies or exist
 
 Implication: runtime trust, hook approvals, local profiles, and machine-specific state stay out of repo source. If both sides exist, the installer keeps the local file and prints merge guidance instead of replacing it.
 
+Agent permission defaults are authored in `manifests/agent-permissions.json` and rendered by `scripts/build/render-agent-permissions.mjs`.
+
+- `globals/codex/config.toml` receives the generated session profile block, such as `sandbox_mode`, `approval_policy`, and workspace network access.
+- `globals/codex/rules/default.rules` receives generated shell command prefix policy such as allowed local commands and denied Git remote commands.
+- `globals/claude/settings.json` receives generated `permissions.allow` and `permissions.deny` arrays from the same command, tool, MCP, and profile data.
+
+Because `~/.codex/rules` is symlinked, command rule changes are live after repo edits. Because `~/.codex/config.toml` is root config, session default changes require the root config export or merge path before they affect an existing machine.
+
 ### Root Config Merge Options
 
 #### Replace existing files

@@ -4,8 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mode="${1:-}"
 
-# shellcheck source=scripts/lib/globals-data.sh
-source "${repo_root}/scripts/lib/globals-data.sh"
+# shellcheck source=scripts/lib/manifests-data.sh
+source "${repo_root}/scripts/lib/manifests-data.sh"
 
 case "${mode}" in
   --check|"") ;;

@@ -79,13 +79,21 @@ run_expect_install() {
   command -v expect >/dev/null 2>&1 || fail "expect is required for interactive installer tests"
   HC_REPO="$repo_root" HC_HOME="$home_dir" HC_EXPECT_SCRIPT="$script" expect <<'EOF' >"$output" 2>&1
 set timeout 20
-spawn env HOME=$env(HC_HOME) $env(HC_REPO)/scripts/install/main.sh
+spawn env HOME=$env(HC_HOME) ROBOREPO_ASSUME_INTERACTIVE=1 $env(HC_REPO)/scripts/install/main.sh
 source $env(HC_EXPECT_SCRIPT)
 expect eof
 set wait_result [wait]
 set exit_code [lindex $wait_result 3]
 exit $exit_code
 EOF
+}
+
+run_expect_install_args() {
+  local home_dir="$1"
+  local output="$2"
+  shift 2
+
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" "$@" >"$output" 2>&1
 }
 
 test_fresh_managed() {
@@ -222,12 +230,9 @@ test_dry_run_collision_no_mutation() {
   HOME="$home_dir" "$repo_root/scripts/install/main.sh" --dry-run >"$home_dir/out"
 
   assert_file_contains "$home_dir/out" "collision: $home_dir/.claude/settings.json" "dry-run reports Claude collision"
-  assert_file_contains "$home_dir/out" "keep existing config or print agent merge prompt" "dry-run describes only safe root config choices"
-  assert_file_not_contains "$home_dir/out" "managed.*backup local config" "dry-run does not offer managed replacement"
-  assert_file_contains "$home_dir/out" "\[mcp_servers.personal\]" "dry-run reports personal Codex MCP"
-  assert_file_contains "$home_dir/out" "\[profiles.personal\]" "dry-run reports personal Codex profile"
+  assert_file_contains "$home_dir/out" "overwrite, keep originals, or agent prompt" "dry-run describes conflict policies"
   [[ ! -L "$home_dir/.claude/settings.json" && ! -L "$home_dir/.codex/config.toml" ]] && pass "dry-run leaves config files untouched" || fail "dry-run leaves config files untouched"
-  [[ ! -e "$home_dir/.roborepo-backups" ]] && pass "dry-run creates no backups" || fail "dry-run creates no backups"
+  [[ ! -e "$home_dir/.claude/settings_update_"* && ! -e "$home_dir/.roborepo-backups" ]] && pass "dry-run creates no backups or staged updates" || fail "dry-run creates no backups or staged updates"
 }
 
 test_noninteractive_block_no_mutation() {
@@ -243,22 +248,20 @@ test_noninteractive_block_no_mutation() {
   [[ ! -e "$home_dir/.claude/CLAUDE.md" && ! -e "$home_dir/.codex/AGENTS.md" ]] && pass "noninteractive block prevents partial install" || fail "noninteractive block prevents partial install"
 }
 
-test_non_root_conflict_blocks_before_mutation() {
+test_non_root_conflict_stages_with_policy() {
   local home_dir
   home_dir="$(make_home)"
   printf 'existing agents\n' > "$home_dir/.codex/AGENTS.md"
 
-  if HOME="$home_dir" "$repo_root/scripts/install/main.sh" --dry-run >"$home_dir/out" 2>&1; then
-    fail "non-root conflict blocks install" "$home_dir/out"
-  fi
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" --mode adopt --on-conflict keep >"$home_dir/out" 2>&1
 
-  assert_file_contains "$home_dir/out" "conflict: $home_dir/.codex/AGENTS.md already exists" "non-root conflict is reported"
-  assert_file_contains "$home_dir/out" "Agent merge prompt:" "non-root conflict prints agent prompt"
-  assert_file_contains "$home_dir/out" "Required first step: compute your own complete comparison" "non-root prompt requires full comparison"
-  assert_file_contains "$home_dir/out" "Default stance: preserve the existing local path" "non-root prompt defaults to local preservation"
-  [[ ! -e "$home_dir/.gitignore_global" && ! -e "$home_dir/.claude/settings.json" && ! -e "$home_dir/.codex/config.toml" ]] \
-    && pass "non-root conflict prevents partial install" \
-    || fail "non-root conflict prevents partial install"
+  assert_file_contains "$home_dir/.codex/AGENTS.md" "existing agents" "keep policy preserves existing non-root file"
+  find "$home_dir/.codex" -name 'AGENTS_update_*.md' | grep -q . \
+    && pass "keep policy stages non-root repo update" \
+    || fail "keep policy stages non-root repo update"
+  [[ -f "$home_dir/.claude/settings.json" && -f "$home_dir/.codex/config.toml" ]] \
+    && pass "keep policy still installs missing files" \
+    || fail "keep policy still installs missing files"
 }
 
 test_global_command_conflict_blocks_before_mutation() {
@@ -281,90 +284,72 @@ test_global_command_conflict_blocks_before_mutation() {
     || fail "global command conflict prevents config mutation"
 }
 
-test_direct_harness_conflict_blocks_before_mutation() {
+test_direct_harness_conflict_dry_run_reports() {
   local home_dir
   home_dir="$(make_home)"
   printf 'existing agents\n' > "$home_dir/.codex/AGENTS.md"
 
-  if HOME="$home_dir" "$repo_root/scripts/install/install-codex.sh" --dry-run >"$home_dir/out" 2>&1; then
-    fail "direct Codex installer blocks non-root conflict" "$home_dir/out"
-  fi
+  HOME="$home_dir" "$repo_root/scripts/install/install-codex.sh" --dry-run >"$home_dir/out" 2>&1
 
-  assert_file_contains "$home_dir/out" "Install has non-root Codex conflicts" "direct Codex installer reports non-root conflict"
+  assert_file_contains "$home_dir/out" "collision: $home_dir/.codex/AGENTS.md" "direct Codex installer reports non-root conflict"
   [[ ! -e "$home_dir/.codex/config.toml" && ! -e "$home_dir/.codex/hooks.json" ]] \
-    && pass "direct Codex installer prevents partial mutation" \
-    || fail "direct Codex installer prevents partial mutation"
+    && pass "direct Codex dry-run prevents mutation" \
+    || fail "direct Codex dry-run prevents mutation"
 }
 
-test_interactive_adopt_agent() {
-  local home_dir expect_file
+test_interactive_keep_agent() {
+  local home_dir
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
-  expect_file="$home_dir/expect.tcl"
-  cat >"$expect_file" <<'EOF'
-expect "Selection*"
-send "1\r"
-expect "Continue by adopting existing local config?*"
-send "\r"
-expect "Selection*"
-send "2\r"
-expect "Skip this root config export for now?*"
-send "\r"
-EOF
 
-  run_expect_install "$home_dir" "$home_dir/out" "$expect_file"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" --on-conflict keep >"$home_dir/out" 2>&1
 
-  assert_file_not_contains "$home_dir/out" "managed.*backup local config" "interactive root collision does not offer managed replacement"
-  assert_file_contains "$home_dir/out" "Required first step: compute your own complete comparison" "root prompt requires full comparison"
-  assert_file_contains "$home_dir/out" "Default stance: keep the local user config" "root prompt defaults to keeping local config"
-  [[ ! -L "$home_dir/.claude/settings.json" ]] && pass "adopt leaves Claude config as regular file" || fail "adopt leaves Claude config as regular file"
-  assert_file_contains "$home_dir/.claude/settings.json" '"model":"opus"' "adopt preserves Claude config content"
-  [[ ! -L "$home_dir/.codex/config.toml" ]] && pass "agent leaves Codex config as regular file" || fail "agent leaves Codex config as regular file"
-  assert_file_contains "$home_dir/.codex/config.toml" "\[mcp_servers.personal\]" "agent preserves Codex config content"
-  ! find "$home_dir/.roborepo-backups" -name settings.json -o -name config.toml 2>/dev/null | grep -q . \
-    && pass "adopt/agent creates no root config backups" \
-    || fail "adopt/agent creates no root config backups"
+  [[ ! -L "$home_dir/.claude/settings.json" ]] && pass "keep leaves Claude config as regular file" || fail "keep leaves Claude config as regular file"
+  assert_file_contains "$home_dir/.claude/settings.json" '"model":"opus"' "keep preserves Claude config content"
+  find "$home_dir/.claude" -name 'settings_update_*.json' | grep -q . \
+    && pass "keep stages Claude root config update" \
+    || fail "keep stages Claude root config update"
+  [[ ! -L "$home_dir/.codex/config.toml" ]] && pass "keep leaves Codex config as regular file" || fail "keep leaves Codex config as regular file"
+  assert_file_contains "$home_dir/.codex/config.toml" "\[mcp_servers.personal\]" "keep preserves Codex config content"
+  find "$home_dir/.codex" -name 'config_update_*.toml' | grep -q . \
+    && pass "keep stages Codex root config update" \
+    || fail "keep stages Codex root config update"
+}
+
+test_overwrite_policy_backs_up_originals() {
+  local home_dir
+  home_dir="$(make_home)"
+  seed_user_configs "$home_dir"
+
+  run_expect_install_args "$home_dir" "$home_dir/out" --on-conflict overwrite
+
+  assert_file_contains "$home_dir/.claude/settings.json" "permissions" "overwrite installs Claude repo config"
+  find "$home_dir/.claude" -name 'settings_original_*.json' | grep -q . \
+    && pass "overwrite backs up original Claude config" \
+    || fail "overwrite backs up original Claude config"
+  assert_file_contains "$home_dir/.codex/config.toml" "mcp_servers.jcodemunch" "overwrite installs Codex repo config"
+  find "$home_dir/.codex" -name 'config_original_*.toml' | grep -q . \
+    && pass "overwrite backs up original Codex config" \
+    || fail "overwrite backs up original Codex config"
 }
 
 test_cancel_loop_and_agent_prompt() {
-  local home_dir expect_file
+  local home_dir
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
-  expect_file="$home_dir/expect.tcl"
-  cat >"$expect_file" <<'EOF'
-expect "Selection*"
-send "1\r"
-expect "Continue by adopting existing local config?*"
-send "n\r"
-expect "Selection*"
-send "2\r"
-expect "Agent merge prompt:"
-expect "Skip this root config export for now?*"
-send "\r"
-expect "Selection*"
-send "2\r"
-expect "Agent merge prompt:"
-expect "Skip this root config export for now?*"
-send "\r"
-EOF
 
-  run_expect_install "$home_dir" "$home_dir/out" "$expect_file"
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" --on-conflict agent >"$home_dir/out" 2>&1
 
   assert_file_contains "$home_dir/out" "Agent merge prompt:" "agent prompt printed"
-  [[ ! -L "$home_dir/.claude/settings.json" && ! -L "$home_dir/.codex/config.toml" ]] && pass "agent prompt skips root config export" || fail "agent prompt skips root config export"
+  [[ ! -L "$home_dir/.claude/settings.json" && ! -L "$home_dir/.codex/config.toml" ]] && pass "agent prompt leaves root configs local" || fail "agent prompt leaves root configs local"
 }
 
 test_abort_no_config_replacement() {
-  local home_dir expect_file
+  local home_dir
   home_dir="$(make_home)"
   seed_user_configs "$home_dir"
-  expect_file="$home_dir/expect.tcl"
-  cat >"$expect_file" <<'EOF'
-expect "Selection*"
-send "q\r"
-EOF
 
-  if run_expect_install "$home_dir" "$home_dir/out" "$expect_file"; then
+  if HOME="$home_dir" "$repo_root/scripts/install/main.sh" --on-conflict abort >"$home_dir/out" 2>&1; then
     fail "abort exits nonzero" "$home_dir/out"
   fi
 
@@ -372,6 +357,27 @@ EOF
   [[ ! -L "$home_dir/.claude/settings.json" && ! -e "$home_dir/.claude/CLAUDE.md" && ! -e "$home_dir/.gitignore_global" ]] \
     && pass "abort does not replace config or continue" \
     || fail "abort does not replace config or continue"
+}
+
+test_uninstall_removes_repo_owned_links() {
+  local home_dir
+  home_dir="$(make_home)"
+
+  HOME="$home_dir" "$repo_root/scripts/install/main.sh" >"$home_dir/install.out"
+  HOME="$home_dir" "$repo_root/scripts/install/uninstall.sh" >"$home_dir/uninstall.out"
+
+  [[ ! -e "$home_dir/.claude/CLAUDE.md" && ! -L "$home_dir/.claude/CLAUDE.md" ]] \
+    && pass "uninstall removes Claude repo symlink" \
+    || fail "uninstall removes Claude repo symlink"
+  [[ ! -e "$home_dir/.codex/AGENTS.md" && ! -L "$home_dir/.codex/AGENTS.md" ]] \
+    && pass "uninstall removes Codex repo symlink" \
+    || fail "uninstall removes Codex repo symlink"
+  [[ -f "$home_dir/.claude/settings.json" && -f "$home_dir/.codex/config.toml" ]] \
+    && pass "uninstall leaves root configs in place" \
+    || fail "uninstall leaves root configs in place"
+  [[ ! -f "$home_dir/.roborepo/install-state.json" ]] \
+    && pass "uninstall removes install state" \
+    || fail "uninstall removes install state"
 }
 
 test_idempotency_no_extra_backups() {
@@ -405,13 +411,13 @@ test_sync_guard() {
   home_dir="$(make_home)"
   sync_repo="$(mktemp -d)"
   seed_user_configs "$home_dir"
-  mkdir -p "$sync_repo/globals/codex" "$sync_repo/globals/claude" "$sync_repo/scripts/lib"
+  mkdir -p "$sync_repo/globals/codex" "$sync_repo/globals/claude" "$sync_repo/manifests" "$sync_repo/scripts/lib"
   cp "$repo_root/globals/codex/config.toml" "$sync_repo/globals/codex/config.toml"
   cp "$repo_root/globals/claude/settings.json" "$sync_repo/globals/claude/settings.json"
-  # sync-from-home reads the manifest via scripts/lib/globals-data.sh; the fake repo root
+  # sync-from-home reads the manifest via scripts/lib/manifests-data.sh; the fake repo root
   # needs both so manifest_rows resolves against this fixture.
-  cp "$repo_root/globals/manifest.tsv" "$sync_repo/globals/manifest.tsv"
-  cp "$repo_root/scripts/lib/globals-data.sh" "$sync_repo/scripts/lib/globals-data.sh"
+  cp "$repo_root/manifests/manifest.tsv" "$sync_repo/manifests/manifest.tsv"
+  cp "$repo_root/scripts/lib/manifests-data.sh" "$sync_repo/scripts/lib/manifests-data.sh"
 
   before_hash="$(shasum "$sync_repo/globals/codex/config.toml" "$sync_repo/globals/claude/settings.json")"
   ROBOREPO_REPO_ROOT="$sync_repo" HOME="$home_dir" "$repo_root/scripts/sync-from-home.sh" >"$home_dir/out"
@@ -431,9 +437,10 @@ test_sync_interactive_choices() {
   local home_dir sync_repo expect_file
   home_dir="$(make_home)"
   sync_repo="$(mktemp -d)"
-  mkdir -p "$sync_repo/globals/codex" "$sync_repo/scripts/lib" "$home_dir/.codex"
-  cp "$repo_root/globals/manifest.tsv" "$sync_repo/globals/manifest.tsv"
-  cp "$repo_root/scripts/lib/globals-data.sh" "$sync_repo/scripts/lib/globals-data.sh"
+  mkdir -p "$sync_repo/globals/codex" "$sync_repo/manifests/prompts" "$sync_repo/scripts/lib" "$home_dir/.codex"
+  cp "$repo_root/manifests/manifest.tsv" "$sync_repo/manifests/manifest.tsv"
+  cp "$repo_root/manifests/prompts/sync-merge.md" "$sync_repo/manifests/prompts/sync-merge.md"
+  cp "$repo_root/scripts/lib/manifests-data.sh" "$sync_repo/scripts/lib/manifests-data.sh"
   printf 'repo agents\n' > "$sync_repo/globals/codex/AGENTS.md"
   printf 'home agents\n' > "$home_dir/.codex/AGENTS.md"
   printf 'repo hooks\n' > "$sync_repo/globals/codex/hooks.json"
@@ -478,9 +485,10 @@ test_sync_overwrite_rollback_on_replace_failure() {
   home_dir="$(make_home)"
   sync_repo="$(mktemp -d)"
   fake_bin="$(mktemp -d)"
-  mkdir -p "$sync_repo/globals/codex" "$sync_repo/scripts/lib" "$home_dir/.codex"
-  cp "$repo_root/globals/manifest.tsv" "$sync_repo/globals/manifest.tsv"
-  cp "$repo_root/scripts/lib/globals-data.sh" "$sync_repo/scripts/lib/globals-data.sh"
+  mkdir -p "$sync_repo/globals/codex" "$sync_repo/manifests/prompts" "$sync_repo/scripts/lib" "$home_dir/.codex"
+  cp "$repo_root/manifests/manifest.tsv" "$sync_repo/manifests/manifest.tsv"
+  cp "$repo_root/manifests/prompts/sync-merge.md" "$sync_repo/manifests/prompts/sync-merge.md"
+  cp "$repo_root/scripts/lib/manifests-data.sh" "$sync_repo/scripts/lib/manifests-data.sh"
   printf 'repo hooks\n' > "$sync_repo/globals/codex/hooks.json"
   printf 'home hooks\n' > "$home_dir/.codex/hooks.json"
   expect_file="$home_dir/expect.tcl"
@@ -567,12 +575,14 @@ test_direct_claude_installer_removes_stale_retired_symlink
 test_verify_install_requires_active_root_configs
 test_dry_run_collision_no_mutation
 test_noninteractive_block_no_mutation
-test_non_root_conflict_blocks_before_mutation
+test_non_root_conflict_stages_with_policy
 test_global_command_conflict_blocks_before_mutation
-test_direct_harness_conflict_blocks_before_mutation
-test_interactive_adopt_agent
+test_direct_harness_conflict_dry_run_reports
+test_interactive_keep_agent
+test_overwrite_policy_backs_up_originals
 test_cancel_loop_and_agent_prompt
 test_abort_no_config_replacement
+test_uninstall_removes_repo_owned_links
 test_idempotency_no_extra_backups
 test_malformed_claude_config
 test_sync_guard

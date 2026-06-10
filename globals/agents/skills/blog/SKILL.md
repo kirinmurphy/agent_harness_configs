@@ -175,7 +175,16 @@ identifier, number, and tradeoff from the previous version is still present.
 - **No jargon before its justification.** If a concept hasn't earned its place in the
   story, don't name it yet.
 - **Honest, not promotional.** Beats 5 and 6 win credibility.
-- Title: concrete and curiosity-driven, not generic.
+- **Title: straightforward, names the architectural concept.** The title should
+  state the design idea or decision the post is about, in plain terms a reader can
+  understand before reading. Favor clarity over intrigue. Do not write
+  "catchy," clever, curiosity-gap, or teaser titles that withhold the subject to
+  pull the reader in. A good title lets someone scanning a list know exactly which
+  architectural concept the post covers. Prefer naming the mechanism or tradeoff
+  ("Promoting Data Through an Immutable Release Artifact", "Assigning One Owner Per
+  Field to Stop Cross-System Drift") over evocative framings ("What You Reviewed Is
+  What Ships", "One Save Button, Two Sources of Truth"). A subtitle or description
+  may add color, but the title itself names the concept.
 - Section headers map to the 6 beats but phrased in the article's own voice.
 - **Use `###` subheaders to name and split a beat's sub-topics.** When a beat covers more
   than one distinct idea, give each its own subheader rather than running them together

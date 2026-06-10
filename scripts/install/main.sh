@@ -3,22 +3,86 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 dry_run=0
+agent_permission_profile="${ROBOREPO_AGENT_PERMISSION_PROFILE:-${ROBOREPO_CODEX_PERMISSION_PROFILE:-}}"
+install_mode="${ROBOREPO_INSTALL_MODE:-}"
+on_conflict="${ROBOREPO_ON_CONFLICT:-}"
 backup_root="${ROBOREPO_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 export ROBOREPO_BACKUP_ROOT="${backup_root}"
+export ROBOREPO_INSTALL_TIMESTAMP="${ROBOREPO_INSTALL_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
 
-case "${1:-}" in
-  --dry-run) dry_run=1 ;;
-  "") ;;
-  *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      dry_run=1
+      shift
+      ;;
+    --permissions|--agent-permissions|--codex-permissions)
+      [[ $# -ge 2 ]] || { echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent] [--permissions <profile>]" >&2; exit 2; }
+      agent_permission_profile="$2"
+      shift 2
+      ;;
+    --permissions=*|--agent-permissions=*)
+      agent_permission_profile="${1#*=}"
+      shift
+      ;;
+    --codex-permissions=*)
+      agent_permission_profile="${1#*=}"
+      shift
+      ;;
+    --mode)
+      [[ $# -ge 2 ]] || { echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent] [--permissions <profile>]" >&2; exit 2; }
+      install_mode="$2"
+      shift 2
+      ;;
+    --mode=*)
+      install_mode="${1#*=}"
+      shift
+      ;;
+    --on-conflict)
+      [[ $# -ge 2 ]] || { echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent] [--permissions <profile>]" >&2; exit 2; }
+      on_conflict="$2"
+      shift 2
+      ;;
+    --on-conflict=*)
+      on_conflict="${1#*=}"
+      shift
+      ;;
+    *)
+      echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent] [--permissions <profile>]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "${install_mode}" in
+  "" ) ;;
+  managed|adopt) ;;
+  *) echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent] [--permissions <profile>]" >&2; exit 2 ;;
 esac
+
+case "${on_conflict}" in
+  "" ) ;;
+  overwrite|keep|agent|prompt|abort) ;;
+  *) echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent] [--permissions <profile>]" >&2; exit 2 ;;
+esac
+[[ "${on_conflict}" == "prompt" ]] && on_conflict="agent"
+export ROBOREPO_ON_CONFLICT="${on_conflict}"
 
 dry_args=()
 [[ $dry_run -eq 1 ]] && dry_args=(--dry-run)
 
 # shellcheck source=scripts/install/install-lib.sh
 source "${repo_root}/scripts/install/install-lib.sh"
-# shellcheck source=scripts/lib/globals-data.sh
-source "${repo_root}/scripts/lib/globals-data.sh"  # provides manifest_rows
+# shellcheck source=scripts/install/state-lib.sh
+source "${repo_root}/scripts/install/state-lib.sh"
+# shellcheck source=scripts/lib/manifests-data.sh
+source "${repo_root}/scripts/lib/manifests-data.sh"  # provides manifest_rows
+
+if [[ -z "${install_mode}" ]]; then
+  install_mode="$(read_install_mode 2>/dev/null || true)"
+fi
+install_mode="${install_mode:-managed}"
+export ROBOREPO_INSTALL_MODE="${install_mode}"
 
 run_with_dry_args() {
   if [[ $dry_run -eq 1 ]]; then
@@ -62,6 +126,18 @@ if [[ $has_claude -eq 0 && $has_codex -eq 0 ]]; then
   exit 1
 fi
 
+if [[ -n "${agent_permission_profile}" ]]; then
+  if [[ $dry_run -eq 1 ]]; then
+    if node "${repo_root}/scripts/build/render-agent-permissions.mjs" --check --profile "${agent_permission_profile}" >/dev/null; then
+      echo "ok: agent permission profile ${agent_permission_profile} already rendered"
+    else
+      echo "dry-run: would render agent permission profile ${agent_permission_profile}"
+    fi
+  else
+    node "${repo_root}/scripts/build/render-agent-permissions.mjs" --profile "${agent_permission_profile}"
+  fi
+fi
+
 preflight_shell_setup() {
   "${repo_root}/scripts/install/install-global-commands.sh" --dry-run
   "${repo_root}/scripts/install/install-shell-snippets.sh" --dry-run
@@ -92,7 +168,7 @@ check_clean_target() {
   return 1
 }
 
-# Preflight every managed link target (from globals/manifest.tsv) for the present harnesses.
+# Preflight every managed link target (from manifests/manifest.tsv) for the present harnesses.
 # Claude uses the claude rows; Codex uses codex + agents rows (skills live under ~/.agents).
 # root_config and cleanup rows are not preflighted here — root config is mutable user state
 # handled by preflight_root_config below.
@@ -120,87 +196,50 @@ preflight_clean_targets() {
   fi
 }
 
-preflight_clean_targets
-preflight_shell_setup
+preflight_unattended_conflicts() {
+  [[ "${dry_run}" -eq 0 ]] || return 0
+  [[ -z "${ROBOREPO_ON_CONFLICT:-}" ]] || return 0
+  stdin_is_interactive && return 0
 
-preflight_root_config() {
-  local harness="$1"
-  local repo_rel="$2"
-  local home_path="$3"
-  local src="${repo_root}/${repo_rel}"
-  local current
-
-  # If the caller pre-declared adopt for this harness (e.g. an unattended `roborepo update`
-  # that intends to keep local root config), honor it without prompting. Without this the
-  # non-interactive guard below would hard-error on any divergent root config even when the
-  # caller already chose to leave it in place.
-  local adopt_var="HARNESS_ADOPT_$(echo "${harness}" | tr '[:lower:]' '[:upper:]')_CONFIG"
-  if [[ "${!adopt_var:-0}" == "1" ]]; then
-    echo "skip: ${home_path} left in place (adopt pre-declared)"
-    return 0
-  fi
-
-  if [[ -L "${home_path}" ]]; then
-    current="$(readlink "${home_path}")"
-    case "${current}" in
-      "${src}"|"${repo_root}"/*)
-      # Root config files are mutable user state. Existing repo symlinks are
-      # converted to local copies during the install phase.
-      return 0
-      ;;
-    esac
-  fi
-
-  if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
-    return 0
-  fi
-
-  if [[ -f "${home_path}" && ! -L "${home_path}" ]]; then
-    if cmp -s "${src}" "${home_path}"; then
-      return 0
-    fi
-  fi
-
-  if [[ $dry_run -eq 1 ]]; then
-    echo "collision: ${home_path}"
-    echo "dry-run: would ask whether to keep existing config or print agent merge prompt"
-    describe_user_config "${harness}" "${home_path}"
-    return 0
-  fi
-
-  if [[ ! -t 0 ]]; then
-    echo "error: ${home_path} exists and stdin is not interactive." >&2
-    echo "Run interactively, move the file aside, or use --dry-run to inspect collisions." >&2
-    return 1
-  fi
-
-  CONFIG_COLLISION_ACTION=""
-  config_collision_action "${harness}" "${repo_rel}" "${home_path}"
-  case "${CONFIG_COLLISION_ACTION}" in
-    adopt|agent)
-      echo "skip: ${home_path} left in place"
-      case "${harness}" in
-        claude) export HARNESS_ADOPT_CLAUDE_CONFIG=1 ;;
-        codex) export HARNESS_ADOPT_CODEX_CONFIG=1 ;;
+  local conflict=0
+  local _h kind src_rel home_abs _flags src current
+  preflight_harness_conflicts() {
+    while IFS=$'\t' read -r _h kind src_rel home_abs _flags; do
+      case "${kind}" in
+        root_config|link) ;;
+        *) continue ;;
       esac
-      ;;
-    abort)
-      echo "abort: install canceled by user" >&2
-      exit 1
-      ;;
-  esac
+      src="${repo_root}/${src_rel}"
+      [[ ! -e "${home_abs}" && ! -L "${home_abs}" ]] && continue
+      if [[ "${kind}" == "link" && "${install_mode}" == "managed" && -L "${home_abs}" ]]; then
+        current="$(readlink "${home_abs}")"
+        [[ "${current}" == "${src}" || "${current}" == "${repo_root}"/* ]] && continue
+      fi
+      if [[ "${kind}" == "root_config" && -L "${home_abs}" ]]; then
+        current="$(readlink "${home_abs}")"
+        [[ "${current}" == "${src}" || "${current}" == "${repo_root}"/* ]] && continue
+      fi
+      if paths_equivalent_for_copy "${src}" "${home_abs}"; then
+        continue
+      fi
+      echo "error: ${home_abs} exists and stdin is not interactive." >&2
+      conflict=1
+    done < <(manifest_rows "$1")
+  }
+
+  [[ $has_claude -eq 1 ]] && preflight_harness_conflicts claude
+  if [[ $has_codex -eq 1 ]]; then
+    preflight_harness_conflicts codex
+    preflight_harness_conflicts agents
+  fi
+  if [[ "${conflict}" -eq 1 ]]; then
+    echo "Run interactively, pass --on-conflict overwrite|keep|agent, or use --dry-run to inspect collisions." >&2
+    exit 1
+  fi
 }
 
-if [[ $has_claude -eq 1 ]]; then
-  preflight_root_config "claude" "globals/claude/settings.json" "${HOME}/.claude/settings.json"
-fi
-
-if [[ $has_codex -eq 1 ]]; then
-  preflight_root_config "codex" "globals/codex/config.toml" "${HOME}/.codex/config.toml"
-fi
-
-# Harness-agnostic setup
-run_with_dry_args "${repo_root}/scripts/install/install-gitignore-globals.sh"
+preflight_unattended_conflicts
+preflight_shell_setup
 
 # Harness-specific managed links and root config export
 if [[ $has_claude -eq 1 ]]; then
@@ -215,16 +254,24 @@ else
   echo "skip: Codex — ~/.codex not found"
 fi
 
+# Harness-agnostic setup
+run_with_dry_args "${repo_root}/scripts/install/install-gitignore-globals.sh"
+
 # Shell and PATH setup (harness-agnostic, bash only)
 if [[ $dry_run -eq 0 ]]; then
   "${repo_root}/scripts/install/install-global-commands.sh"
   "${repo_root}/scripts/install/install-shell-snippets.sh"
 fi
 
+write_install_state "${install_mode}"
+
 # Post-install summary
 echo ""
 echo "Install complete."
-echo "  Claude: $([ $has_claude -eq 1 ] && echo 'linked' || echo 'skipped — not installed')"
-echo "  Codex:  $([ $has_codex  -eq 1 ] && echo 'linked' || echo 'skipped — not installed')"
-echo ""
-echo "To add the other harness later: install it, then re-run this script."
+echo "  Mode:   ${install_mode}"
+echo "  Claude: $([ $has_claude -eq 1 ] && echo 'installed' || echo 'skipped — not installed')"
+echo "  Codex:  $([ $has_codex  -eq 1 ] && echo 'installed' || echo 'skipped — not installed')"
+if [[ $has_claude -eq 0 || $has_codex -eq 0 ]]; then
+  echo ""
+  echo "To add the other harness later: install it, then re-run this script."
+fi

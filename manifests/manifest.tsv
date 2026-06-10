@@ -1,7 +1,7 @@
 # roborepo install manifest — single source of truth for managed home<->repo paths.
 # Hand-duplicated across 7+ scripts before this file existed (install/main.sh,
 # install-claude.sh, install-codex.sh, verify-install.sh, doctor.sh, sync-from-home.sh,
-# install-windows.ps1). Readers: scripts/lib/globals-data.sh (bash) and
+# install-windows.ps1). Readers: scripts/lib/manifests-data.sh (bash) and
 # install-windows.ps1 (PowerShell); TBD Node.
 #
 # Columns (tab-separated):

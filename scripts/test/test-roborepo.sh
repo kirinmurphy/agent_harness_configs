@@ -243,8 +243,10 @@ assert "mcp add: invalid transport rejected" \
 # plus every module) lets us test writes without touching this repo. main.mjs imports every
 # cli/ module at load time.
 mcp_harness="${work}/mcp-harness"
-mkdir -p "${mcp_harness}/scripts/cli" "${mcp_harness}/globals/codex" "${mcp_harness}/globals/claude"
+mkdir -p "${mcp_harness}/scripts/cli" "${mcp_harness}/globals/codex" "${mcp_harness}/globals/claude" "${mcp_harness}/manifests"
 cp "${repo_root}"/scripts/cli/*.mjs "${mcp_harness}/scripts/cli/"
+cp "${repo_root}/manifests/mcp-presets.json" "${mcp_harness}/manifests/mcp-presets.json"
+cp "${repo_root}/manifests/cli-commands.json" "${mcp_harness}/manifests/cli-commands.json"
 printf '[features]\nhooks = true\n' > "${mcp_harness}/globals/codex/config.toml"
 printf '{"permissions":{"allow":["Read"]}}\n' > "${mcp_harness}/globals/claude/settings.json"
 

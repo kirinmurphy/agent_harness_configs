@@ -1,5 +1,13 @@
 model = "gpt-5.5"
 model_reasoning_effort = "medium"
+# BEGIN GENERATED AGENT PERMISSIONS
+# Source: manifests/agent-permissions.json profile interactive
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+# END GENERATED AGENT PERMISSIONS
 
 [notice.model_migrations]
 "gpt-5.2-codex" = "gpt-5.3-codex"

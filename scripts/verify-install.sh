@@ -16,8 +16,8 @@ done
 
 # shellcheck source=scripts/build/skill-lib.sh
 source "${repo_root}/scripts/build/skill-lib.sh"
-# shellcheck source=scripts/lib/globals-data.sh
-source "${repo_root}/scripts/lib/globals-data.sh"
+# shellcheck source=scripts/lib/manifests-data.sh
+source "${repo_root}/scripts/lib/manifests-data.sh"
 
 # Record a passing check. Honors --quiet (count always, print only when verbose).
 pass_msg() {
@@ -82,7 +82,7 @@ check_active_file() {
   fi
 }
 
-# Managed links + root configs come from globals/manifest.tsv (single source of truth,
+# Managed links + root configs come from manifests/manifest.tsv (single source of truth,
 # shared with the installer/doctor/sync). link -> symlink check; root_config -> active
 # local file; cleanup rows are not verified here (they only ever get pruned, not created).
 while IFS=$'\t' read -r _harness kind src_rel home_abs _flags; do

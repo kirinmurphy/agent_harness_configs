@@ -35,7 +35,7 @@ function Resolve-ManifestHomeRoot {
 
 function Get-ManifestRows {
   param([string[]]$Harnesses)
-  $manifestPath = Join-Path $repoRoot "globals/manifest.tsv"
+  $manifestPath = Join-Path $repoRoot "manifests/manifest.tsv"
   if (-not (Test-Path $manifestPath)) {
     throw "missing manifest: $manifestPath"
   }

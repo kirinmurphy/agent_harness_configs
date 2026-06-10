@@ -35,13 +35,16 @@
 //     roborepo run <cmd> [args...]
 //
 //   lifecycle  maintain the harness config install on this machine
-//     roborepo update  [--dry-run]   re-apply repo-managed config (symlinks, commands, shell)
+  //     roborepo update  [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent]
+  //       re-apply repo-managed config (symlinks/copies, commands, shell)
+  //     roborepo uninstall [--dry-run] remove repo-owned symlinks/state; leave local root config
 //       (the FIRST install is the shell bootstrap scripts/install/main.sh — that is what
 //        puts roborepo on PATH; from then on you only ever `update`)
 //     roborepo sync                  review/pull live config back into the repo
 //     roborepo doctor  [--installed] health check
 //     roborepo verify                post-install verification
 //     roborepo rules   [--check]     render/check generated agent rules (maintainer)
+//     roborepo permissions [--check] [--profile <name>] render/check agent permission outputs
 //
 // [path] is optional everywhere it appears; it defaults to the current directory and may be
 // relative or absolute — roborepo always resolves it to an absolute path before use.
@@ -62,7 +65,7 @@ import { indexCode, indexDocs, watchCode, runCmd } from "./index.mjs";
 import { mcpAdd } from "./mcp.mjs";
 
 const argv = process.argv.slice(2);
-const cliCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, "globals", "cli-commands.json"), "utf8"));
+const cliCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, "manifests", "cli-commands.json"), "utf8"));
 
 // --------------------------------------------------------------------------- help
 
@@ -79,6 +82,20 @@ function runRepoScript(relScript, args) {
     process.exit(1);
   }
   const r = spawnSync("bash", [script, ...args], { stdio: "inherit" });
+  if (r.error) {
+    console.error(`failed to run ${relScript}: ${r.error.message}`);
+    process.exit(1);
+  }
+  process.exit(r.status ?? 1);
+}
+
+function runRepoNodeScript(relScript, args) {
+  const script = path.join(repoRoot, relScript);
+  if (!fs.existsSync(script)) {
+    console.error(`missing script: ${script}`);
+    process.exit(1);
+  }
+  const r = spawnSync(process.execPath, [script, ...args], { stdio: "inherit" });
   if (r.error) {
     console.error(`failed to run ${relScript}: ${r.error.message}`);
     process.exit(1);
@@ -154,6 +171,8 @@ async function dispatch(args) {
     // only ever re-applies: `update` re-runs that same script to pick up new config.
     case "update":
       return runRepoScript("scripts/install/main.sh", [sub, ...rest].filter(Boolean));
+    case "uninstall":
+      return runRepoScript("scripts/install/uninstall.sh", [sub, ...rest].filter(Boolean));
     case "sync":
       return runRepoScript("scripts/sync-from-home.sh", [sub, ...rest].filter(Boolean));
     case "doctor":
@@ -162,6 +181,8 @@ async function dispatch(args) {
       return runRepoScript("scripts/verify-install.sh", [sub, ...rest].filter(Boolean));
     case "rules":
       return runRepoScript("scripts/build/render-rules.sh", [sub, ...rest].filter(Boolean));
+    case "permissions":
+      return runRepoNodeScript("scripts/build/render-agent-permissions.mjs", [sub, ...rest].filter(Boolean));
 
     default:
       console.error(`unknown command: ${args.join(" ")}`);

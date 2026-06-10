@@ -4,17 +4,28 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 backup_root="${ROBOREPO_BACKUP_ROOT:-${HOME}/.roborepo-backups/$(date +%Y%m%d-%H%M%S)}"
 dry_run=0
+install_mode="${ROBOREPO_INSTALL_MODE:-managed}"
+on_conflict="${ROBOREPO_ON_CONFLICT:-}"
+export ROBOREPO_INSTALL_TIMESTAMP="${ROBOREPO_INSTALL_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
 
-case "${1:-}" in
-  --dry-run) dry_run=1 ;;
-  "") ;;
-  *) echo "usage: $0 [--dry-run]" >&2; exit 2 ;;
-esac
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) dry_run=1; shift ;;
+    --mode) install_mode="$2"; shift 2 ;;
+    --mode=*) install_mode="${1#*=}"; shift ;;
+    --on-conflict) on_conflict="$2"; shift 2 ;;
+    --on-conflict=*) on_conflict="${1#*=}"; shift ;;
+    *) echo "usage: $0 [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent]" >&2; exit 2 ;;
+  esac
+done
+[[ "${on_conflict}" == "prompt" ]] && on_conflict="agent"
+export ROBOREPO_INSTALL_MODE="${install_mode}"
+export ROBOREPO_ON_CONFLICT="${on_conflict}"
 
 # shellcheck source=scripts/install/install-lib.sh
 source "${repo_root}/scripts/install/install-lib.sh"
-# shellcheck source=scripts/lib/globals-data.sh
-source "${repo_root}/scripts/lib/globals-data.sh"  # provides manifest_rows
+# shellcheck source=scripts/lib/manifests-data.sh
+source "${repo_root}/scripts/lib/manifests-data.sh"  # provides manifest_rows
 
 # Codex is "installed" if either its config home (~/.codex) or its skills home (~/.agents)
 # exists. AGENTS.md / config.toml / rules live under ~/.codex; skills live under ~/.agents
@@ -26,31 +37,21 @@ harness_present codex || {
   exit 0
 }
 
-# Managed rows come from globals/manifest.tsv: codex harness (AGENTS.md, hooks.json, rules,
+# Managed rows come from manifests/manifest.tsv: codex harness (AGENTS.md, hooks.json, rules,
 # config.toml, plus cleanup of the retired ~/.codex/skills link) and agents harness (the
 # canonical ~/.agents/skills link -> globals/agents/skills).
 codex_rows() { manifest_rows codex; manifest_rows agents; }
 
-conflict=0
-while IFS=$'\t' read -r _h kind src_rel home_abs _flags; do
-  [[ "${kind}" == "link" ]] || continue
-  preflight_clean_item "${src_rel}" "${home_abs}" || conflict=1
-done < <(codex_rows)
-if [[ "${conflict}" -eq 1 ]]; then
-  echo "Install has non-root Codex conflicts. No files were changed." >&2
-  exit 1
-fi
-
 while IFS=$'\t' read -r _h kind src_rel home_abs _flags; do
   case "${kind}" in
-    root_config)
-      if [[ "${HARNESS_ADOPT_CODEX_CONFIG:-0}" == "1" ]]; then
-        echo "skip: ${home_abs} left in place"
+    root_config) export_user_config "codex" "${src_rel}" "${home_abs}" ;;
+    link)
+      if [[ "${install_mode}" == "adopt" ]]; then
+        install_copy_item "${src_rel}" "${home_abs}"
       else
-        export_user_config "codex" "${src_rel}" "${home_abs}"
+        install_link_item "${src_rel}" "${home_abs}"
       fi
       ;;
-    link)    link_item_clean "${src_rel}" "${home_abs}" ;;
     cleanup) remove_repo_link "${home_abs}" ;;
   esac
 done < <(codex_rows)

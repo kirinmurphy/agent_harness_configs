@@ -114,6 +114,7 @@ roborepo sync
 roborepo doctor  [--installed]
 roborepo verify
 roborepo rules   [--check]
+roborepo permissions [--check] [--profile <name>]
 
 roborepo --help | -h
 ```
@@ -145,13 +146,38 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   changing links. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
 - **Maintenance** — `sync` pulls live config back into the repo; `doctor` and `verify` are health
   and post-install checks; `rules` renders generated Claude/Codex global instruction files, or
-  verifies them with `--check`. These dispatch to the existing bash scripts.
+  verifies them with `--check`; `permissions` renders Claude/Codex permission outputs from
+  `manifests/agent-permissions.json`.
 
 The lifecycle verbs dispatch to `scripts/install/main.sh`, `scripts/sync-from-home.sh`,
 `scripts/doctor.sh`, and `scripts/verify-install.sh`; those filenames are an internal detail.
 Most maintainer-only scripts (`test-*.sh`) are intentionally not exposed through `roborepo`.
 `skill sync` and `rules` are exposed because shared-skill and generated-rule editing are documented
 maintainer workflows.
+
+## Permission Profiles
+
+Agent permission profiles are defined once in `manifests/agent-permissions.json` and rendered into
+Claude and Codex native config:
+
+```sh
+roborepo permissions --profile readonly
+roborepo permissions --profile interactive
+roborepo permissions --profile workspace
+roborepo permissions --check
+```
+
+| Profile | Use when |
+| --- | --- |
+| `readonly` | You want inspection only and explicit approval before escapes. |
+| `interactive` | You want workspace writes, shell network disabled, and prompts for escapes. |
+| `workspace` | You want local workspace work without repeated prompts; blocked actions fail. |
+| `networked` | You want workspace writes plus sandbox network access. |
+
+`roborepo update --permissions <profile>` renders a profile before the update workflow. That is a
+per-run choice, not a persistent per-project registry. Existing `~/.claude/settings.json` and
+`~/.codex/config.toml` are active local root config files, so rendered baseline changes affect an
+already installed machine only after the root config merge/export workflow.
 
 ## MCP registration
 

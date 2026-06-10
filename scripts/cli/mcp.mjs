@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { repoRoot } from "./paths.mjs";
 
 function loadMcpPresets() {
-  const presetsPath = path.join(repoRoot, "globals", "mcp-presets.json");
+  const presetsPath = path.join(repoRoot, "manifests", "mcp-presets.json");
   let payload;
   try {
     payload = JSON.parse(fs.readFileSync(presetsPath, "utf8"));

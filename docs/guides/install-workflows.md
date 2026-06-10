@@ -9,24 +9,52 @@ This repo installs downloaded harness defaults next to user-curated Claude and C
 | Workflow | What it means | What lives where |
 | --- | --- | --- |
 | `managed` | Read-mostly logic stays in this repo and global paths observe it through symlinks. Mutable root config is exported as a local file. | Skills, hooks, commands, rules, and managed marker files are symlinked. Root config is copied/merged into `~/.claude/settings.json` and `~/.codex/config.toml`. |
-| `adopt` | Existing user-owned root config remains active and repo defaults are copied, staged, or merged only by explicit choice. | User-owned config remains the long-term place where local choices live. |
+| `adopt` | Repo defaults are copied into user-owned global config paths instead of symlinked. Existing files are overwritten, kept, or staged for agent merge by explicit choice. | User-owned config remains the long-term place where local choices live. |
 
-`agent prompt` is a sub-option of `adopt`, not a separate ownership mode. It means "help me adopt by giving an agent the comparison and merge instructions."
+`overwrite`, `keep originals`, and `agent prompt` are conflict policies, not install modes. They appear only when a target path already exists and is not already in the desired state.
 
-Adopt sub-options under discussion:
+Conflict policies:
 
-| Adopt sub-option | Active after install | Preserved files |
+| Policy | Active after install | Preserved files |
 | --- | --- | --- |
-| replace existing files | Repo version becomes active. | Existing local files move to an archive folder with timestamped names. |
-| keep existing files | Local version remains active. | Repo candidates move to a not-adopted/staging folder. |
-| use agent prompt | Local version remains active until an agent/user merge happens. | Both sides stay available for comparison; installer prints merge instructions. |
+| `overwrite` | Repo version becomes active. | Existing local files move beside the original path as `*_original_TIMESTAMP`. |
+| `keep originals` | Existing local version remains active. | Repo candidates are staged beside the original path as `*_update_TIMESTAMP`. Missing files are still installed normally. |
+| `agent prompt` | Existing local version remains active until an agent/user merge happens. | Repo candidates are staged as `*_update_TIMESTAMP`; installer prints merge instructions. |
 
 Root config means:
 
 - `~/.claude/settings.json`
 - `~/.codex/config.toml`
 
-Non-root harness targets include skills, hooks, commands, rules, managed marker files, and global command links. If those paths already exist and are not managed by this repo, install stops before changing files.
+Non-root harness targets include skills, hooks, commands, rules, managed marker files, and global command links. File and directory targets use the same conflict policies when they already exist. Global command conflicts still stop before changing files.
+
+## Permission Profile Selection
+
+Permission profiles are rendered from `manifests/agent-permissions.json` before install or update:
+
+```sh
+./scripts/install/main.sh --permissions interactive
+roborepo update --permissions interactive
+```
+
+Profiles are a render-time choice for this repo's generated harness defaults:
+
+| Profile | Effect |
+| --- | --- |
+| `readonly` | Claude gets read-oriented permissions; Codex gets `read-only` sandbox defaults. |
+| `interactive` | Claude gets read/write/edit permissions and allowed local commands; Codex gets workspace-write with prompts for sandbox escapes. |
+| `workspace` | Same local workspace posture, with Codex approval prompts disabled for blocked actions. |
+| `networked` | Workspace-write plus Codex sandbox network access. |
+
+The renderer updates:
+
+- `globals/claude/settings.json` permissions
+- `globals/codex/config.toml` generated permission block
+- `globals/codex/rules/default.rules`
+
+These are global harness defaults. The installer does not keep a separate permission profile
+registry per consumer repo. For a different posture on one machine or project, render/install that
+profile for that run, or use the agent harness's one-off launch flags when starting a session.
 
 ## `managed`
 
@@ -37,7 +65,7 @@ Mutable root config is the explicit exception:
 - `~/.claude/settings.json`
 - `~/.codex/config.toml`
 
-Those files are active local files, not symlinks. If missing, the installer copies the repo baseline into place. If already symlinked to the repo from an older install, the installer converts the symlink to a local copy. If a user-owned file exists, the installer asks whether to keep it or print an agent merge prompt.
+Those files are active local files, not symlinks. If missing, the installer copies the repo baseline into place. If already symlinked to the repo from an older install, the installer converts the symlink to a local copy. If a user-owned file exists, the installer applies the selected conflict policy.
 
 Best when:
 
@@ -84,9 +112,7 @@ User responsibility:
 
 - The installer can detect collisions, but it cannot prove semantic compatibility between two config files.
 - Root config merge remains manual because MCP servers, profiles, project trust, hooks, and permissions can be user- or machine-specific.
-- Non-root conflicts are not merged by the installer. Move, adopt outside the installer, or manually reconcile those paths before rerunning.
 - Sync from home skips user-owned root config by default. Use `--include-root-config` only when intentionally promoting local root config into the repo baseline.
-- Current implementation does not yet support the full adopt sub-option model. It preserves local root config and can print an agent prompt, but does not yet archive replaced files or stage not-adopted repo candidates.
 
 ## Next Step
 

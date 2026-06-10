@@ -17,6 +17,257 @@ unique_backup_path() {
   echo "${backup_path}.${i}"
 }
 
+timestamped_path() {
+  local path="$1"
+  local tag="$2"
+  local ts="${ROBOREPO_INSTALL_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
+  local dir base name ext
+
+  dir="$(dirname "${path}")"
+  base="$(basename "${path}")"
+  if [[ -d "${path}" && ! -L "${path}" ]]; then
+    echo "${dir}/${base}_${tag}_${ts}"
+    return 0
+  fi
+
+  case "${base}" in
+    *.*)
+      name="${base%.*}"
+      ext=".${base##*.}"
+      echo "${dir}/${name}_${tag}_${ts}${ext}"
+      ;;
+    *)
+      echo "${dir}/${base}_${tag}_${ts}"
+      ;;
+  esac
+}
+
+copy_tree() {
+  local src="$1"
+  local dest="$2"
+
+  if [[ -d "${src}" && ! -L "${src}" ]]; then
+    mkdir -p "$(dirname "${dest}")"
+    cp -R "${src}" "${dest}"
+  else
+    mkdir -p "$(dirname "${dest}")"
+    cp -p "${src}" "${dest}"
+  fi
+}
+
+stdin_is_interactive() {
+  [[ -t 0 || "${ROBOREPO_ASSUME_INTERACTIVE:-0}" == "1" ]]
+}
+
+paths_equivalent_for_copy() {
+  local src="$1"
+  local dest="$2"
+
+  [[ -e "${dest}" || -L "${dest}" ]] || return 1
+  if [[ -f "${src}" && -f "${dest}" && ! -L "${dest}" ]]; then
+    cmp -s "${src}" "${dest}"
+    return $?
+  fi
+  return 1
+}
+
+choose_path_conflict_action() {
+  local repo_rel="$1"
+  local home_path="$2"
+  local src="${repo_root}/${repo_rel}"
+  local choice
+
+  if [[ -n "${ROBOREPO_ON_CONFLICT:-}" ]]; then
+    CONFIG_COLLISION_ACTION="${ROBOREPO_ON_CONFLICT}"
+    return 0
+  fi
+
+  if [[ "${dry_run}" -eq 1 ]]; then
+    echo "collision: ${home_path}"
+    echo "dry-run: would ask overwrite, keep originals, or agent prompt"
+    return 0
+  fi
+
+  if ! stdin_is_interactive; then
+    echo "error: ${home_path} exists and stdin is not interactive." >&2
+    echo "Run interactively, pass --on-conflict overwrite|keep|agent, or use --dry-run to inspect collisions." >&2
+    return 1
+  fi
+
+  while true; do
+    echo ""
+    echo "Existing harness target:"
+    echo "  local:   ${home_path}"
+    echo "  harness: ${src}"
+    echo ""
+    echo "Choose:"
+    echo "  1) overwrite     backup local as *_original_TIMESTAMP; install repo item"
+    echo "  2) keep originals leave local active; stage repo item as *_update_TIMESTAMP"
+    echo "  3) agent prompt  stage repo item and print merge prompt"
+    echo "  q) quit"
+    printf "Selection [1/2/3/q]: "
+    if ! read -r choice; then
+      CONFIG_COLLISION_ACTION="abort"
+      return 0
+    fi
+
+    case "${choice}" in
+      1|overwrite)
+        CONFIG_COLLISION_ACTION="overwrite"
+        return 0
+        ;;
+      2|keep|original|originals)
+        CONFIG_COLLISION_ACTION="keep"
+        return 0
+        ;;
+      3|agent|prompt)
+        CONFIG_COLLISION_ACTION="agent"
+        return 0
+        ;;
+      q|Q|quit|exit)
+        CONFIG_COLLISION_ACTION="abort"
+        return 0
+        ;;
+      *)
+        echo "Invalid selection."
+        ;;
+    esac
+  done
+}
+
+stage_update_item() {
+  local repo_rel="$1"
+  local home_path="$2"
+  local src="${repo_root}/${repo_rel}"
+  local update_path
+  update_path="$(timestamped_path "${home_path}" update)"
+
+  if [[ "${dry_run}" -eq 0 ]]; then
+    copy_tree "${src}" "${update_path}"
+  fi
+  echo "stage: ${update_path} <- ${src}"
+}
+
+install_copy_item() {
+  local repo_rel="$1"
+  local home_path="$2"
+  local harness="${3:-}"
+  local src="${repo_root}/${repo_rel}"
+
+  if [[ ! -e "${src}" ]]; then
+    echo "missing source: ${src}" >&2
+    return 1
+  fi
+
+  if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
+    if [[ "${dry_run}" -eq 0 ]]; then
+      copy_tree "${src}" "${home_path}"
+    fi
+    echo "copy: ${home_path} <- ${src}"
+    return 0
+  fi
+
+  if paths_equivalent_for_copy "${src}" "${home_path}"; then
+    echo "ok: ${home_path}"
+    return 0
+  fi
+
+  CONFIG_COLLISION_ACTION=""
+  choose_path_conflict_action "${repo_rel}" "${home_path}"
+  if [[ "${dry_run}" -eq 1 && -n "${harness}" ]]; then
+    describe_user_config "${harness}" "${home_path}"
+  fi
+  case "${CONFIG_COLLISION_ACTION}" in
+    overwrite)
+      local original_path
+      original_path="$(timestamped_path "${home_path}" original)"
+      if [[ "${dry_run}" -eq 0 ]]; then
+        mkdir -p "$(dirname "${original_path}")"
+        mv "${home_path}" "${original_path}"
+        copy_tree "${src}" "${home_path}"
+      fi
+      echo "backup: ${home_path} -> ${original_path}"
+      echo "copy: ${home_path} <- ${src}"
+      ;;
+    keep)
+      stage_update_item "${repo_rel}" "${home_path}"
+      ;;
+    agent)
+      stage_update_item "${repo_rel}" "${home_path}"
+      print_install_conflict_prompt "${repo_rel}" "${home_path}"
+      ;;
+    abort)
+      echo "abort: install canceled by user" >&2
+      exit 1
+      ;;
+  esac
+}
+
+install_link_item() {
+  local repo_rel="$1"
+  local home_path="$2"
+  local src="${repo_root}/${repo_rel}"
+
+  if [[ ! -e "${src}" ]]; then
+    echo "missing source: ${src}" >&2
+    return 1
+  fi
+
+  if [[ -L "${home_path}" ]]; then
+    local current
+    current="$(readlink "${home_path}")"
+    if [[ "${current}" == "${src}" ]]; then
+      echo "ok: ${home_path}"
+      return 0
+    fi
+    case "${current}" in
+      "${repo_root}"/*)
+        if [[ "${dry_run}" -eq 0 ]]; then
+          ln -sfn "${src}" "${home_path}"
+        fi
+        echo "relink: ${home_path} -> ${src}"
+        return 0
+        ;;
+    esac
+  fi
+
+  if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
+    if [[ "${dry_run}" -eq 0 ]]; then
+      mkdir -p "$(dirname "${home_path}")"
+      ln -s "${src}" "${home_path}"
+    fi
+    echo "link: ${home_path} -> ${src}"
+    return 0
+  fi
+
+  CONFIG_COLLISION_ACTION=""
+  choose_path_conflict_action "${repo_rel}" "${home_path}"
+  case "${CONFIG_COLLISION_ACTION}" in
+    overwrite)
+      local original_path
+      original_path="$(timestamped_path "${home_path}" original)"
+      if [[ "${dry_run}" -eq 0 ]]; then
+        mkdir -p "$(dirname "${original_path}")" "$(dirname "${home_path}")"
+        mv "${home_path}" "${original_path}"
+        ln -s "${src}" "${home_path}"
+      fi
+      echo "backup: ${home_path} -> ${original_path}"
+      echo "link: ${home_path} -> ${src}"
+      ;;
+    keep)
+      stage_update_item "${repo_rel}" "${home_path}"
+      ;;
+    agent)
+      stage_update_item "${repo_rel}" "${home_path}"
+      print_install_conflict_prompt "${repo_rel}" "${home_path}"
+      ;;
+    abort)
+      echo "abort: install canceled by user" >&2
+      exit 1
+      ;;
+  esac
+}
+
 link_item() {
   local repo_rel="$1"
   local home_path="$2"
@@ -149,15 +400,6 @@ export_user_config() {
   local home_path="$3"
   local src="${repo_root}/${repo_rel}"
 
-  if [[ ! -e "${src}" ]]; then
-    echo "missing source: ${src}" >&2
-    return 1
-  fi
-
-  if [[ "${dry_run}" -eq 0 ]]; then
-    mkdir -p "$(dirname "${home_path}")"
-  fi
-
   if [[ -L "${home_path}" ]]; then
     local current
     current="$(readlink "${home_path}")"
@@ -173,45 +415,7 @@ export_user_config() {
     esac
   fi
 
-  if [[ ! -e "${home_path}" && ! -L "${home_path}" ]]; then
-    if [[ "${dry_run}" -eq 0 ]]; then
-      cp "${src}" "${home_path}"
-    fi
-    echo "copy: ${home_path} <- ${src}"
-    return 0
-  fi
-
-  if [[ -f "${home_path}" && ! -L "${home_path}" ]]; then
-    if cmp -s "${src}" "${home_path}"; then
-      echo "ok: ${home_path}"
-      return 0
-    fi
-  fi
-
-  if [[ "${dry_run}" -eq 1 ]]; then
-    echo "collision: ${home_path}"
-    echo "dry-run: would ask whether to keep existing config or print agent merge prompt"
-    describe_user_config "${harness}" "${home_path}"
-    return 0
-  fi
-
-  if [[ ! -t 0 ]]; then
-    echo "error: ${home_path} exists and stdin is not interactive." >&2
-    echo "Run interactively, move the file aside, or use --dry-run to inspect root config merge needs." >&2
-    return 1
-  fi
-
-  CONFIG_COLLISION_ACTION=""
-  choose_config_collision_action "${harness}" "${repo_rel}" "${home_path}"
-  case "${CONFIG_COLLISION_ACTION}" in
-    adopt|agent)
-      echo "skip: ${home_path} left in place"
-      ;;
-    abort)
-      echo "abort: install canceled by user" >&2
-      exit 1
-      ;;
-  esac
+  install_copy_item "${repo_rel}" "${home_path}" "${harness}"
 }
 
 preflight_clean_item() {
@@ -295,7 +499,7 @@ print_agent_merge_prompt() {
     -e "s#{{HOME_PATH}}#${home_path}#g" \
     -e "s#{{MODE}}#${mode}#g" \
     -e "s#{{HARNESS}}#${harness}#g" \
-    "${repo_root}/globals/prompts/install-root-config-merge.md"
+    "${repo_root}/manifests/prompts/install-root-config-merge.md"
   echo "-----"
   echo ""
 }

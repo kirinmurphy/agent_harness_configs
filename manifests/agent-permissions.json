@@ -1,0 +1,100 @@
+{
+  "default_profile": "interactive",
+  "profiles": {
+    "readonly": {
+      "filesystem": "read",
+      "approval": "ask",
+      "network": false,
+      "description": "Inspect only; ask before escapes."
+    },
+    "interactive": {
+      "filesystem": "workspace-write",
+      "approval": "ask",
+      "network": false,
+      "description": "Write inside the workspace; ask before sandbox escapes."
+    },
+    "workspace": {
+      "filesystem": "workspace-write",
+      "approval": "never",
+      "network": false,
+      "description": "Work locally inside the workspace without approval prompts; blocked actions fail."
+    },
+    "networked": {
+      "filesystem": "workspace-write",
+      "approval": "ask",
+      "network": true,
+      "description": "Workspace writes plus sandbox network access."
+    }
+  },
+  "tools": {
+    "read": ["Read"],
+    "write": ["Write", "Edit"]
+  },
+  "mcp": {
+    "jcodemunch": [
+      "resolve_repo",
+      "search_symbols",
+      "get_file_outline",
+      "find_references",
+      "get_context_bundle",
+      "search_text",
+      "index_repo",
+      "list_repos",
+      "get_symbol_context"
+    ]
+  },
+  "commands": {
+    "deny": [
+      ["git", "push"],
+      ["git", "pull"],
+      ["git", "rm"],
+      ["rm"]
+    ],
+    "allow": [
+      ["npx", "playwright", "test"],
+      ["npm", "test"],
+      ["npm", "run", "test"],
+      ["pnpm", "test"],
+      ["pnpm", "run", "test"],
+      ["pytest"],
+      ["uv", "run", "pytest"],
+      ["go", "test"],
+      ["cargo", "test"],
+      ["./scripts/doctor.sh"],
+      ["./scripts/verify-install.sh"],
+      ["./scripts/install/main.sh", "--dry-run"],
+      ["roborepo", "doctor"],
+      ["roborepo", "verify"],
+      ["roborepo", "update", "--dry-run"],
+      ["npm", "run", "skills:compile"],
+      ["npm", "run", "skills:validate"],
+      ["npm", "install"],
+      ["npm", "run", "lint"],
+      ["npm", "run", "build:preview"],
+      ["npm", "run", "build"],
+      ["npm", "run", "dev"],
+      ["npm", "run", "demo:start"],
+      ["npm", "run", "audit:run:blocking"],
+      ["npm", "run", "audit:run"],
+      ["npm", "run", "check"],
+      ["npx", "tsc"],
+      ["npx", "next", "lint"],
+      ["npx", "eslint"],
+      ["npx", "jest"],
+      ["/bin/zsh", "-lc", "npm run check > /tmp/sembrando-astro-check.log 2>&1"],
+      ["npx", "convex", "codegen"],
+      ["git", "status"],
+      ["git", "log"],
+      ["docker", "volume", "ls"],
+      ["docker", "system", "df"],
+      ["docker", "volume", "inspect"],
+      ["docker", "stats", "--no-stream"],
+      ["docker", "builder", "prune", "-f"],
+      ["supabase", "start"],
+      ["docker", "events"],
+      ["pgrep"],
+      ["kill"],
+      ["scripts/test/test-install-collisions.sh"]
+    ]
+  }
+}
