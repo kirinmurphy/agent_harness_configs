@@ -1,6 +1,6 @@
 ---
 name: technical-planning-docs
-description: Use when creating or revising technical planning docs, architecture notes, implementation plans, migration docs, operational runbooks, design proposals, or repo documentation that must explain concepts, current behavior, happy path, edge cases, decisions, and implementation steps for future readers. Use for docs that need clear structure, newcomer-friendly explanations, and separation of facts, recommendations, risks, and open questions.
+description: Use when creating or revising durable technical planning docs, architecture notes, implementation plans, migration docs, operational runbooks, design proposals, or repo documentation that must explain concepts, current behavior, happy path, edge cases, decisions, and implementation steps for future readers. Use for docs that need clear structure, newcomer-friendly explanations, and separation of facts, recommendations, risks, and open questions. Do not use for brief answers, quick todos, PR descriptions, commit messages, or lightweight implementation notes unless the user asks for a structured planning document.
 ---
 
 # Technical Planning Docs

@@ -10,7 +10,22 @@ Configured in `globals/codex/hooks.json`.
 
 ## Notes
 
-Codex `PreToolUse` hook support is not confirmed stable. jcodemunch enforcement in Codex relies on rules in `globals/codex/rules/default.rules` and generated `globals/codex/AGENTS.md` rather than tool-level hooks. See [jcodemunch.md](jcodemunch.md) for full details.
+Codex documents support for `SessionStart`, `PreToolUse`, `PermissionRequest`,
+`PostToolUse`, `PreCompact`, `PostCompact`, `UserPromptSubmit`,
+`SubagentStart`, `SubagentStop`, and `Stop` events. Matchers are not honored by
+every event; `UserPromptSubmit` and `Stop` ignore matcher values.
+
+Current repo config only uses `SessionStart`. jcodemunch enforcement in Codex
+still relies on rules in `globals/codex/rules/default.rules` and generated
+`globals/codex/AGENTS.md` rather than tool-level hooks. See
+[jcodemunch.md](jcodemunch.md) for full details.
+
+## Skill Visibility
+
+Codex hook payloads include useful session, prompt, tool, and stop data, but the
+documented event payloads do not expose a stable list of skills implicitly loaded
+for a turn. Use hooks for prompt/tool/stop guardrails, not as the source of truth
+for "which skills auto-loaded" until Codex exposes explicit skill-load metadata.
 
 ## Session Permissions
 

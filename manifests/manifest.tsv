@@ -34,6 +34,7 @@ claude	cleanup	-	plugins/known_marketplaces.json	claude	-
 claude	cleanup	-	plugins/installed_plugins.json	claude	-
 codex	root_config	globals/codex/config.toml	config.toml	codex	-
 codex	link	globals/codex/AGENTS.md	AGENTS.md	codex	-
+codex	link	globals/codex/commands	commands	codex	nodoctor
 codex	link	globals/codex/MANAGED_BY_ROBOREPO.md	MANAGED_BY_ROBOREPO.md	codex	nodoctor
 codex	link	globals/codex/hooks.json	hooks.json	codex	-
 codex	link	globals/codex/rules	rules	codex	-

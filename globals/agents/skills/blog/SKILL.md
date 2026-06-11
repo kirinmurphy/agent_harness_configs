@@ -5,7 +5,10 @@ description: >
   codebase. Follows a fixed 6-beat storyline arc. Written so the architectural
   ideas are comprehensible across the whole audience spectrum — non-technical to
   highly technical — without becoming a coding tutorial. Trigger: /blog, "write a
-  blog post", "draft the architecture article", "blog about <topic>".
+  blog post", "draft the architecture article", "blog about <topic>". Do not use
+  for ordinary implementation notes, README updates, planning docs, PR
+  descriptions, changelogs, or short technical explanations unless the user asks
+  for a blog/article.
 ---
 
 # Architecture Blog Writer
@@ -105,6 +108,13 @@ supplies the facts and the reasoning.
   the piece — "A is more reliable than B," "this approach is overkill for the current
   case," "the index is the better fit." State them flatly, backed by the reason. What's
   banned is sentiment *about* the outcome, not the analytical conclusion.
+- **No unfounded claims about what "most teams" or "everyone" does.** Don't open or
+  argue from an unsupported generalization about industry behavior ("Most teams add a
+  dedicated search engine the moment a product needs filters"). It rests on sentiment,
+  not fact, and it manufactures an adversary that distracts from analyzing the problem
+  itself. State the technical assumption being challenged directly ("Faceted search is
+  often assumed to need a dedicated search engine") and let the analysis carry the
+  point. The piece argues against an idea, not against a strawman population.
 - **No staged scenes or second-person narration to set up a point.** Don't write
   "Picture the end of a workday" or "You've just made a few commits." State the
   situation directly: "At the end of a set of commits, a developer wants a review."
@@ -184,7 +194,13 @@ identifier, number, and tradeoff from the previous version is still present.
   ("Promoting Data Through an Immutable Release Artifact", "Assigning One Owner Per
   Field to Stop Cross-System Drift") over evocative framings ("What You Reviewed Is
   What Ships", "One Save Button, Two Sources of Truth"). A subtitle or description
-  may add color, but the title itself names the concept.
+  may add color, but the title itself names the concept. **Name the specific
+  technology when it sharpens the concept** — "Faceted Search as a Single Postgres
+  Aggregation", "Typo-Tolerant Autocomplete with Postgres Trigrams", "Three Result
+  Types from One UNION ALL Query" tell a scanning reader the exact mechanism, not
+  just the general idea. Slight color is fine ("Typo-Tolerant") as long as it does
+  not blur the principle; the test is whether someone scanning the list knows the
+  architectural concept from the title alone.
 - Section headers map to the 6 beats but phrased in the article's own voice.
 - **Use `###` subheaders to name and split a beat's sub-topics.** When a beat covers more
   than one distinct idea, give each its own subheader rather than running them together

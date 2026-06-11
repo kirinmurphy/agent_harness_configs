@@ -16,9 +16,11 @@
 //
 //   skill   work with skills in the current repo
 //     roborepo skill export        bundle shared skills into a .zip + copy into this repo
+//     roborepo skill new           scaffold shared skill/command policy (maintainer)
 //     roborepo skill install       symlink this repo's .agents/skills into existing .claude/.codex homes
 //     roborepo skill link          alias for skill install
 //     roborepo skill sync          sync harness shared skill links (maintainer)
+//     roborepo skill commands      render/check slash commands (maintainer)
 //
 //   index   index the current repo for the MCP servers
 //     roborepo index code [path]   jcodemunch  (code index)
@@ -60,7 +62,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { selectMenu } from "./skill-lib.mjs";
 import { repoRoot } from "./paths.mjs";
-import { skillLink, skillExport } from "./skills.mjs";
+import { skillLink, skillExport, skillNew } from "./skills.mjs";
 import { indexCode, indexDocs, watchCode, runCmd } from "./index.mjs";
 import { mcpAdd } from "./mcp.mjs";
 
@@ -139,8 +141,10 @@ async function dispatch(args) {
 
     case "skill":
       if (sub === "export") return skillExport(new Set(rest));
+      if (sub === "new") return skillNew(rest);
       if (sub === "install" || sub === "link") return skillLink(flags);
       if (sub === "sync") return runRepoScript("scripts/build/link-skills.sh", rest);
+      if (sub === "commands") return runRepoNodeScript("scripts/build/render-slash-commands.mjs", rest);
       console.error(`unknown: roborepo skill ${sub ?? ""}`.trim());
       return usage();
 

@@ -10,12 +10,15 @@
 #
 # path
 globals/codex/AGENTS.md
+globals/codex/commands
 globals/codex/config.toml
 globals/codex/hooks.json
 globals/codex/rules/default.rules
 manifests/agent-permissions.json
 manifests/cli-commands.json
 manifests/harnesses.tsv
+manifests/skill-invocation.json
+manifests/slash-commands.json
 manifests/mcp-presets.json
 manifests/prompts/install-root-config-merge.md
 manifests/prompts/sync-merge.md
@@ -33,6 +36,7 @@ globals/rules/claude/90-claude-specific.md
 globals/rules/codex/90-codex-specific.md
 scripts/build/render-rules.sh
 scripts/build/render-agent-permissions.mjs
+scripts/build/render-slash-commands.mjs
 scripts/build/skill-lib.sh
 scripts/cli/skill-lib.mjs
 scripts/cli/main.mjs

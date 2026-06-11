@@ -18,7 +18,6 @@ No file writes. No automation. Consistent format — always this exact blockquot
 
 User says any of:
 
-- `/capture-convention`
 - "capture this"
 - "save that convention"
 - "let's document that"
@@ -40,7 +39,7 @@ Local items: naming conventions, component patterns, data-fetching rules, testin
 
 ### Codex parity
 
-Same inline flagging rule lives in generated `globals/codex/AGENTS.md` and `globals/claude/CLAUDE.md`. Codex has no slash command equivalent — user triggers capture by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
+Same inline flagging rule lives in generated `globals/codex/AGENTS.md` and `globals/claude/CLAUDE.md`. Capture is triggered by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
 
 ## Scratch directory
 

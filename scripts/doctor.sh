@@ -174,21 +174,29 @@ check_manifest_sources() {
   [[ "${bad}" -eq 0 ]] && ok "manifests/manifest.tsv sources all exist"
 }
 
-# Every shared skill must be documented in the README's Shared Skills table(s). The table is
-# hand-maintained while the skill list lives on disk, so they drift unless asserted. We look
-# for a "**<skill>**" cell in README.md for each globals/agents/skills/<name>. Internal skills
-# (local/skills/) are intentionally NOT required here — README keeps them separate.
+# Helper-only shared skills must be documented in the README's Automatic Helpers table(s).
+# Skills with explicit slash commands are documented through the Commands table and
+# manifests/slash-commands.json, which render-slash-commands.mjs validates.
 check_readme_skill_coverage() {
   local readme="${repo_root}/README.md" skill_name missing=0
-  for skill_src in "${repo_root}"/globals/agents/skills/*/SKILL.md; do
-    [[ -e "${skill_src}" ]] || continue
-    skill_name="$(basename "$(dirname "${skill_src}")")"
-    if ! grep -qF "**${skill_name}**" "${readme}"; then
-      fail "README Shared Skills table missing entry: ${skill_name}"
+  if ! command -v node >/dev/null 2>&1; then
+    ok "node unavailable; skipped README helper-skill coverage check"
+    return 0
+  fi
+  while IFS= read -r skill_name; do
+    [[ -n "${skill_name}" ]] || continue
+    if ! grep -qF "${skill_name}" "${readme}"; then
+      fail "README Automatic Helpers table missing helper-only skill: ${skill_name}"
       missing=1
     fi
-  done
-  [[ "${missing}" -eq 0 ]] && ok "README documents all shared skills"
+  done < <(node -e '
+    const fs = require("fs");
+    const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    for (const skill of manifest.skills) {
+      if (skill.explicit_command === false) console.log(skill.skill);
+    }
+  ' "${repo_root}/manifests/skill-invocation.json")
+  [[ "${missing}" -eq 0 ]] && ok "README documents helper-only shared skills"
 }
 
 # Required repo source files come from manifests/source-files.tsv (single checklist, shared
@@ -248,10 +256,12 @@ fi
 # integrity; calling it here keeps doctor from drifting against the linker.
 if [[ "${quiet}" -eq 1 ]]; then
   node "${repo_root}/scripts/build/render-agent-permissions.mjs" --check >/dev/null || failed=1
+  node "${repo_root}/scripts/build/render-slash-commands.mjs" --check --quiet >/dev/null || failed=1
   "${repo_root}/scripts/build/render-rules.sh" --check >/dev/null || failed=1
   "${repo_root}/scripts/build/link-skills.sh" --check >/dev/null || failed=1
 else
   node "${repo_root}/scripts/build/render-agent-permissions.mjs" --check || failed=1
+  node "${repo_root}/scripts/build/render-slash-commands.mjs" --check || failed=1
   "${repo_root}/scripts/build/render-rules.sh" --check || failed=1
   "${repo_root}/scripts/build/link-skills.sh" --check || failed=1
 fi

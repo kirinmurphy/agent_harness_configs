@@ -38,6 +38,7 @@ assert() {
 assert "source layout: globals shared skills exist" test -d "${repo_root}/globals/agents/skills"
 assert "source layout: globals Claude source exists" test -d "${repo_root}/globals/claude"
 assert "source layout: globals Codex source exists" test -d "${repo_root}/globals/codex"
+assert "source layout: globals Codex commands exist" test -d "${repo_root}/globals/codex/commands"
 assert "source layout: local internal skills exist" test -d "${repo_root}/local/skills"
 assert "source layout: legacy agents root absent" bash -c "! test -e '${repo_root}/agents'"
 assert "source layout: legacy claude root absent" bash -c "! test -e '${repo_root}/claude'"
@@ -136,6 +137,74 @@ assert "skill link: unknown flag rejected" \
 
 assert "skill sync: check dispatches link-skills verifier" \
   bash -c "cd '${repo_root}' && node '${cli}' skill sync --check >/dev/null"
+
+assert "skill commands: check dispatches generated command verifier" \
+  bash -c "cd '${repo_root}' && node '${cli}' skill commands --check >/dev/null"
+assert "skill commands: generated Claude wrapper exists" \
+  grep -q 'Use the `technical-planning-docs` skill' "${repo_root}/globals/claude/commands/technical-planning.md"
+assert "skill commands: generated Codex wrapper uses agents skill path" \
+  grep -q '~/.agents/skills/technical-planning-docs/SKILL.md' "${repo_root}/globals/codex/commands/technical-planning.md"
+assert "skill commands: capture observer has no slash command" \
+  bash -c "! test -e '${repo_root}/globals/claude/commands/capture-convention.md'"
+assert "skill commands: capture observer absent from Codex commands" \
+  bash -c "! test -e '${repo_root}/globals/codex/commands/capture-convention.md'"
+assert "skill commands: implicit helper did not get command wrapper" \
+  bash -c "! test -e '${repo_root}/globals/claude/commands/javascript-typescript.md'"
+
+# skill new: scaffold shared skills/commands against a throwaway harness root, never this repo.
+new_harness="${work}/new-harness"
+mkdir -p \
+  "${new_harness}/scripts/cli" \
+  "${new_harness}/scripts/build" \
+  "${new_harness}/manifests" \
+  "${new_harness}/globals/agents/skills" \
+  "${new_harness}/globals/claude/skills" \
+  "${new_harness}/globals/claude/commands" \
+  "${new_harness}/globals/codex/commands" \
+  "${new_harness}/local/skills"
+cp "${repo_root}"/scripts/cli/*.mjs "${new_harness}/scripts/cli/"
+cp "${repo_root}/scripts/build/link-skills.sh" "${new_harness}/scripts/build/link-skills.sh"
+cp "${repo_root}/scripts/build/skill-lib.sh" "${new_harness}/scripts/build/skill-lib.sh"
+cp "${repo_root}/scripts/build/render-slash-commands.mjs" "${new_harness}/scripts/build/render-slash-commands.mjs"
+printf '{"skills":[]}\n' > "${new_harness}/manifests/skill-invocation.json"
+printf '{"commands":[]}\n' > "${new_harness}/manifests/slash-commands.json"
+cp "${repo_root}/manifests/cli-commands.json" "${new_harness}/manifests/cli-commands.json"
+cp "${repo_root}/manifests/mcp-presets.json" "${new_harness}/manifests/mcp-presets.json"
+cat > "${new_harness}/README.md" <<'EOF_README'
+# Test Harness
+
+### Automatic Helpers
+
+##### Repo
+
+| | |
+| --- | --- |
+
+### Commands
+
+| | | |
+| --- | --- | --- |
+EOF_README
+
+( cd "${work}" && node "${new_harness}/scripts/cli/main.mjs" skill new --kind=auto --name=demo-helper --description="Demo helper workflow." --category=repo >/dev/null )
+assert "skill new: auto helper creates skill" \
+  test -f "${new_harness}/globals/agents/skills/demo-helper/SKILL.md"
+assert "skill new: auto helper updates policy manifest" \
+  grep -q '"explicit_command": false' "${new_harness}/manifests/skill-invocation.json"
+assert "skill new: auto helper updates README Automatic Helpers" \
+  grep -q 'demo-helper' "${new_harness}/README.md"
+
+( cd "${work}" && node "${new_harness}/scripts/cli/main.mjs" skill new --kind=skill-command --name=demo-plan --command=demo-plan --description="Demo planning workflow." --risk=medium >/dev/null )
+assert "skill new: skill-command creates command wrapper" \
+  grep -q 'Use the `demo-plan` skill' "${new_harness}/globals/claude/commands/demo-plan.md"
+assert "skill new: skill-command updates slash manifest" \
+  grep -q '"kind": "skill-backed"' "${new_harness}/manifests/slash-commands.json"
+
+( cd "${work}" && node "${new_harness}/scripts/cli/main.mjs" skill new --kind=standalone --name=demo-command --description="Demo command workflow." --harnesses=claude >/dev/null )
+assert "skill new: standalone creates shared command source" \
+  test -f "${new_harness}/globals/commands/demo-command.md"
+assert "skill new: standalone renders selected harness only" \
+  bash -c "test -f '${new_harness}/globals/claude/commands/demo-command.md' && ! test -e '${new_harness}/globals/codex/commands/demo-command.md'"
 
 # ---------------------------------------------------------------------------
 # roborepo skill export
@@ -310,6 +379,7 @@ ln -s "${repo_root}/globals/claude/commands" "${update_home}/.claude/commands"
 ln -s "${repo_root}/globals/claude/hooks" "${update_home}/.claude/hooks"
 ln -s "${repo_root}/globals/claude/skills" "${update_home}/.claude/skills"
 ln -s "${repo_root}/globals/codex/AGENTS.md" "${update_home}/.codex/AGENTS.md"
+ln -s "${repo_root}/globals/codex/commands" "${update_home}/.codex/commands"
 ln -s "${repo_root}/globals/codex/hooks.json" "${update_home}/.codex/hooks.json"
 ln -s "${repo_root}/globals/codex/MANAGED_BY_ROBOREPO.md" "${update_home}/.codex/MANAGED_BY_ROBOREPO.md"
 ln -s "${repo_root}/globals/codex/rules" "${update_home}/.codex/rules"

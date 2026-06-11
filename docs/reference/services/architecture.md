@@ -44,6 +44,7 @@ Codex (`~/.codex/` ← `globals/codex/`, plus skills under `~/.agents/` ← `glo
 - `config.toml` exported as a local active file
 - `hooks.json`
 - `MANAGED_BY_ROBOREPO.md`
+- `commands/`
 - `rules/`
 - `skills/` — Codex scans `~/.agents/skills` **exclusively**, so the canonical link is
   `~/.agents/skills → globals/agents/skills`.
@@ -67,10 +68,12 @@ Repo files are the source of truth for read-mostly assets. The global harness pa
 
 ```text
 ~/.codex/AGENTS.md      -> <repo>/globals/codex/AGENTS.md
+~/.codex/commands       -> <repo>/globals/codex/commands
 ~/.codex/hooks.json     -> <repo>/globals/codex/hooks.json
 ~/.codex/rules          -> <repo>/globals/codex/rules
 ~/.agents/skills        -> <repo>/globals/agents/skills
 ~/.claude/CLAUDE.md     -> <repo>/globals/claude/CLAUDE.md
+~/.claude/commands      -> <repo>/globals/claude/commands
 ~/.claude/hooks         -> <repo>/globals/claude/hooks
 ~/.claude/skills        -> <repo>/globals/claude/skills
 ```

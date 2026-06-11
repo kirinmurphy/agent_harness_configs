@@ -23,6 +23,7 @@ Use these when changing or debugging how the harness is wired:
 - [Codex Hooks](reference/services/codex-hooks.md)
 - [Config Collision Handling](reference/internal/config-collision-handling.md)
 - [Rules Parity and Layering](reference/internal/rules-parity-and-layering.md)
+- [Skills And Slash Commands](reference/internal/skills-and-commands.md)
 
 ## Plans
 
@@ -30,4 +31,3 @@ Use these for active work and future implementation:
 
 - [Harness Parity Todo](plans/harness-parity-todo.md)
 - [Managed/Adopt/Update Installer](plans/managed-adopt-update-installer.md)
-- [Per-Repo Skill Installer](plans/per-repo-skill-installer.md)

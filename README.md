@@ -1,68 +1,75 @@
 # RoboRepo
 
-Version-controlled Claude Code and Codex global harness configuration and CLI helper.
+Claude Code & Codex global harness configuration with CLI support.
 
 The repo installs shared rules, skills, hooks, MCP helpers, and maintenance commands into the local filesystem paths the harnesses already read.
 
 Primary goals:
 
-- keep Claude and Codex behavior aligned
-- reduce token waste through code and documentation indexing
-- make global harness setup repeatable across machines
-- keep user-owned local config safe during install and update
+- keep Claude and Codex configuration aligned (where desired)
+- reduce token overuse
+- reproduce same harness configs across machines
+- keep user-owned local config safe during updates
 
 ## Start Here
 
-Supports macOS and Linux; Windows support is available but less tested.
+Supports macOS and Linux;
+Windows support is there, but not really tested.
 
-Setup default configs and CLI [here](docs/guides/first-time-setup.md).
+[Setup default configs and CLI](docs/guides/first-time-setup.md)
 
 ## Global Behavior
 
-### General Behavior
+### Token Optimization / Efficiency
 
-Implemented across both Codex and Claude:
+|                                                                     |                                                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [jcodemunch-mcp](docs/reference/services/jcodemunch.md)             | Code indexer that lets agents find relevant source through symbol search and targeted context.    |
+| [jdocmunch-mcp](docs/reference/services/jdocmunch.md)               | Documentation indexer that lets agents query headings and sections instead of reading whole docs. |
+| Caveman plugin                                                      | Makes default agent output terse to reduce token usage.                                           |
+| Minimal verification                                                | Agents run the narrowest useful check and report a `pass/fail` receipt.                           |
+| [Convention capture](docs/reference/services/convention-capture.md) | Agents flag newly confirmed conventions so the user can decide whether to save them.              |
 
-| Behavior                                                                | Description                                                                                       |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **[jcodemunch-mcp](docs/reference/services/jcodemunch.md)**             | Code indexer that lets agents find relevant source through symbol search and targeted context.    |
-| **[jdocmunch-mcp](docs/reference/services/jdocmunch.md)**               | Documentation indexer that lets agents query headings and sections instead of reading whole docs. |
-| **Caveman plugin**                                                      | Makes default agent output terse to reduce token usage.                                           |
-| **Minimal verification**                                                | Agents run the narrowest useful check and report a `pass/fail` receipt.                           |
-| **[Convention capture](docs/reference/services/convention-capture.md)** | Agents flag newly confirmed conventions so the user can decide whether to save them.              |
+### Automatic Helpers
 
-### Shared Skills
+These have no slash command. They load when the task, files, or repo context makes them relevant.
 
-#### Documentation
-
-|                             |                                                                                                                                              |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **technical-planning-docs** | Writing architecture notes, migration docs, runbooks, and design proposals with facts, recommendations, risks, and open questions separated. |
-| **blog**                    | Long-form architecture blog posts with a fixed 6-beat storyline arc.                                                                         |
-
-#### Code & Frontend
+##### Code & Frontend
 
 |                           |                                                                                                                                     |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **code-style**            | General cross-language coding conventions: naming, file organization, helper placement, comments, exports, readability.             |
-| **javascript-typescript** | TypeScript/JavaScript utility code: ESM, lint/type errors, exports/imports, helpers, type safety, JS/TS style.                      |
-| **react**                 | React, Next.js, Remix, and Vite React work touching JSX/TSX, components, hooks, client state, effects, routing UI, and React tests. |
-| **frontend-design**       | Claude's design scheme for UI components and pages; avoids generic AI aesthetics.                                                   |
+| code-style                | General cross-language coding conventions: naming, file organization, helper placement, comments, exports, readability.             |
+| javascript-typescript     | TypeScript/JavaScript utility code: ESM, lint/type errors, exports/imports, helpers, type safety, JS/TS style.                      |
+| react                     | React, Next.js, Remix, and Vite React work touching JSX/TSX, components, hooks, client state, effects, routing UI, and React tests. |
 
-#### Testing
+##### Testing
 
 |                                  |                                                                                                                                         |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **test-harness**                 | Choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks.                                        |
-| **supabase-integration-testing** | Remote/real Supabase integration tests: RLS policies, RPC calls, migrations, service-role setup, anon access, unmocked DB/API behavior. |
+| test-harness                     | Choosing, running, and explaining tests; debugging CI failures; deciding scoped vs. full checks.                                        |
+| supabase-integration-testing     | Remote/real Supabase integration tests: RLS policies, RPC calls, migrations, service-role setup, anon access, unmocked DB/API behavior. |
 
-#### Repo
+##### Repo
 
 |                      |                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
-| **roborepo-support** | Working on this repo itself: shared skills, global rules, hooks, settings, and Claude/Codex parity. |
+| roborepo-support     | Working on this repo itself: shared skills, global rules, hooks, settings, and Claude/Codex parity. |
 
-### Harness Notes
+### Commands
+
+Use these when you want to intentionally start a named workflow.
+
+|                       |               |                                                                                                                                                  |
+| --------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/blog`               | Claude, Codex | Write a long-form architecture blog post about a real design decision.                                                                           |
+| `/design-review`      | Claude, Codex | Apply the frontend design workflow to build or review a substantial UI change.                                                                   |
+| `/technical-planning` | Claude, Codex | Create or revise a durable technical planning document.                                                                                          |
+
+#### Plain-Language Triggers
+
+Some named workflows can also be started in ordinary chat: "capture this", "write a blog post about this", or "make this a durable technical plan."
+
+### Harness Specifics
 
 #### Codex
 
@@ -75,7 +82,6 @@ Implemented across both Codex and Claude:
 
 - **[Hooks](docs/reference/services/claude-hooks.md):** session hooks detect watcher status, auto-index docs, and remind agents to use
   jcodemunch/jdocmunch; tool hooks reduce broad source reads and trim noisy Bash output
-- **Convention capture:** `/capture-convention` slash command
 - **Behavior flags:** thinking/away-summary stay quiet; dangerous-mode prompt skipped
 
 ## Using the `roborepo` CLI
@@ -87,7 +93,7 @@ Implemented across both Codex and Claude:
 
 ### Setup and Maintenance
 
-|                            |                                                                                                                                                              |
+|                            |                                                                                                                                                             |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `roborepo update`          | Re-applies the harness config on this machine: managed links, root config export, global command install, and shell wiring. Use after pulling repo changes. |
 | `roborepo sync`            | Reviews live config under `~/.claude` and `~/.codex` and pulls intentional changes back into this repo.                                                     |
@@ -97,7 +103,7 @@ Implemented across both Codex and Claude:
 
 ### Indexing
 
-|                              |                                                                                       |
+|                              |                                                                                      |
 | ---------------------------- | ------------------------------------------------------------------------------------ |
 | `roborepo index code [path]` | Runs a one-shot jcodemunch code index for the current directory or `[path]`.         |
 | `roborepo index docs [path]` | Runs a one-shot jdocmunch documentation index for the current directory or `[path]`. |
@@ -105,22 +111,24 @@ Implemented across both Codex and Claude:
 
 ### Skills
 
-|                                 |                                                                                                        |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `roborepo skill export`         | Copies this repo's shared skills into the current target repo and leaves a shareable zip bundle.      |
-| `roborepo skill install`        | Links a target repo's `.agents/skills` into existing `.claude/skills` and/or `.codex/skills` folders. |
-| `roborepo skill link`           | Compatibility alias for `roborepo skill install`.                                                     |
-| `roborepo skill sync [--check]` | Syncs this repo's shared skill links after adding or removing `globals/agents/skills/<name>`.         |
+|                                     |                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `roborepo skill new`                | Scaffolds a shared skill or slash command and updates manifests, generated links, commands, and README. |
+| `roborepo skill export`             | Copies this repo's shared skills into the current target repo and leaves a shareable zip bundle.        |
+| `roborepo skill install`            | Links a target repo's `.agents/skills` into existing `.claude/skills` and/or `.codex/skills` folders.   |
+| `roborepo skill link`               | Compatibility alias for `roborepo skill install`.                                                       |
+| `roborepo skill sync [--check]`     | Syncs this repo's shared skill links after adding or removing `globals/agents/skills/<name>`.           |
+| `roborepo skill commands [--check]` | Renders generated slash commands from `manifests/slash-commands.json`, or verifies them with `--check`. |
 
 ### MCP Setup
 
-|                                  |                                                                                                       |
+|                                  |                                                                                                      |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `roborepo mcp add <name-or-url>` | Registers an MCP server with Claude and Codex, including matching Claude permissions unless skipped. |
 
 ### Command Output
 
-|                                |                                                                                 |
+|                                |                                                                                |
 | ------------------------------ | ------------------------------------------------------------------------------ |
 | `roborepo run <cmd> [args...]` | Runs a command and prints a trimmed output tail so noisy checks stay readable. |
 
@@ -175,16 +183,36 @@ Shared skills live under:
 globals/agents/skills/<name>/SKILL.md
 ```
 
-After adding or removing a shared skill, update and verify harness links:
+For new skills or commands, prefer the scaffold:
+
+```sh
+roborepo skill new
+```
+
+It asks whether to create an automatic helper skill, a skill-backed slash
+command, or a standalone slash command, then updates the relevant manifests,
+README rows, generated links, and generated command files.
+
+After manually adding or removing a shared skill, update and verify harness
+links:
 
 ```sh
 roborepo skill sync
 roborepo skill sync --check
 ```
 
-Add the user-facing skill description to this README's [Shared Skills](#shared-skills) table.
+Add the user-facing skill description to this README's `Automatic Helpers` or
+`Commands` section, depending on whether it has a slash command.
 For the mechanics of how Claude and Codex see shared skills, see
 [How It Works](docs/reference/services/architecture.md#shared-skills-canonical-source--per-harness-fan-out).
+
+If the skill should also have an explicit slash command, add that command to
+`manifests/slash-commands.json`, then render and check:
+
+```sh
+roborepo skill commands
+roborepo skill commands --check
+```
 
 ### Edit Global Rules
 
@@ -221,5 +249,6 @@ roborepo rules --check
 - [How It Works](docs/reference/services/architecture.md)
 - [Config Collision Handling](docs/reference/internal/config-collision-handling.md)
 - [Rules Parity and Layering](docs/reference/internal/rules-parity-and-layering.md)
+- [Skills And Slash Commands](docs/reference/internal/skills-and-commands.md)
 - [Claude Hooks](docs/reference/services/claude-hooks.md)
 - [Codex Hooks](docs/reference/services/codex-hooks.md)

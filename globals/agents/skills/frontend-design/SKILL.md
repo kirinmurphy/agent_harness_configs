@@ -1,6 +1,6 @@
 ---
 name: frontend-design
-description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, or applications. Generates creative, polished code that avoids generic AI aesthetics.
+description: Create distinctive, production-grade frontend interfaces with high design quality. Use when building or substantially redesigning web components, pages, applications, or interactive UI. Do not use for backend-only work, small copy/style tweaks, non-visual refactors, or ordinary React/TypeScript fixes where design quality is not part of the request. Generates creative, polished code that avoids generic AI aesthetics.
 license: Complete terms in LICENSE.txt
 ---
 

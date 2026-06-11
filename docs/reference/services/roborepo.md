@@ -78,9 +78,11 @@ roborepo — choose an action:
   run            run a command with trimmed output
 
   Skills
+  skill new      scaffold a shared skill or slash command
   skill export   copy shared skills into this repo
   skill install  link this repo's .agents/skills into selected agent folders
   skill sync     sync harness shared skill links
+  skill commands render/check slash commands
 
   Maintenance
   sync           pull live config back into the repo
@@ -96,10 +98,12 @@ roborepo — choose an action:
 ## Subcommands
 
 ```
+roborepo skill new [--kind=auto|skill-command|standalone] [--name=<name>] [--description=<text>]
 roborepo skill export [--yes] [--on-conflict=skip|override]
 roborepo skill install [--dry-run] [--uninstall]
 roborepo skill link    [--dry-run] [--uninstall]
 roborepo skill sync    [--check]
+roborepo skill commands [--check]
 
 roborepo index code  [path]
 roborepo index docs  [path]
@@ -133,7 +137,9 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   writes the pidfile the Claude SessionStart hook reads to report watcher status); `mcp add`
   registers MCP servers with Claude + Codex; `run` executes a command and prints only a trimmed
   tail of its output.
-- **Skills** — `skill export` bundles the shared skills into a `.zip` and copies them into the
+- **Skills** — `skill new` scaffolds a shared automatic helper, skill-backed command, or standalone
+  command and updates the relevant manifests, generated links, generated slash commands, and README
+  rows. `skill export` bundles the shared skills into a `.zip` and copies them into the
   current repo's `.agents/skills` plus harness-specific skill folders with per-skill override/skip
   (override backs the old one up under `archived/`). `skill install` symlinks the current repo's own
   `.agents/skills/<name>` into selected `.claude/skills` and/or `.codex/skills` folders, then prunes
@@ -143,7 +149,9 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   creating a missing root, and noninteractive runs never create missing roots. `skill link` is an
   alias. `skill sync` is the maintainer command for this repo: it creates/prunes
   Claude per-skill links after shared skills are added or removed, and `--check` verifies without
-  changing links. See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
+  changing links. `skill commands` renders generated slash commands from
+  `manifests/slash-commands.json`, and `--check` verifies without changing files.
+  See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
 - **Maintenance** — `sync` pulls live config back into the repo; `doctor` and `verify` are health
   and post-install checks; `rules` renders generated Claude/Codex global instruction files, or
   verifies them with `--check`; `permissions` renders Claude/Codex permission outputs from
@@ -198,6 +206,7 @@ touching anything.
 ## Tests
 
 `scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill install/link alias/sync/prune/uninstall/
-conflict, export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real Codex/Claude writes
-against a throwaway harness root, lifecycle/rules dispatch, menu fallback) against throwaway temp repos.
+conflict, `skill new` scaffolds, export/override/firewall/self-pollution guard, slash-command render checks, run,
+`mcp add` dry-runs + real Codex/Claude writes against a throwaway harness root,
+lifecycle/rules dispatch, menu fallback) against throwaway temp repos.
 It touches no global state.
