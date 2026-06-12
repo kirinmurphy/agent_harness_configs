@@ -2,7 +2,8 @@
 name: blog
 description: >
   Write a long-form architecture blog post about a real design decision in a
-  codebase. Follows a fixed 6-beat storyline arc. Written so the architectural
+  codebase. Follows a 6-beat storyline arc (plus an optional 7th recommendation
+  beat). Written so the architectural
   ideas are comprehensible across the whole audience spectrum — non-technical to
   highly technical — without becoming a coding tutorial. Trigger: /blog, "write a
   blog post", "draft the architecture article", "blog about <topic>". Do not use
@@ -56,6 +57,28 @@ The audience spans non-technical to highly technical and everywhere between.
   it conveys the relationship more directly.
 - Snippets must be real, taken from the actual repo. Never invent code.
 
+## Diagrams (mermaid)
+
+Actively look for places a **mermaid** diagram conveys a relationship or workflow
+better than prose or code, and use one when it does. This audience often follows a
+picture of *how pieces relate* faster than a paragraph describing it.
+
+- **Where diagrams earn their place:** a sequence of steps where order matters (what
+  happens before what), a flow from one source to several outputs, a decision with
+  branches, a dependency or data path between components, a state transition. If the
+  prose is spending sentences establishing "A feeds B, which the renderer turns into C
+  and D," a diagram says it at a glance.
+- **Same bar as code.** A diagram must reveal a relationship the prose can't say as
+  cleanly — not decorate a point already clear. Don't diagram a linear two-step process
+  or restate a sentence. One strong diagram beats three weak ones.
+- **Use real names.** Nodes and steps carry the actual component, file, and function
+  names from the repo, exactly as code snippets do. Never invent structure.
+- **Format:** fenced ` ```mermaid ` blocks. Prefer `sequenceDiagram` for ordered
+  interactions, `flowchart` for data/dependency paths, `stateDiagram-v2` for states.
+  Keep them small — a diagram the reader can't parse at a glance has failed.
+- The diagram supports the prose; it does not replace the beat. The surrounding text
+  still names what the reader should take from it.
+
 ## Before writing
 
 1. Identify the topic. If the user named one, use it. Otherwise read the project's
@@ -63,7 +86,42 @@ The audience spans non-technical to highly technical and everywhere between.
 2. Read the actual code for that topic (the listed key files). Ground the article in
    what the code really does — real names, real flow. Never invent behavior.
 3. Read any linked source/design docs for the original reasoning and tradeoffs.
-4. Save the draft to `docs/blog/<slug>.md` (or the project's blog directory).
+4. Save the draft to the project's blog directory. **Name the file from the title**,
+   not the slug: kebab-case the title (lowercase, drop punctuation, spaces→dashes). If
+   the result runs long, truncate at a word boundary — prefer a natural semantic break
+   such as the part before a `:` colon — keeping it roughly ≤50 characters. The filename
+   should read as a shortened title, not a separate label. (The frontmatter `slug` is the
+   public URL and may differ from the filename for SEO; the filename tracks the title.)
+
+## Anonymization (decide per article, up front)
+
+Some articles name the real project — its brand, links, and details are part of the
+point. Others quote a codebase that must stay unidentified. This is not a fixed rule;
+it is a decision to make before drafting.
+
+**Ask at the start of each blog session whether to anonymize**, unless the user has
+already said which they want. Phrase it plainly: "Name the real project, or anonymize
+the source?" Then follow the answer for the whole piece.
+
+- **Explicit user instruction always wins.** If the user says to use the real project
+  name, links, or terminology, use them — even in a repo that normally anonymizes.
+  If the user says to anonymize, anonymize.
+- **When anonymizing**, strip the identity but keep the architecture in full:
+  - No real brand, product, company, or domain names from the source — replace with
+    neutral stand-ins, one stand-in per real name, used consistently.
+  - No source-specific proper nouns carried in from the code — table, schema, RPC, or
+    internal service names that name the actual product. A name that reveals the domain
+    (`restaurants`, `menu_items`) becomes a generic equivalent (`locations`, `items`,
+    `listings`); the architectural point survives the rename.
+  - This applies to **code snippets too**, not just prose. A leaked name in a fenced
+    block is as much a leak as one in a sentence — copied snippets are where identity
+    most often slips through.
+- **When naming the real project**, use the actual names, links, and details freely;
+  do not invent stand-ins.
+- **A project may hard-enforce a blacklist** (a list file or build/check script) for
+  terms that must never ship regardless of the per-article choice. Those terms are
+  blocked even when the article otherwise uses real names; the draft must pass that
+  check before it is done.
 
 ## The 6-beat arc (mandatory spine, in order)
 
@@ -93,6 +151,34 @@ up front. This is what keeps the piece readable across skill levels.
 6. **Roads Not Taken** — Alternatives and their tradeoffs. Why the chosen path won,
    and fairly, where an alternative might be better. Surface the pros/cons that
    mattered. Keep this tighter than beats 3–4.
+
+## Optional beat: Roads We Should Consider Taking
+
+A 7th beat, included **only when it earns its place** — omit it entirely when nothing
+qualifies. Most posts will not have one. It is not a summary of beats 5–6; it is a
+recommendation.
+
+Include it when an item from **What It Still Lacks** or **Roads Not Taken** rises above
+"acknowledged limitation" to "this should be changed, not maintained" — a gap or
+alternative the analysis concludes is worth acting on, not just living with.
+
+What it must contain:
+
+- **The recommendation, stated plainly.** What should change.
+- **The qualitative case for why it crosses the line.** Not just *what* the behavior
+  is — that may already be covered in beat 5 or 6 — but *why* it outranks the things the
+  design currently keeps. What makes this the one worth replacing: the cost it imposes,
+  the risk it carries, the leverage of fixing it, why it matters more than the other
+  open items. The reader should understand the priority judgment, not just the change.
+
+What it must avoid:
+
+- **Do not regurgitate behavior already explained.** If beat 5 or 6 already laid out the
+  mechanics, reference them and spend the words on the priority argument, not a re-tell.
+- Keep it tight — shorter than beats 3–4. It is a pointed call, not a new design section.
+
+Phrase the header in the article's voice (e.g. "Roads We Should Consider Taking", or a
+more specific framing of the single recommendation).
 
 ## Voice & restraint (governs word choice everywhere)
 

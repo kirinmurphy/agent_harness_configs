@@ -8,9 +8,9 @@
       "harnesses": ["claude", "codex"]
     },
     {
-      "name": "design-review",
+      "name": "frontend-design",
       "kind": "skill-backed",
-      "description": "Apply the frontend design workflow to build or review a substantial UI change.",
+      "description": "Apply Claude's frontend design workflow to build or review a substantial UI change.",
       "skill": "frontend-design",
       "harnesses": ["claude", "codex"]
     },

@@ -19,13 +19,13 @@ commands, even when those workflows can also be triggered in ordinary chat.
 
 ## Short Model
 
-| Mechanism | What it owns | How it starts | Best for |
-| --- | --- | --- | --- |
-| Always-on rule | Small universal behavior | Every turn | Tiny defaults and reminders |
-| Skill | Reusable agent workflow or context | Natural-language match, explicit skill call, or command wrapper | Workflows that should be available from more than one trigger path |
-| Skill-backed slash command | Explicit user entry point | `/name` | Discoverable/manual access to a skill workflow |
-| Standalone slash command | Command-specific workflow | `/name` | Workflows that only make sense as a command |
-| Hook | Mechanical enforcement | Harness event | Deterministic behavior the model should not decide |
+| Mechanism                  | What it owns                       | How it starts                                                   | Best for                                                           |
+| -------------------------- | ---------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Always-on rule             | Small universal behavior           | Every turn                                                      | Tiny defaults and reminders                                        |
+| Skill                      | Reusable agent workflow or context | Natural-language match, explicit skill call, or command wrapper | Workflows that should be available from more than one trigger path |
+| Skill-backed slash command | Explicit user entry point          | `/name`                                                         | Discoverable/manual access to a skill workflow                     |
+| Standalone slash command   | Command-specific workflow          | `/name`                                                         | Workflows that only make sense as a command                        |
+| Hook                       | Mechanical enforcement             | Harness event                                                   | Deterministic behavior the model should not decide                 |
 
 Standalone commands are not skills. They are command source files rendered into
 one or more harness command directories. That distinction should not be the main
@@ -89,7 +89,7 @@ Use a skill-backed command when:
 Current generated examples:
 
 - `/blog` -> `blog`
-- `/design-review` -> `frontend-design`
+- `/frontend-design` -> `frontend-design`
 - `/technical-planning` -> `technical-planning-docs`
 
 ## Standalone Slash Commands
@@ -115,9 +115,9 @@ syntax, prefer a skill-backed command.
 
 Convention capture has three parts:
 
-| Part | Mechanism | Why |
-| --- | --- | --- |
-| Flag possible captures during normal work | Always-on rule | The agent should notice confirmed decisions without writing files |
+| Part                                        | Mechanism           | Why                                                                                |
+| ------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| Flag possible captures during normal work   | Always-on rule      | The agent should notice confirmed decisions without writing files                  |
 | Run the capture workflow when the user asks | Normal chat request | The user can say where to write the capture, such as `CLAUDE.md`, a skill, or docs |
 
 Capture does not currently need a slash command. The useful product behavior is

@@ -88,7 +88,7 @@ export async function skillNew(args) {
     updateReadmeForCommand({ name: opts.command, harnesses: opts.harnesses, description: opts.description });
   }
 
-  runChecked("skill sync", "bash", [path.join(repoRoot, "scripts", "build", "link-skills.sh"), "--quiet"]);
+  runChecked("skill symlink-global", "bash", [path.join(repoRoot, "scripts", "build", "link-skills.sh"), "--quiet"]);
   runChecked("slash command render", process.execPath, [
     path.join(repoRoot, "scripts", "build", "render-slash-commands.mjs"),
     "--quiet",

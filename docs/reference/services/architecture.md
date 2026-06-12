@@ -206,13 +206,13 @@ There are two distinct, firewalled skill layers:
 One Node command, `roborepo`, is the consumer front door (see the README for the full subcommand
 list). For the dual-harness skill model it offers:
 
-- `skill export`: bundles shared skills into a `.zip` and copies them into a target repo's
+- `skill export-to-local`: bundles shared skills into a `.zip` and copies them into a target repo's
   `.agents/skills` plus harness-specific skill folders.
-- `skill install`: treats the target repo's own `.agents/skills/<name>` as the canonical project
+- `skill symlink-local`: treats the target repo's own `.agents/skills/<name>` as the canonical project
   skill source, then symlinks those skills into selected `.claude/skills` and/or `.codex/skills`
   folders. Existing `.claude` and `.codex` roots are used automatically; when run interactively and
   a root is missing, it asks whether to create/link that target. Noninteractive runs do not create
-  new agent roots. `skill link` is an alias.
+  new agent roots.
 
 This is purely in-repo and never touches global `~/.claude`, `~/.codex`, or `~/.agents`.
 `.agents/skills` is canonical because Codex scans that path directly; Claude fan-out links point

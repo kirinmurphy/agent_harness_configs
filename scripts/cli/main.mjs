@@ -21,6 +21,11 @@ function usage() {
   console.log(`roborepo — harness config CLI\n\nusage:\n  ${cliCatalog.usage.join("\n  ")}`);
 }
 
+function usageError() {
+  usage();
+  process.exit(2);
+}
+
 // --------------------------------------------------------------------------- menu
 
 async function interactiveMenu() {
@@ -56,32 +61,33 @@ async function dispatch(args) {
       return usage();
 
     case "skill":
-      if (sub === "export") return skillExport(new Set(rest));
+      if (sub === "export-to-local") return skillExport(new Set(rest), `skill ${sub}`);
       if (sub === "new") return skillNew(rest);
-      if (sub === "install" || sub === "link") return skillLink(flags);
-      if (sub === "sync") return runRepoCommand(cliCatalog.repoScripts["skill sync"], rest);
+      if (sub === "symlink-local") {
+        return skillLink(flags, `skill ${sub}`);
+      }
+      if (sub === "symlink-global") {
+        return runRepoCommand(cliCatalog.repoScripts["skill symlink-global"], rest);
+      }
       if (sub === "commands") return runRepoCommand(cliCatalog.repoScripts["skill commands"], rest);
       console.error(`unknown: roborepo skill ${sub ?? ""}`.trim());
-      return usage();
+      return usageError();
 
     case "index":
       if (sub === "code") return indexCode(rest);
       if (sub === "docs") return indexDocs(rest);
       console.error(`unknown: roborepo index ${sub ?? ""}`.trim());
-      return usage();
+      return usageError();
 
     case "mcp":
       if (sub === "add") return mcpAdd(rest);
       console.error(`unknown: roborepo mcp ${sub ?? ""}`.trim());
-      return usage();
-
-    case "addMCP":
-      return mcpAdd(sub === undefined ? [] : [sub, ...rest]);
+      return usageError();
 
     case "watch":
       if (sub === "code") return watchCode(rest);
       console.error(`unknown: roborepo watch ${sub ?? ""}`.trim());
-      return usage();
+      return usageError();
 
     case "run":
       return runCmd(sub === undefined ? [] : [sub, ...rest]);
@@ -93,8 +99,8 @@ async function dispatch(args) {
       return runRepoCommand(cliCatalog.repoScripts.update, [sub, ...rest].filter(Boolean));
     case "uninstall":
       return runRepoCommand(cliCatalog.repoScripts.uninstall, [sub, ...rest].filter(Boolean));
-    case "sync":
-      return runRepoCommand(cliCatalog.repoScripts.sync, [sub, ...rest].filter(Boolean));
+    case "backfill":
+      return runRepoCommand(cliCatalog.repoScripts.backfill, [sub, ...rest].filter(Boolean));
     case "doctor":
       return runRepoCommand(cliCatalog.repoScripts.doctor, [sub, ...rest].filter(Boolean));
     case "verify":

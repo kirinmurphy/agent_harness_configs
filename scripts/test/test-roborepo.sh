@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Functional smoke tests for roborepo (skill export/link/sync, rules, run, lifecycle dispatch).
+# Functional smoke tests for roborepo (skill export-to-local/symlink-local/symlink-global, rules, run,
+# lifecycle dispatch).
 # Runs subcommands against throwaway temp repos and asserts on results. The consumer-facing
 # subcommands operate on a target repo dir and never touch ~/.claude / ~/.codex.
 #
@@ -52,53 +53,53 @@ mk_skill() {
 }
 
 # ---------------------------------------------------------------------------
-# roborepo skill install / link
+# roborepo skill symlink-local
 # ---------------------------------------------------------------------------
 local_repo="${work}/local"
 mkdir -p "${local_repo}/.claude" "${local_repo}/.codex"
 mk_skill "${local_repo}/.agents/skills" "app-deploy"
 mk_skill "${local_repo}/.agents/skills" "app-test"
 
-( cd "${local_repo}" && node "${cli}" skill install >/dev/null )
-assert "skill install: .claude link created" test -L "${local_repo}/.claude/skills/app-deploy"
-assert "skill install: .codex link created"  test -L "${local_repo}/.codex/skills/app-test"
-assert "skill install: link is relative to source" \
+( cd "${local_repo}" && node "${cli}" skill symlink-local >/dev/null )
+assert "skill symlink-local: .claude link created" test -L "${local_repo}/.claude/skills/app-deploy"
+assert "skill symlink-local: .codex link created"  test -L "${local_repo}/.codex/skills/app-test"
+assert "skill symlink-local: link is relative to source" \
   test "$(readlink "${local_repo}/.claude/skills/app-deploy")" = "../../.agents/skills/app-deploy"
 
-rerun="$( cd "${local_repo}" && node "${cli}" skill install )"
-assert "skill install: idempotent re-run reports already ok" \
+rerun="$( cd "${local_repo}" && node "${cli}" skill symlink-local )"
+assert "skill symlink-local: idempotent re-run reports already ok" \
   bash -c "echo '${rerun}' | grep -q 'already ok'"
 
 # Prune: delete a source skill, re-run, stale links removed.
 rm -rf "${local_repo}/.agents/skills/app-test"
-( cd "${local_repo}" && node "${cli}" skill install >/dev/null )
-assert "skill install: orphan .claude link pruned" \
+( cd "${local_repo}" && node "${cli}" skill symlink-local >/dev/null )
+assert "skill symlink-local: orphan .claude link pruned" \
   bash -c "! test -e '${local_repo}/.claude/skills/app-test'"
-assert "skill install: orphan .codex link pruned" \
+assert "skill symlink-local: orphan .codex link pruned" \
   bash -c "! test -e '${local_repo}/.codex/skills/app-test'"
-assert "skill install: live link kept after prune" test -L "${local_repo}/.claude/skills/app-deploy"
+assert "skill symlink-local: live link kept after prune" test -L "${local_repo}/.claude/skills/app-deploy"
 
 # Uninstall: removes only owned links.
-( cd "${local_repo}" && node "${cli}" skill install --uninstall >/dev/null )
-assert "skill install: uninstall removes owned links" \
+( cd "${local_repo}" && node "${cli}" skill symlink-local --uninstall >/dev/null )
+assert "skill symlink-local: uninstall removes owned links" \
   bash -c "! test -e '${local_repo}/.claude/skills/app-deploy'"
 
 # Dry-run: reports planned links without creating harness skill dirs.
 dry_repo="${work}/dry-link"
 mkdir -p "${dry_repo}/.claude" "${dry_repo}/.codex"
 mk_skill "${dry_repo}/.agents/skills" "app-deploy"
-( cd "${dry_repo}" && node "${cli}" skill install --dry-run >/dev/null )
-assert "skill install: dry-run does not create .claude link" \
+( cd "${dry_repo}" && node "${cli}" skill symlink-local --dry-run >/dev/null )
+assert "skill symlink-local: dry-run does not create .claude link" \
   bash -c "! test -e '${dry_repo}/.claude/skills/app-deploy'"
-assert "skill install: dry-run does not create .codex link" \
+assert "skill symlink-local: dry-run does not create .codex link" \
   bash -c "! test -e '${dry_repo}/.codex/skills/app-deploy'"
 
 no_agent_repo="${work}/no-agent-target"
 mk_skill "${no_agent_repo}/.agents/skills" "app-deploy"
-( cd "${no_agent_repo}" && node "${cli}" skill install >/dev/null )
-assert "skill install: skips .claude when .claude root is absent" \
+( cd "${no_agent_repo}" && node "${cli}" skill symlink-local >/dev/null )
+assert "skill symlink-local: skips .claude when .claude root is absent" \
   bash -c "! test -e '${no_agent_repo}/.claude/skills/app-deploy'"
-assert "skill install: skips .codex when .codex root is absent" \
+assert "skill symlink-local: skips .codex when .codex root is absent" \
   bash -c "! test -e '${no_agent_repo}/.codex/skills/app-deploy'"
 
 # Conflict: a real (non-symlink) dir at the target is never clobbered.
@@ -106,37 +107,45 @@ conflict_repo="${work}/conflict"
 mk_skill "${conflict_repo}/.agents/skills" "app-deploy"
 mkdir -p "${conflict_repo}/.claude/skills/app-deploy"
 echo "REAL" > "${conflict_repo}/.claude/skills/app-deploy/marker"
-( cd "${conflict_repo}" && node "${cli}" skill install >/dev/null 2>&1 ) || true
-assert "skill install: real dir at target left intact (conflict)" \
+( cd "${conflict_repo}" && node "${cli}" skill symlink-local >/dev/null 2>&1 ) || true
+assert "skill symlink-local: real dir at target left intact (conflict)" \
   test -f "${conflict_repo}/.claude/skills/app-deploy/marker"
 
 foreign_repo="${work}/foreign-link"
 mk_skill "${foreign_repo}/.agents/skills" "app-deploy"
 mkdir -p "${foreign_repo}/elsewhere" "${foreign_repo}/.codex/skills"
 ln -s "../../elsewhere/app-deploy" "${foreign_repo}/.codex/skills/app-deploy"
-( cd "${foreign_repo}" && node "${cli}" skill install --uninstall >/dev/null 2>&1 ) || true
-assert "skill install: uninstall leaves foreign symlink intact" \
+( cd "${foreign_repo}" && node "${cli}" skill symlink-local --uninstall >/dev/null 2>&1 ) || true
+assert "skill symlink-local: uninstall leaves foreign symlink intact" \
   test "$(readlink "${foreign_repo}/.codex/skills/app-deploy")" = "../../elsewhere/app-deploy"
 
 # Missing .agents/skills dir: clear error, non-zero exit.
 empty_repo="${work}/empty"
 mkdir -p "${empty_repo}"
-assert "skill install: missing .agents exits non-zero" \
-  bash -c "cd '${empty_repo}' && ! node '${cli}' skill install >/dev/null 2>&1"
+assert "skill symlink-local: missing .agents exits non-zero" \
+  bash -c "cd '${empty_repo}' && ! node '${cli}' skill symlink-local >/dev/null 2>&1"
 
 empty_agents_repo="${work}/empty-agents"
 mkdir -p "${empty_agents_repo}/.agents"
-assert "skill install: missing .agents/skills exits non-zero" \
-  bash -c "cd '${empty_agents_repo}' && ! node '${cli}' skill install >/dev/null 2>&1"
+assert "skill symlink-local: missing .agents/skills exits non-zero" \
+  bash -c "cd '${empty_agents_repo}' && ! node '${cli}' skill symlink-local >/dev/null 2>&1"
 
-assert "skill link: compatibility alias works" \
-  bash -c "cd '${local_repo}' && node '${cli}' skill link >/dev/null"
+assert "skill symlink-local: re-run after missing-source checks works" \
+  bash -c "cd '${local_repo}' && node '${cli}' skill symlink-local >/dev/null"
 
-assert "skill link: unknown flag rejected" \
-  bash -c "cd '${local_repo}' && ! node '${cli}' skill link --nonsense >/dev/null 2>&1"
+assert "skill install: removed alias rejected" \
+  bash -c "cd '${local_repo}' && ! node '${cli}' skill install >/dev/null 2>&1"
+assert "skill link: removed alias rejected" \
+  bash -c "cd '${local_repo}' && ! node '${cli}' skill link >/dev/null 2>&1"
+assert "skill link-local: removed alias rejected" \
+  bash -c "cd '${local_repo}' && ! node '${cli}' skill link-local >/dev/null 2>&1"
 
-assert "skill sync: check dispatches link-skills verifier" \
-  bash -c "cd '${repo_root}' && node '${cli}' skill sync --check >/dev/null"
+assert "skill symlink-global: check dispatches link-skills verifier" \
+  bash -c "cd '${repo_root}' && node '${cli}' skill symlink-global --check >/dev/null"
+assert "skill sync: removed alias rejected" \
+  bash -c "cd '${repo_root}' && ! node '${cli}' skill sync --check >/dev/null 2>&1"
+assert "skill link-global: removed alias rejected" \
+  bash -c "cd '${repo_root}' && ! node '${cli}' skill link-global --check >/dev/null 2>&1"
 
 assert "skill commands: check dispatches generated command verifier" \
   bash -c "cd '${repo_root}' && node '${cli}' skill commands --check >/dev/null"
@@ -225,51 +234,53 @@ assert "skill new: refuses existing skill dir without partial write" \
   bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=auto --name=existing-dir --description='Existing dir guard.' >/dev/null 2>&1 && ! test -e '${new_harness}/globals/agents/skills/existing-dir/SKILL.md'"
 
 # ---------------------------------------------------------------------------
-# roborepo skill export
+# roborepo skill export-to-local
 # ---------------------------------------------------------------------------
 export_repo="${work}/export"
 mkdir -p "${export_repo}"
-( cd "${export_repo}" && node "${cli}" skill export --yes >/dev/null )
-assert "skill export: .claude/skills created and populated" \
+( cd "${export_repo}" && node "${cli}" skill export-to-local --yes >/dev/null )
+assert "skill export-to-local: .claude/skills created and populated" \
   test -f "${export_repo}/.claude/skills/test-harness/SKILL.md"
-assert "skill export: fresh repo creates .agents/skills for Codex" \
+assert "skill export-to-local: fresh repo creates .agents/skills for Codex" \
   test -f "${export_repo}/.agents/skills/test-harness/SKILL.md"
-assert "skill export: shareable zip produced" \
+assert "skill export-to-local: shareable zip produced" \
   bash -c "ls '${export_repo}'/global_agent_skills_*.zip >/dev/null 2>&1"
 if command -v unzip >/dev/null 2>&1; then
-  assert "skill export: zip integrity (unzip -t)" \
+  assert "skill export-to-local: zip integrity (unzip -t)" \
     bash -c "unzip -tq '${export_repo}'/global_agent_skills_*.zip >/dev/null"
 fi
 
-( cd "${export_repo}" && node "${cli}" skill export --yes --on-conflict=override >/dev/null )
-assert "skill export: override moves old skill to archived/" \
+( cd "${export_repo}" && node "${cli}" skill export-to-local --yes --on-conflict=override >/dev/null )
+assert "skill export-to-local: override moves old skill to archived/" \
   bash -c "ls '${export_repo}'/.claude/skills/archived/test-harness_backup_* >/dev/null 2>&1"
 
 skip_repo="${work}/export-skip"
 mkdir -p "${skip_repo}/.claude/skills/test-harness" "${skip_repo}/.agents/skills"
 echo "LOCAL" > "${skip_repo}/.claude/skills/test-harness/local.txt"
-( cd "${skip_repo}" && node "${cli}" skill export --yes --on-conflict=skip >/dev/null )
-assert "skill export: skip preserves existing skill content" \
+( cd "${skip_repo}" && node "${cli}" skill export-to-local --yes --on-conflict=skip >/dev/null )
+assert "skill export-to-local: skip preserves existing skill content" \
   grep -q "LOCAL" "${skip_repo}/.claude/skills/test-harness/local.txt"
-assert "skill export: existing .agents/skills is populated" \
+assert "skill export-to-local: existing .agents/skills is populated" \
   test -f "${skip_repo}/.agents/skills/test-harness/SKILL.md"
-assert "skill export: invalid on-conflict rejected" \
-  bash -c "cd '${skip_repo}' && ! node '${cli}' skill export --yes --on-conflict=merge >/dev/null 2>&1"
+assert "skill export-to-local: invalid on-conflict rejected" \
+  bash -c "cd '${skip_repo}' && ! node '${cli}' skill export-to-local --yes --on-conflict=merge >/dev/null 2>&1"
 
 claude_only_repo="${work}/export-claude-only"
 mkdir -p "${claude_only_repo}/.claude/skills"
-( cd "${claude_only_repo}" && node "${cli}" skill export --yes >/dev/null )
-assert "skill export: creates .agents/skills even when only .claude exists" \
+( cd "${claude_only_repo}" && node "${cli}" skill export-to-local --yes >/dev/null )
+assert "skill export-to-local: creates .agents/skills even when only .claude exists" \
   test -f "${claude_only_repo}/.agents/skills/test-harness/SKILL.md"
 
-assert "skill export: internal skill NOT exported (firewall)" \
+assert "skill export-to-local: internal skill NOT exported (firewall)" \
   bash -c "! test -e '${export_repo}/.claude/skills/harness-platform-dev'"
 
-assert "skill export: refuses to run in source repo" \
-  bash -c "cd '${repo_root}' && ! node '${cli}' skill export --yes >/dev/null 2>&1"
+assert "skill export-to-local: refuses to run in source repo" \
+  bash -c "cd '${repo_root}' && ! node '${cli}' skill export-to-local --yes >/dev/null 2>&1"
 
-assert "skill export: unknown flag rejected" \
-  bash -c "cd '${export_repo}' && ! node '${cli}' skill export --yes --nonsense >/dev/null 2>&1"
+assert "skill export-to-local: unknown flag rejected" \
+  bash -c "cd '${export_repo}' && ! node '${cli}' skill export-to-local --yes --nonsense >/dev/null 2>&1"
+assert "skill export: removed alias rejected" \
+  bash -c "cd '${export_repo}' && ! node '${cli}' skill export --yes >/dev/null 2>&1"
 
 # ---------------------------------------------------------------------------
 # roborepo run
@@ -292,9 +303,8 @@ mcp_jcode="$( node "${cli}" mcp add jcodemunch --dry-run )"
 assert "mcp add: jcodemunch preset maps to Claude user-scope uvx command" \
   test "${mcp_jcode}" = $'claude mcp add --scope user jcodemunch -- uvx jcodemunch-mcp\nwould add permission: mcp__jcodemunch -> globals/claude/settings.json\ncodex MCP already present: jcodemunch'
 
-mcp_alias="$( node "${cli}" addMCP jdocmunch --dry-run )"
-assert "mcp add: addMCP alias maps to same command" \
-  test "${mcp_alias}" = "${mcp_jdoc}"
+assert "mcp add: addMCP alias removed" \
+  bash -c "! node '${cli}' addMCP jdocmunch --dry-run >/dev/null 2>&1"
 
 mcp_pkg="$( node "${cli}" mcp add example-mcp --name=example --dry-run -- --flag value )"
 assert "mcp add: generic package supports name override and passthrough args" \
@@ -408,6 +418,10 @@ assert "lifecycle: roborepo doctor dispatches and passes" \
   bash -c "node '${cli}' doctor >/dev/null 2>&1"
 assert "lifecycle: roborepo update --dry-run dispatches (no changes)" \
   bash -c "HOME='${update_home}' node '${cli}' update --dry-run >/dev/null 2>&1"
+assert "lifecycle: roborepo backfill dispatches sync script" \
+  bash -c "! HOME='${update_home}' node '${cli}' backfill --bad-flag >/dev/null 2>&1"
+assert "lifecycle: roborepo sync alias removed" \
+  bash -c "! HOME='${update_home}' node '${cli}' sync --bad-flag >/dev/null 2>&1"
 assert "lifecycle: roborepo install verb removed (first install is the shell bootstrap)" \
   bash -c "! node '${cli}' install --dry-run >/dev/null 2>&1"
 assert "lifecycle: roborepo verify dispatches and exits non-zero when not installed" \

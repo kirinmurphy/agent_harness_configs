@@ -42,10 +42,10 @@ async function resolveSkillInstallTargets(repo, { dryRun = false, uninstall = fa
   return selected.map((target) => target.root);
 }
 
-export async function skillLink(flags) {
+export async function skillLink(flags, commandName = "skill symlink-local") {
   for (const f of flags) {
     if (f === "--dry-run" || f === "--uninstall") continue;
-    console.error(`unknown flag for "skill install": ${f}`);
+    console.error(`unknown flag for "${commandName}": ${f}`);
     process.exit(2);
   }
 
@@ -58,14 +58,14 @@ export async function skillLink(flags) {
   if (!fs.existsSync(agentsRoot)) {
     console.error(`no .agents directory found at ${agentsRoot}`);
     console.error(`move repo skills into .agents/skills/<skill-name>/SKILL.md first, then run:`);
-    console.error(`  roborepo skill install`);
+    console.error(`  roborepo ${commandName}`);
     process.exit(1);
   }
 
   if (!fs.existsSync(srcDir)) {
     console.error(`no .agents/skills directory found at ${srcDir}`);
     console.error(`move repo skills into .agents/skills/<skill-name>/SKILL.md first, then run:`);
-    console.error(`  roborepo skill install`);
+    console.error(`  roborepo ${commandName}`);
     process.exit(1);
   }
 
@@ -76,7 +76,7 @@ export async function skillLink(flags) {
   if (t.targetDirs === 0) {
     console.log(`0 existing agent target folder(s) found (.claude or .codex); no skill links installed${dry}.`);
     console.log(`Run interactively to choose Claude/Codex targets, or create .claude/ or .codex/ first, then re-run:`);
-    console.log(`  roborepo skill install`);
+    console.log(`  roborepo ${commandName}`);
     return;
   }
   if (uninstall) {
@@ -89,12 +89,12 @@ export async function skillLink(flags) {
     console.log(`${line}.`);
     console.log("");
     console.log("Reminder: add a new skill at .agents/skills/<name>/SKILL.md? Re-run");
-    console.log("  roborepo skill install");
+    console.log(`  roborepo ${commandName}`);
     console.log("so existing Claude and transitional .codex/skills links pick it up.");
   }
 }
 
-export async function skillExport(flags) {
+export async function skillExport(flags, commandName = "skill export-to-local") {
   const assumeYes = flags.has("--yes");
   let onConflict = "skip";
   for (const f of flags) {
@@ -103,7 +103,7 @@ export async function skillExport(flags) {
       onConflict = f.slice("--on-conflict=".length);
       continue;
     }
-    console.error(`unknown flag for "skill export": ${f}`);
+    console.error(`unknown flag for "${commandName}": ${f}`);
     process.exit(2);
   }
   if (!["skip", "override"].includes(onConflict)) {
@@ -117,7 +117,7 @@ export async function skillExport(flags) {
   // would copy the shared skills back over their own source and drop a zip in the repo root.
   if (path.resolve(cwd) === path.resolve(repoRoot)) {
     console.error(`refusing to export into the roborepo source repo (${cwd}).`);
-    console.error(`cd into the TARGET repo first, then run: roborepo skill export`);
+    console.error(`cd into the TARGET repo first, then run: roborepo ${commandName}`);
     process.exit(1);
   }
 
@@ -135,7 +135,7 @@ export async function skillExport(flags) {
   if (!proceed) {
     console.log("");
     console.log("Re-run this command from the ROOT of the target repo:");
-    console.log("  cd /path/to/your/repo && roborepo skill export");
+    console.log(`  cd /path/to/your/repo && roborepo ${commandName}`);
     prompter.close();
     return;
   }

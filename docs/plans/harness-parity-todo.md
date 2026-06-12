@@ -9,7 +9,7 @@
    - Research whether Claude/Codex support native include/import/layering for `~/.claude/settings.json` and `~/.codex/config.toml`; if not, design generated/merged config with clear source ownership and drift checks.
    - Define how this interacts with `managed`, `adopt`, future update command, secrets/local machine config, and repo-local `CLAUDE.md`/`AGENTS.md`.
 
-2. ~~Implement per-repo skill installer.~~ **DONE** — shipped as `roborepo skill install`
+2. ~~Implement per-repo skill installer.~~ **DONE** — exposed as `roborepo skill symlink-local`
    (`scripts/cli/skills.mjs` + `scripts/cli/skill-lib.mjs::linkLocalSkills`); links repo-local
    `.agents/skills/` into Claude and Codex homes without losing global skill parity.
 

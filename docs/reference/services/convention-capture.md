@@ -1,53 +1,29 @@
 # Convention Capture
 
-Conversations with an agent surface decisions, conventions, and architectural choices that would otherwise be lost when the session ends. Without capture, the reasoning behind a pattern lives only in chat history — invisible to future sessions, future engineers, and the agent itself.
+Conversations with an agent surface decisions, conventions, and architectural choices that would otherwise pass by unnoticed. Convention capture is a lightweight, always-on behavior that helps those moments stand out: when a convention or architectural decision is confirmed in chat, the agent flags it inline so the user can see it clearly.
 
-Convention capture is the mechanism for promoting those decisions into durable agent rules and project docs. When a convention or architectural decision surfaces, the agent flags it inline. The user explicitly triggers capture when ready.
+It is not a workflow and the user does not trigger it. It writes nothing. It is just additional, well-formatted context generated in the conversation — a recommendation the user is free to act on however they want.
 
 ## How it works
 
-### During session
-
-When a convention or decision is confirmed, the agent flags it inline in chat on its own line:
+When a convention or decision is confirmed by explicit user signal or clear mutual agreement, the agent flags it inline in chat on its own line:
 
 > 📌 **Capture candidate:** use named exports, not default exports
 
-No file writes. No automation. Consistent format — always this exact blockquote+emoji+bold pattern, never embedded in a paragraph.
+The format is always this exact blockquote + emoji + bold pattern, never embedded in a paragraph. No file writes, no automation, no follow-up workflow — the flag is the whole behavior.
 
-### Triggering capture
+### What qualifies
 
-User says any of:
+Flagged: naming/file/import conventions, architectural decisions, business logic, tool choices, and anything the user explicitly asks to remember.
 
-- "capture this"
-- "save that convention"
-- "let's document that"
-- "remember this"
+Not flagged: debugging steps, temporary fixes, generic knowledge, already-documented facts, or in-progress work.
 
-Agent then runs the full capture-convention workflow: scans conversation, deduplicates against existing docs, presents plan, waits for confirmation, writes.
+### Harness parity
 
-### Routing: local vs global
+The same inline-flagging rule lives in both generated `globals/claude/CLAUDE.md` and `globals/codex/AGENTS.md`, so Claude and Codex behave identically.
 
-Each item gets classified at capture time:
+## Why flag-only
 
-| Scope                                 | Destination                                                   |
-| ------------------------------------- | ------------------------------------------------------------- |
-| Applies only in this repo             | current repo's `CLAUDE.md` or `.claude/rules/`                |
-| Applies to agent behavior in any repo | shared rules in `rules/`, shared skills in `skills/`, or docs under `docs/` |
-
-Global items: caveman behavior, jcodemunch defaults, verification discipline, hook patterns.
-Local items: naming conventions, component patterns, data-fetching rules, testing approach, business logic.
-
-### Codex parity
-
-Same inline flagging rule lives in generated `globals/codex/AGENTS.md` and `globals/claude/CLAUDE.md`. Capture is triggered by saying "capture this" or similar. Captured items go to same destinations via the same routing logic.
-
-## Scratch directory
-
-No scratch directory is used in current design. If you want ephemeral capture-candidate files mid-session, create a clearly named scratch folder manually and add it to `.gitignore`.
-
-## Why not automatic
-
-- Hooks can't access transcript — only shell
-- Concurrent sessions would conflict on same file
-- Model judgment alone over-captures noise and misses subtle decisions
-- Human review at capture time produces cleaner, more durable output
+- Hooks can't read the transcript — only the agent sees the conversation where decisions surface.
+- A surfaced recommendation lets the user decide what to keep without the agent over-capturing noise or writing files on its own.
+- Keeping it to a consistent, visible format makes the candidates easy to scan and act on later.

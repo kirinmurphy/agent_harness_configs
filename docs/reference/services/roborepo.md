@@ -11,7 +11,7 @@ subcommand implementations live under `scripts/cli/`, one module per category:
 
 | Module | Owns |
 | --- | --- |
-| `scripts/cli/skills.mjs` | `skill export`, `skill install` (`skill link` alias) |
+| `scripts/cli/skills.mjs` | `skill export-to-local`, `skill symlink-local` |
 | `scripts/cli/index.mjs` | `index code\|docs`, `watch code`, `run` |
 | `scripts/cli/mcp.mjs` | `mcp add` (Claude + Codex registration) |
 | `scripts/cli/paths.mjs` | shared `repoRoot` / `sharedSkillsDir` |
@@ -79,13 +79,13 @@ roborepo — choose an action:
 
   Skills
   skill new      scaffold a shared skill or slash command
-  skill export   copy shared skills into this repo
-  skill install  link this repo's .agents/skills into selected agent folders
-  skill sync     sync harness shared skill links
+  skill export-to-local copy shared skills into this repo
+  skill symlink-local      symlink this repo's .agents/skills into selected agent folders
+  skill symlink-global     symlink shared skill source into global harness folders
   skill commands render/check slash commands
 
   Maintenance
-  sync           pull live config back into the repo
+  backfill       pull live config back into the repo
   doctor         health check
   verify         post-install verification
   rules          render/check generated agent rules
@@ -99,22 +99,20 @@ roborepo — choose an action:
 
 ```
 roborepo skill new [--kind=auto|skill-command|standalone] [--name=<name>] [--description=<text>]
-roborepo skill export [--yes] [--on-conflict=skip|override]
-roborepo skill install [--dry-run] [--uninstall]
-roborepo skill link    [--dry-run] [--uninstall]
-roborepo skill sync    [--check]
+roborepo skill export-to-local [--yes] [--on-conflict=skip|override]
+roborepo skill symlink-local      [--dry-run] [--uninstall]
+roborepo skill symlink-global     [--check]
 roborepo skill commands [--check]
 
 roborepo index code  [path]
 roborepo index docs  [path]
 roborepo mcp add <name-or-url> [--scope=user|local|project] [--name=<name>] [--dry-run] [--only-claude|--only-codex] [--skip-claude-permission]
-roborepo addMCP <name-or-url>
 roborepo watch code  [path]
 
 roborepo run <cmd> [args...]
 
 roborepo update  [--dry-run]
-roborepo sync
+roborepo backfill
 roborepo doctor  [--installed]
 roborepo verify
 roborepo rules   [--check]
@@ -139,29 +137,29 @@ relative or absolute — roborepo resolves it to an absolute path before use.
   tail of its output.
 - **Skills** — `skill new` scaffolds a shared automatic helper, skill-backed command, or standalone
   command and updates the relevant manifests, generated links, generated slash commands, and README
-  rows. `skill export` bundles the shared skills into a `.zip` and copies them into the
+  rows. `skill export-to-local` bundles the shared skills into a `.zip` and copies them into the
   current repo's `.agents/skills` plus harness-specific skill folders with per-skill override/skip
-  (override backs the old one up under `archived/`). `skill install` symlinks the current repo's own
+  (override backs the old one up under `archived/`). `skill symlink-local` symlinks the current repo's own
   `.agents/skills/<name>` into selected `.claude/skills` and/or `.codex/skills` folders, then prunes
   links whose source is gone. `.agents/skills` is the canonical project skill source because Codex
   scans it directly; Claude fan-out links point at that
   source. Existing `.claude`/`.codex` roots are used automatically; interactive runs ask before
-  creating a missing root, and noninteractive runs never create missing roots. `skill link` is an
-  alias. `skill sync` is the maintainer command for this repo: it creates/prunes
+  creating a missing root, and noninteractive runs never create missing roots. `skill symlink-global`
+  is the maintainer command for this repo: it creates/prunes
   Claude per-skill links after shared skills are added or removed, and `--check` verifies without
   changing links. `skill commands` renders generated slash commands from
   `manifests/slash-commands.json`, and `--check` verifies without changing files.
   See [architecture.md](architecture.md#two-skill-layers-shared-vs-internal).
-- **Maintenance** — `sync` pulls live config back into the repo; `doctor` and `verify` are health
-  and post-install checks; `rules` renders generated Claude/Codex global instruction files, or
+- **Maintenance** — `backfill` pulls live config back into the repo; `doctor` and `verify` are
+  health and post-install checks; `rules` renders generated Claude/Codex global instruction files, or
   verifies them with `--check`; `permissions` renders Claude/Codex permission outputs from
   `manifests/agent-permissions.json`.
 
 The lifecycle verbs dispatch to `scripts/install/main.sh`, `scripts/sync-from-home.sh`,
 `scripts/doctor.sh`, and `scripts/verify-install.sh`; those filenames are an internal detail.
 Most maintainer-only scripts (`test-*.sh`) are intentionally not exposed through `roborepo`.
-`skill sync` and `rules` are exposed because shared-skill and generated-rule editing are documented
-maintainer workflows.
+`skill symlink-global` and `rules` are exposed because shared-skill and generated-rule editing are
+documented maintainer workflows.
 
 ## Permission Profiles
 
@@ -199,13 +197,13 @@ common MCP setup is repeatable instead of hand-typed. After Claude registration 
 Default target is both harnesses; `--only-claude` / `--only-codex` scope it. Presets exist for the
 two bundled servers (`jcodemunch`, `jdocmunch`, both `uvx`-based); any other non-URL value is
 treated as a `uvx` package, and HTTP URLs default to `--transport http` and are written to Codex as
-a `url = "..."` block. `addMCP` is an alias for `mcp add`. Use `--dry-run` to print the exact
+a `url = "..."` block. Use `--dry-run` to print the exact
 `claude mcp add ...` command plus the planned Claude-permission and Codex-config writes without
 touching anything.
 
 ## Tests
 
-`scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill install/link alias/sync/prune/uninstall/
+`scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill symlink-local/symlink-global/prune/uninstall/
 conflict, `skill new` scaffolds, export/override/firewall/self-pollution guard, slash-command render checks, run,
 `mcp add` dry-runs + real Codex/Claude writes against a throwaway harness root,
 lifecycle/rules dispatch, menu fallback) against throwaway temp repos.

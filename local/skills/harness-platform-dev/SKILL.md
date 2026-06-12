@@ -98,15 +98,15 @@ Everything else (the two symlink levels, the layer table) lives in
 interactive menu (arrow keys + numbered fallback via `selectMenu` in `cli/skill-lib.mjs`).
 Subcommands, grouped by category:
 
-- `skill export` / `skill link` (`cli/skills.mjs`) — the dual-harness skill tools (export bundles +
-  copies into `.claude/skills` + `.agents/skills`; link is purely in-repo `.agents/skills` →
-  `.claude/skills` + `.codex/skills`, with prune). Read only the shared / client-local layer —
-  never `local/skills/`.
+- `skill export-to-local` / `skill symlink-local` (`cli/skills.mjs`) — the dual-harness skill tools
+  (export bundles + copies into `.claude/skills` + `.agents/skills`; local linking is purely
+  in-repo `.agents/skills` → `.claude/skills` + `.codex/skills`, with prune). Read only the shared /
+  client-local layer — never `local/skills/`.
 - `index code|docs [path]`, `watch code [path]`, `run <cmd>` (`cli/index.mjs`) — jcodemunch/jdocmunch
   wrappers + the trimmed-output runner. `[path]` optional, defaults to cwd, resolved to absolute.
   `watch code` writes the pidfile `/tmp/jcmwatch-<md5(absdir)>.pid` that the Claude SessionStart
   hook reads — keep that in sync with `globals/claude/settings.json` if you change it.
-- `mcp add <name-or-url>` / `addMCP` (`cli/mcp.mjs`) — register an MCP server with Claude
+- `mcp add <name-or-url>` (`cli/mcp.mjs`) — register an MCP server with Claude
   (`claude mcp add` + a `mcp__<name>` permission in `globals/claude/settings.json`) and Codex (a block in
   `globals/codex/config.toml`). Presets for `jcodemunch`/`jdocmunch`; URLs default to HTTP transport.
 - `update`/`sync`/`doctor`/`verify` — lifecycle verbs that DISPATCH to the existing bash scripts
@@ -121,8 +121,8 @@ ONE global command exists (`roborepo`), so the old per-command 3-place wiring is
 `install-global-commands.sh`, `doctor.sh`, `verify-install.sh` each reference only `roborepo`.
 MAINTAINER scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) stay OUT of `roborepo`.
 
-**Tests:** `scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill link/prune/uninstall/
-conflict, export/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real
+**Tests:** `scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill symlink-local/prune/
+uninstall/conflict, export-to-local/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real
 Codex/Claude writes against a throwaway harness root, lifecycle dispatch, menu fallback) against
 throwaway temp repos. Run it after touching `cli/main.mjs` or anything under `scripts/cli/`.
 `doctor.sh` also asserts `skill-lib.sh` and `cli/skill-lib.mjs` agree on the skill list (parity

@@ -20,13 +20,13 @@ This policy answers three user-facing questions:
 
 ## Current Behavior
 
-| Mechanism | Source location | Invocation |
-| --- | --- | --- |
-| Always-on rules | `globals/rules/shared/` + `globals/rules/<harness>/` rendered into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` | Every turn |
-| Shared skills | `globals/agents/skills/<name>/`, exposed to Claude through `globals/claude/skills/<name>` symlinks and to Codex through the shared agents skill dir | Auto-invokable and command-invokable when the harness supports it |
-| Slash commands | `globals/claude/commands/<name>.md` | Manual `/name` only |
-| Hooks | `globals/claude/hooks/` + `settings.json`; `globals/codex/hooks.json` | Deterministic harness-executed behavior |
-| Per-repo skills | client repo `.agents/skills/<name>/` via `roborepo skill install` | Same risk model as global skills, scoped to that repo |
+| Mechanism       | Source location                                                                                                                                     | Invocation                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Always-on rules | `globals/rules/shared/` + `globals/rules/<harness>/` rendered into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`                                   | Every turn                                                        |
+| Shared skills   | `globals/agents/skills/<name>/`, exposed to Claude through `globals/claude/skills/<name>` symlinks and to Codex through the shared agents skill dir | Auto-invokable and command-invokable when the harness supports it |
+| Slash commands  | `globals/claude/commands/<name>.md`                                                                                                                 | Manual `/name` only                                               |
+| Hooks           | `globals/claude/hooks/` + `settings.json`; `globals/codex/hooks.json`                                                                               | Deterministic harness-executed behavior                           |
+| Per-repo skills | client repo `.agents/skills/<name>/` via `roborepo skill symlink-local`                                                                             | Same risk model as global skills, scoped to that repo             |
 
 Current shared skills include `blog`, `code-style`, `frontend-design`,
 `javascript-typescript`, `react`, `roborepo-support`,
@@ -39,13 +39,13 @@ Claude and Codex support is verified.
 
 Choose the lightest mechanism that gives the user the right control:
 
-| User experience need | Mechanism |
-| --- | --- |
-| Applies almost every turn and is short | Always-on rule |
-| Helps with a narrow task and is safe if loaded accidentally | Auto-invokable skill |
-| Starts a mode, changes output style, or must happen only on request | Manual command |
-| Gives one-off steering for the current request | Snippet in the prompt |
-| Must happen mechanically every time | Hook |
+| User experience need                                                | Mechanism             |
+| ------------------------------------------------------------------- | --------------------- |
+| Applies almost every turn and is short                              | Always-on rule        |
+| Helps with a narrow task and is safe if loaded accidentally         | Auto-invokable skill  |
+| Starts a mode, changes output style, or must happen only on request | Manual command        |
+| Gives one-off steering for the current request                      | Snippet in the prompt |
+| Must happen mechanically every time                                 | Hook                  |
 
 ## 1. Make Skill Behavior Predictable
 
@@ -107,10 +107,10 @@ should not be a Claude-specific frontmatter field.
 
 Use this compatibility result before changing skill frontmatter:
 
-| Harness | Manual-only support | Location |
-| --- | --- | --- |
-| Claude | `disable-model-invocation: true` prevents automatic loading and keeps `/name` invocation | `SKILL.md` frontmatter |
-| Codex | `allow_implicit_invocation: false` prevents implicit loading and keeps explicit `$skill` invocation | `agents/openai.yaml` under `policy` |
+| Harness | Manual-only support                                                                                 | Location                            |
+| ------- | --------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Claude  | `disable-model-invocation: true` prevents automatic loading and keeps `/name` invocation            | `SKILL.md` frontmatter              |
+| Codex   | `allow_implicit_invocation: false` prevents implicit loading and keeps explicit `$skill` invocation | `agents/openai.yaml` under `policy` |
 
 Because the fields differ, keep `SKILL.md` portable and render or check
 harness-specific invocation settings from shared policy.
@@ -179,13 +179,13 @@ Examples:
 
 Use this distinction:
 
-| Shape | User expectation | Policy |
-| --- | --- | --- |
-| Helper | "Use relevant background while doing this task." | Can auto-load if low risk |
-| Mode | "For the rest of this session, behave this way." | Manual command |
-| Action | "Do this operation now." | Manual command, repeat when needed |
-| Skill-backed command | "Run that known workflow now." | Manual command that tells the harness to load the matching skill |
-| Standalone command | "Run this explicit workflow now." | Manual command with its own source file, not a skill |
+| Shape                | User expectation                                 | Policy                                                           |
+| -------------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| Helper               | "Use relevant background while doing this task." | Can auto-load if low risk                                        |
+| Mode                 | "For the rest of this session, behave this way." | Manual command                                                   |
+| Action               | "Do this operation now."                         | Manual command, repeat when needed                               |
+| Skill-backed command | "Run that known workflow now."                   | Manual command that tells the harness to load the matching skill |
+| Standalone command   | "Run this explicit workflow now."                | Manual command with its own source file, not a skill             |
 
 Do not create slash commands for every skill. Commands are opt-in. Intrinsic
 helper skills such as `code-style`, `javascript-typescript`, `react`, and
@@ -223,7 +223,7 @@ later turns.
 Slash commands give users a discoverable command palette without forcing every
 workflow into a skill. Skill-backed commands are most useful for medium-risk
 skills that are safe as helpers but better when users have a memorable explicit
-entry point, such as planning, blog, or design-review workflows. Standalone
+entry point, such as planning, blog, or frontend-design workflows. Standalone
 commands are best for command-specific workflows such as capture.
 
 ## 4. Classify Skill Risk
@@ -238,11 +238,11 @@ mistake matters.
 
 Classify each skill by the user impact of accidental loading.
 
-| Risk | Meaning | Examples | Default policy |
-| --- | --- | --- | --- |
-| Low | Adds narrow read-only context or style guidance | `react`, `javascript-typescript`, `code-style`, `test-harness` | Keep auto-invokable, tighten triggers |
-| Medium | Shapes output, structure, design taste, or writing mode | `frontend-design`, `technical-planning-docs`, `blog` | Keep for now, tighten triggers, consider split into helper + mode |
-| High | Changes permissions, grants tools, runs shell, commits, deploys, hands off, or creates persistent mode | future `commit`, `deploy`, `handoff`, shell-backed skills | Manual command or hook only |
+| Risk   | Meaning                                                                                                | Examples                                                       | Default policy                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Low    | Adds narrow read-only context or style guidance                                                        | `react`, `javascript-typescript`, `code-style`, `test-harness` | Keep auto-invokable, tighten triggers                             |
+| Medium | Shapes output, structure, design taste, or writing mode                                                | `frontend-design`, `technical-planning-docs`, `blog`           | Keep for now, tighten triggers, consider split into helper + mode |
+| High   | Changes permissions, grants tools, runs shell, commits, deploys, hands off, or creates persistent mode | future `commit`, `deploy`, `handoff`, shell-backed skills      | Manual command or hook only                                       |
 
 ### What improves
 
@@ -419,7 +419,7 @@ itself.
 
 - `docs/reference/internal/skill-invocation-audit.md` records the current shared
   skill inventory, risk tiers, and recommended next actions.
-- `roborepo skill install` (`scripts/cli/skills.mjs`) installs client-repo
+- `roborepo skill symlink-local` (`scripts/cli/skills.mjs`) installs client-repo
   `.agents/skills/`, which need the same audit policy.
 - `scripts/build/skill-lib.sh` and `scripts/cli/skill-lib.mjs` already define
   reusable skill discovery and linking rules that a command-wrapper renderer

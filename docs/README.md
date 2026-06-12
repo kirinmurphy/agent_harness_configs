@@ -9,7 +9,8 @@ Use these when setting up, operating, or deciding what to do:
 - [First-Time Setup](guides/first-time-setup.md)
 - [Setup and Daily Use](guides/setup-and-daily-use.md)
 - [Install Workflows](guides/install-workflows.md)
-- [roborepo CLI](reference/services/roborepo.md)
+- [roborepo CLI Commands](reference/services/roborepo-cli.md)
+- [roborepo CLI Reference](reference/services/roborepo.md)
 - [jcodemunch](reference/services/jcodemunch.md)
 - [jdocmunch](reference/services/jdocmunch.md)
 - [Convention Capture](reference/services/convention-capture.md)
@@ -18,6 +19,8 @@ Use these when setting up, operating, or deciding what to do:
 
 Use these when changing or debugging how the harness is wired:
 
+- [How the Harnesses Work, and How We Build Parity](reference/internal/harnesses-explained.md)
+- [Harness Anatomy and Parity](reference/internal/harness-anatomy.md)
 - [Architecture](reference/services/architecture.md)
 - [Claude Hooks](reference/services/claude-hooks.md)
 - [Codex Hooks](reference/services/codex-hooks.md)
