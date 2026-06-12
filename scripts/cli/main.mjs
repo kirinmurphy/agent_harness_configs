@@ -1,68 +1,14 @@
 #!/usr/bin/env node
-// roborepo — one CLI for everything a consumer of the harness config does in their own repo.
-//
-// This file (scripts/cli/main.mjs) is the orchestrator: usage text, the interactive menu, and
-// the dispatch table. The actual subcommand implementations live alongside it under scripts/cli/:
-//
-//   cli/skills.mjs   skill export / skill install
-//   cli/index.mjs    index code|docs, watch code, run
-//   cli/mcp.mjs      mcp add (Claude + Codex registration)
-//   cli/paths.mjs    shared repoRoot / sharedSkillsDir
-//   cli/skill-lib.mjs  shared Node core (zip, prompts, symlink helpers)
-//
-// Nested subcommands, grouped by category so the surface is scannable:
-//
-//   roborepo                       no args -> interactive menu (arrow keys + numbered fallback)
-//
-//   skill   work with skills in the current repo
-//     roborepo skill export        bundle shared skills into a .zip + copy into this repo
-//     roborepo skill new           scaffold shared skill/command policy (maintainer)
-//     roborepo skill install       symlink this repo's .agents/skills into existing .claude/.codex homes
-//     roborepo skill link          alias for skill install
-//     roborepo skill sync          sync harness shared skill links (maintainer)
-//     roborepo skill commands      render/check slash commands (maintainer)
-//
-//   index   index the current repo for the MCP servers
-//     roborepo index code [path]   jcodemunch  (code index)
-//     roborepo index docs [path]   jdocmunch   (docs index)
-//
-//   mcp     register MCP servers with Claude + Codex
-//     roborepo mcp add <name-or-url> [--scope=user|local|project] [--name=<name>] [--dry-run] [--only-claude|--only-codex] [--skip-claude-permission]
-//     roborepo addMCP <name-or-url>  alias for mcp add
-//
-//   watch   keep an index live
-//     roborepo watch code [path]   jcodemunch watch
-//
-//   run     run a command, capturing + truncating noisy output
-//     roborepo run <cmd> [args...]
-//
-//   lifecycle  maintain the harness config install on this machine
-  //     roborepo update  [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent]
-  //       re-apply repo-managed config (symlinks/copies, commands, shell)
-  //     roborepo uninstall [--dry-run] remove repo-owned symlinks/state; leave local root config
-//       (the FIRST install is the shell bootstrap scripts/install/main.sh — that is what
-//        puts roborepo on PATH; from then on you only ever `update`)
-//     roborepo sync                  review/pull live config back into the repo
-//     roborepo doctor  [--installed] health check
-//     roborepo verify                post-install verification
-//     roborepo rules   [--check]     render/check generated agent rules (maintainer)
-//     roborepo permissions [--check] [--profile <name>] render/check agent permission outputs
-//
-// [path] is optional everywhere it appears; it defaults to the current directory and may be
-// relative or absolute — roborepo always resolves it to an absolute path before use.
-//
-// Most maintainer-only scripts (test-*.sh) are deliberately NOT exposed here — they edit the
-// roborepo source itself, not anything a consumer touches. The exceptions are `skill sync`
-// and `rules`, because shared-skill and generated-rule editing are documented workflows.
-// The lifecycle verbs above dispatch to the existing bash scripts (install/main.sh, etc.);
-// those filenames are an internal detail.
+// roborepo CLI orchestrator. User-facing usage/menu text and repo script targets live in
+// manifests/cli-commands.json; command implementations live in sibling modules.
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { selectMenu } from "./skill-lib.mjs";
 import { repoRoot } from "./paths.mjs";
-import { skillLink, skillExport, skillNew } from "./skills.mjs";
+import { runRepoCommand } from "./repo-script-runner.mjs";
+import { skillLink, skillExport } from "./skills.mjs";
+import { skillNew } from "./skill-new.mjs";
 import { indexCode, indexDocs, watchCode, runCmd } from "./index.mjs";
 import { mcpAdd } from "./mcp.mjs";
 
@@ -73,36 +19,6 @@ const cliCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, "manifests", "
 
 function usage() {
   console.log(`roborepo — harness config CLI\n\nusage:\n  ${cliCatalog.usage.join("\n  ")}`);
-}
-
-// Dispatch to a maintainer/lifecycle bash script in this repo, passing through args and
-// the exit code. These scripts resolve their own repo root, so cwd does not matter.
-function runRepoScript(relScript, args) {
-  const script = path.join(repoRoot, relScript);
-  if (!fs.existsSync(script)) {
-    console.error(`missing script: ${script}`);
-    process.exit(1);
-  }
-  const r = spawnSync("bash", [script, ...args], { stdio: "inherit" });
-  if (r.error) {
-    console.error(`failed to run ${relScript}: ${r.error.message}`);
-    process.exit(1);
-  }
-  process.exit(r.status ?? 1);
-}
-
-function runRepoNodeScript(relScript, args) {
-  const script = path.join(repoRoot, relScript);
-  if (!fs.existsSync(script)) {
-    console.error(`missing script: ${script}`);
-    process.exit(1);
-  }
-  const r = spawnSync(process.execPath, [script, ...args], { stdio: "inherit" });
-  if (r.error) {
-    console.error(`failed to run ${relScript}: ${r.error.message}`);
-    process.exit(1);
-  }
-  process.exit(r.status ?? 1);
 }
 
 // --------------------------------------------------------------------------- menu
@@ -143,8 +59,8 @@ async function dispatch(args) {
       if (sub === "export") return skillExport(new Set(rest));
       if (sub === "new") return skillNew(rest);
       if (sub === "install" || sub === "link") return skillLink(flags);
-      if (sub === "sync") return runRepoScript("scripts/build/link-skills.sh", rest);
-      if (sub === "commands") return runRepoNodeScript("scripts/build/render-slash-commands.mjs", rest);
+      if (sub === "sync") return runRepoCommand(cliCatalog.repoScripts["skill sync"], rest);
+      if (sub === "commands") return runRepoCommand(cliCatalog.repoScripts["skill commands"], rest);
       console.error(`unknown: roborepo skill ${sub ?? ""}`.trim());
       return usage();
 
@@ -174,19 +90,19 @@ async function dispatch(args) {
     // bootstrap (scripts/install/main.sh) — that's how roborepo lands on PATH — so the CLI
     // only ever re-applies: `update` re-runs that same script to pick up new config.
     case "update":
-      return runRepoScript("scripts/install/main.sh", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.update, [sub, ...rest].filter(Boolean));
     case "uninstall":
-      return runRepoScript("scripts/install/uninstall.sh", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.uninstall, [sub, ...rest].filter(Boolean));
     case "sync":
-      return runRepoScript("scripts/sync-from-home.sh", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.sync, [sub, ...rest].filter(Boolean));
     case "doctor":
-      return runRepoScript("scripts/doctor.sh", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.doctor, [sub, ...rest].filter(Boolean));
     case "verify":
-      return runRepoScript("scripts/verify-install.sh", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.verify, [sub, ...rest].filter(Boolean));
     case "rules":
-      return runRepoScript("scripts/build/render-rules.sh", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.rules, [sub, ...rest].filter(Boolean));
     case "permissions":
-      return runRepoNodeScript("scripts/build/render-agent-permissions.mjs", [sub, ...rest].filter(Boolean));
+      return runRepoCommand(cliCatalog.repoScripts.permissions, [sub, ...rest].filter(Boolean));
 
     default:
       console.error(`unknown command: ${args.join(" ")}`);

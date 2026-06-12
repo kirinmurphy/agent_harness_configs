@@ -205,6 +205,24 @@ assert "skill new: standalone creates shared command source" \
   test -f "${new_harness}/globals/commands/demo-command.md"
 assert "skill new: standalone renders selected harness only" \
   bash -c "test -f '${new_harness}/globals/claude/commands/demo-command.md' && ! test -e '${new_harness}/globals/codex/commands/demo-command.md'"
+assert "skill new: duplicate harness rejected" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=standalone --name=dupe-harness --description='Duplicate harness workflow.' --harnesses=claude,claude >/dev/null 2>&1"
+assert "skill new: duplicate command rejected before partial skill write" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=skill-command --name=partial-skill --command=demo-command --description='Partial write guard.' >/dev/null 2>&1 && ! test -e '${new_harness}/globals/agents/skills/partial-skill'"
+assert "skill new: standalone rejects irrelevant risk flag" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=standalone --name=bad-risk --description='Bad risk workflow.' --risk=medium >/dev/null 2>&1"
+assert "skill new: skill-command rejects irrelevant category flag" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=skill-command --name=bad-category --description='Bad category workflow.' --category=repo >/dev/null 2>&1"
+assert "skill new: auto rejects irrelevant harnesses flag" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=auto --name=bad-harnesses --description='Bad harness workflow.' --harnesses=claude >/dev/null 2>&1"
+assert "skill new: auto rejects irrelevant command flag" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=auto --name=bad-command-auto --command=ignored --description='Bad command workflow.' >/dev/null 2>&1"
+assert "skill new: standalone rejects irrelevant command flag" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=standalone --name=bad-command-standalone --command=ignored --description='Bad command workflow.' >/dev/null 2>&1"
+mkdir -p "${new_harness}/globals/agents/skills/existing-dir"
+printf 'support only\n' > "${new_harness}/globals/agents/skills/existing-dir/notes.txt"
+assert "skill new: refuses existing skill dir without partial write" \
+  bash -c "cd '${work}' && ! node '${new_harness}/scripts/cli/main.mjs' skill new --kind=auto --name=existing-dir --description='Existing dir guard.' >/dev/null 2>&1 && ! test -e '${new_harness}/globals/agents/skills/existing-dir/SKILL.md'"
 
 # ---------------------------------------------------------------------------
 # roborepo skill export

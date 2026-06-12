@@ -54,5 +54,16 @@
     { "header": "Other" },
     { "label": "help", "value": ["--help"], "desc": "show full usage" },
     { "label": "exit", "value": null, "desc": "quit" }
-  ]
+  ],
+  "repoScripts": {
+    "skill sync": { "runtime": "bash", "path": "scripts/build/link-skills.sh" },
+    "skill commands": { "runtime": "node", "path": "scripts/build/render-slash-commands.mjs" },
+    "update": { "runtime": "bash", "path": "scripts/install/main.sh" },
+    "uninstall": { "runtime": "bash", "path": "scripts/install/uninstall.sh" },
+    "sync": { "runtime": "bash", "path": "scripts/sync-from-home.sh" },
+    "doctor": { "runtime": "bash", "path": "scripts/doctor.sh" },
+    "verify": { "runtime": "bash", "path": "scripts/verify-install.sh" },
+    "rules": { "runtime": "bash", "path": "scripts/build/render-rules.sh" },
+    "permissions": { "runtime": "node", "path": "scripts/build/render-agent-permissions.mjs" }
+  }
 }
