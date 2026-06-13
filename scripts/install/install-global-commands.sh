@@ -97,6 +97,13 @@ check_command_target() {
     return 0
   fi
 
+  # A dangling symlink (link present, target missing) is a stale link from a prior
+  # checkout path — e.g. after the repo was renamed/moved. It is never a live user
+  # command, so it is safe to reclaim. link_command replaces it below; do not block.
+  if [[ -L "${target}" && ! -e "${target}" ]]; then
+    return 0
+  fi
+
   print_command_conflict_prompt "${name}" "${target}" "${source_path}"
   return 1
 }
@@ -129,22 +136,31 @@ link_command() {
   if [[ -e "${target}" || -L "${target}" ]]; then
     local current
     current="$(readlink "${target}" 2>/dev/null || true)"
-    if [[ "${current}" != "${source_path}" ]]; then
-      print_command_conflict_prompt "${name}" "${target}" "${source_path}"
-      exit 1
-    else
+    if [[ "${current}" == "${source_path}" ]]; then
       echo "ok: ${target}"
-    fi
-  fi
-
-  if [[ ! -L "${target}" ]]; then
-    if [[ "${dry_run}" -eq 1 ]]; then
-      echo "link: ${target} -> ${source_path}"
       return
     fi
-    ln -s "${source_path}" "${target}"
-    echo "link: ${target} -> ${source_path}"
+    # Reclaim a dangling link (stale prior-checkout path) by replacing it. Any other
+    # mismatch is a real conflict (live file or link to something that still exists).
+    if [[ -L "${target}" && ! -e "${target}" ]]; then
+      if [[ "${dry_run}" -eq 1 ]]; then
+        echo "relink: ${target} -> ${source_path} (was dangling)"
+        return
+      fi
+      ln -sfn "${source_path}" "${target}"
+      echo "relink: ${target} -> ${source_path} (was dangling)"
+      return
+    fi
+    print_command_conflict_prompt "${name}" "${target}" "${source_path}"
+    exit 1
   fi
+
+  if [[ "${dry_run}" -eq 1 ]]; then
+    echo "link: ${target} -> ${source_path}"
+    return
+  fi
+  ln -s "${source_path}" "${target}"
+  echo "link: ${target} -> ${source_path}"
 }
 
 link_command "roborepo"

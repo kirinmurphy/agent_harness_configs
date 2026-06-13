@@ -97,6 +97,8 @@ async function dispatch(args) {
     // only ever re-applies: `update` re-runs that same script to pick up new config.
     case "update":
       return runRepoCommand(cliCatalog.repoScripts.update, [sub, ...rest].filter(Boolean));
+    case "repair":
+      return runRepoCommand(cliCatalog.repoScripts.repair, [sub, ...rest].filter(Boolean));
     case "uninstall":
       return runRepoCommand(cliCatalog.repoScripts.uninstall, [sub, ...rest].filter(Boolean));
     case "backfill":

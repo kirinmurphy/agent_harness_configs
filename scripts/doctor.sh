@@ -12,6 +12,7 @@ failed=0
 check_installed=0
 quiet=0
 passed=0
+drift_detected=0
 
 # Flags may appear in any order:
 #   --installed  also check the global ~/.claude and ~/.codex install links
@@ -84,7 +85,14 @@ import os, sys
 print(os.path.realpath(sys.argv[1]))
 PY
 )"
-  [[ "${actual}" == "${expected}" ]] && ok "${home_path} -> ${expected}" || fail "${home_path} -> ${actual}; expected ${expected}"
+  if [[ "${actual}" == "${expected}" ]]; then
+    ok "${home_path} -> ${expected}"
+  else
+    fail "${home_path} -> ${actual}; expected ${expected}"
+    # A link resolving to a different path than the current checkout is the moved/renamed-repo
+    # symptom. Point the user at the one-command fix.
+    drift_detected=1
+  fi
 }
 
 check_active_file() {
@@ -290,6 +298,10 @@ if [[ "${check_installed}" -eq 1 ]]; then
 fi
 
 if [[ "${failed}" -ne 0 ]]; then
+  if [[ "${drift_detected}" -eq 1 ]]; then
+    echo "hint: managed links resolve to a different path than this checkout — the repo was likely" >&2
+    echo "      moved or renamed. Run 'roborepo repair' to relink against the current location." >&2
+  fi
   echo "doctor failed (${passed} checks passed, see fail: lines above)" >&2
   exit 1
 fi

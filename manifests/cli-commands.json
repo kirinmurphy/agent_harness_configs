@@ -16,6 +16,7 @@
     "roborepo run <cmd> [args...]",
     "",
     "roborepo update  [--dry-run] [--mode managed|adopt] [--on-conflict overwrite|keep|agent]",
+    "roborepo repair  [--dry-run]  relink managed install after the repo was moved/renamed",
     "roborepo uninstall [--dry-run]",
     "roborepo backfill              pull live config back into the repo",
     "roborepo doctor  [--installed] health check",
@@ -30,6 +31,7 @@
   "menu": [
     { "header": "Setup" },
     { "label": "update", "value": ["update"], "desc": "re-apply harness config on this machine (pick up new config)" },
+    { "label": "repair", "value": ["repair"], "desc": "relink managed install after the repo was moved/renamed" },
     { "label": "uninstall", "value": ["uninstall"], "desc": "remove repo-owned symlinks and install state" },
     { "header": "Day to day" },
     { "label": "index code", "value": ["index", "code"], "desc": "index this repo's code for jcodemunch" },
@@ -57,6 +59,7 @@
     "skill symlink-global": { "runtime": "bash", "path": "scripts/build/link-skills.sh" },
     "skill commands": { "runtime": "node", "path": "scripts/build/render-slash-commands.mjs" },
     "update": { "runtime": "bash", "path": "scripts/install/main.sh" },
+    "repair": { "runtime": "bash", "path": "scripts/install/repair.sh" },
     "uninstall": { "runtime": "bash", "path": "scripts/install/uninstall.sh" },
     "backfill": { "runtime": "bash", "path": "scripts/sync-from-home.sh" },
     "doctor": { "runtime": "bash", "path": "scripts/doctor.sh" },

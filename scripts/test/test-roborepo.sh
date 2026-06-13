@@ -515,6 +515,64 @@ assert "snippets: no configured snippets does not create ~/.zshrc" \
   bash -c "! test -e '${empty_shome}/.zshrc'"
 
 # ---------------------------------------------------------------------------
+# repair + relocation-resilient uninstall (isolated fake HOME + two checkout paths).
+# Reproduces the moved/renamed-repo failure: install from an "old" checkout path, rename the
+# checkout, then assert that (a) uninstall reclaims the now-dangling prior-path links, and
+# (b) `roborepo repair` relinks everything against the new checkout and rewrites install state.
+# Real /tmp is a symlink to /private/tmp on macOS; resolve to a real path so manifest targets
+# and realpath-based doctor agree.
+# ---------------------------------------------------------------------------
+reloc_root="$(cd "${work}" && pwd -P)"
+
+# -- relocation-resilient uninstall --
+un_home="${reloc_root}/reloc-uninstall/home"
+un_old="${reloc_root}/reloc-uninstall/harness_configs"
+un_new="${reloc_root}/reloc-uninstall/roborepo"
+mkdir -p "${un_home}/.claude" "${un_home}/.codex" "${un_home}/.local/bin"
+cp -R "${repo_root}" "${un_old}"
+HOME="${un_home}" ROBOREPO_STATE_DIR="${un_home}/.roborepo" ROBOREPO_ASSUME_INTERACTIVE=0 \
+  ROBOREPO_ON_CONFLICT=overwrite bash "${un_old}/scripts/install/main.sh" >/dev/null 2>&1 || true
+mv "${un_old}" "${un_new}"   # rename -> all managed links now dangle to the old path
+HOME="${un_home}" ROBOREPO_STATE_DIR="${un_home}/.roborepo" \
+  bash "${un_new}/scripts/install/uninstall.sh" >/dev/null 2>&1 || true
+assert "repair: stale uninstall removes dangling prior-path managed links" \
+  bash -c "test \"\$(find '${un_home}/.claude' '${un_home}/.codex' '${un_home}/.agents' '${un_home}/.local/bin' -maxdepth 2 -type l 2>/dev/null | wc -l | tr -d ' ')\" = 0"
+
+# -- repair after relocation --
+rp_home="${reloc_root}/reloc-repair/home"
+rp_old="${reloc_root}/reloc-repair/harness_configs"
+rp_new="${reloc_root}/reloc-repair/roborepo"
+rp_state="${rp_home}/.roborepo"
+mkdir -p "${rp_home}/.claude" "${rp_home}/.codex" "${rp_home}/.local/bin"
+cp -R "${repo_root}" "${rp_old}"
+HOME="${rp_home}" ROBOREPO_STATE_DIR="${rp_state}" ROBOREPO_ASSUME_INTERACTIVE=0 \
+  ROBOREPO_ON_CONFLICT=overwrite bash "${rp_old}/scripts/install/main.sh" >/dev/null 2>&1 || true
+mv "${rp_old}" "${rp_new}"
+assert "repair: bin link dangles after relocation (precondition)" \
+  bash -c "! test -e '${rp_home}/.local/bin/roborepo'"
+HOME="${rp_home}" ROBOREPO_STATE_DIR="${rp_state}" \
+  bash "${rp_new}/scripts/install/repair.sh" >/dev/null 2>&1 || true
+assert "repair: bin link healed to new checkout" \
+  bash -c "test \"\$(readlink '${rp_home}/.local/bin/roborepo')\" = '${rp_new}/bin/roborepo'"
+assert "repair: managed skills link healed to new checkout" \
+  bash -c "test -e '${rp_home}/.claude/skills' && test \"\$(readlink '${rp_home}/.claude/skills')\" = '${rp_new}/globals/claude/skills'"
+assert "repair: agents skills link healed to new checkout" \
+  bash -c "test -e '${rp_home}/.agents/skills'"
+assert "repair: install state records the new checkout path" \
+  grep -q "\"repo\": \"${rp_new}\"" "${rp_state}/install-state.json"
+# Idempotent: a second repair reclaims nothing (everything already points at the new checkout).
+reclaim2="$(HOME="${rp_home}" ROBOREPO_STATE_DIR="${rp_state}" bash "${rp_new}/scripts/install/repair.sh" 2>&1 | grep -cE '^reclaim' || true)"
+assert "repair: idempotent re-run reclaims nothing" test "${reclaim2}" = "0"
+
+# -- install heals a dangling bin link instead of erroring --
+heal_home="${reloc_root}/heal-bin/home"
+mkdir -p "${heal_home}/.local/bin"
+ln -s "${reloc_root}/heal-bin/gone/bin/roborepo" "${heal_home}/.local/bin/roborepo"  # dangling
+heal_out="$(HOME="${heal_home}" bash "${repo_root}/scripts/install/install-global-commands.sh" --dry-run 2>&1 || true)"
+assert "install: dangling bin link is reclaimed, not a conflict" \
+  bash -c "echo '${heal_out}' | grep -q 'was dangling' && ! echo '${heal_out}' | grep -q 'conflict:'"
+
+# ---------------------------------------------------------------------------
 echo ""
 echo "roborepo tests: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]

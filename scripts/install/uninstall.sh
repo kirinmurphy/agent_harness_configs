@@ -15,29 +15,52 @@ source "${repo_root}/scripts/lib/manifests-data.sh"
 # shellcheck source=scripts/install/state-lib.sh
 source "${repo_root}/scripts/install/state-lib.sh"
 
-remove_repo_symlink() {
+# The checkout that performed the last install, recorded in install-state.json. May differ
+# from repo_root if the checkout was moved/renamed since install; used so uninstall can still
+# reclaim links left by that prior path. Empty if no state file.
+recorded_repo="$(read_install_repo 2>/dev/null || true)"
+
+# True if a symlink at ${path} is one this repo manages: it targets the current repo_root,
+# the recorded prior checkout, or is dangling (target gone — a stale prior-checkout link).
+is_managed_link() {
   local path="$1"
-  [[ -L "${path}" ]] || return 0
+  [[ -L "${path}" ]] || return 1
 
   local current
   current="$(readlink "${path}")"
   case "${current}" in
-    "${repo_root}"/*)
-      if [[ "${dry_run}" -eq 1 ]]; then
-        echo "unlink: ${path}"
-      else
-        rm "${path}"
-        echo "unlink: ${path}"
-      fi
-      ;;
+    "${repo_root}"/*) return 0 ;;
   esac
+  if [[ -n "${recorded_repo}" ]]; then
+    case "${current}" in
+      "${recorded_repo}"/*) return 0 ;;
+    esac
+  fi
+  # Dangling: link present but target missing -> stale link from a prior checkout path.
+  [[ ! -e "${path}" ]] && return 0
+  return 1
+}
+
+remove_repo_symlink() {
+  local path="$1"
+  is_managed_link "${path}" || return 0
+
+  if [[ "${dry_run}" -eq 1 ]]; then
+    echo "unlink: ${path}"
+  else
+    rm "${path}"
+    echo "unlink: ${path}"
+  fi
 }
 
 remove_file_if_repo_symlink() {
   local path="$1"
   local expected="$2"
   [[ -L "${path}" ]] || return 0
-  [[ "$(readlink "${path}")" == "${expected}" ]] || return 0
+  # Match the exact current target, or reclaim any managed/dangling link at this path.
+  if [[ "$(readlink "${path}")" != "${expected}" ]]; then
+    is_managed_link "${path}" || return 0
+  fi
 
   if [[ "${dry_run}" -eq 1 ]]; then
     echo "unlink: ${path}"

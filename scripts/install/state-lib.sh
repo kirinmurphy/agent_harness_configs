@@ -27,6 +27,24 @@ process.exit(1);
 ' "${state_file}"
 }
 
+read_install_repo() {
+  local state_file
+  state_file="$(roborepo_state_file)"
+  [[ -f "${state_file}" ]] || return 1
+
+  node -e '
+const fs = require("fs");
+try {
+  const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  if (state && typeof state.repo === "string" && state.repo.length > 0) {
+    console.log(state.repo);
+    process.exit(0);
+  }
+} catch {}
+process.exit(1);
+' "${state_file}"
+}
+
 write_install_state() {
   local mode="$1"
   local state_file state_dir
