@@ -2,34 +2,80 @@
 
 Configured in `globals/codex/hooks.json`.
 
-## SessionStart (startup|resume)
+Hooks are organized below in two parts: **Part 1** covers behaviors Codex shares
+in intent with Claude (the same goal, achieved with Codex's own mechanism), and
+**Part 2** covers what is specific to Codex — including the things Codex handles
+*outside* of hooks.
 
-**Trigger:** session start or resume event matching `startup|resume`.
+> Hooks are authored per-harness, not generated from a shared source. The format
+> and output protocols differ enough (Codex emits plain text with a `statusMessage`;
+> Claude emits JSON-control output) that the handful of shared behaviors are
+> duplicated by hand rather than rendered. See
+> [harnesses-explained.md](../internal/harnesses-explained.md#2-hooks--reacting-to-events).
 
-**What it does:** prints caveman mode activation instructions to stdout. Tells the model to drop articles/filler/pleasantries/hedging, use fragments, keep responses terse. Code, commits, and security output stays normal. User can say "stop caveman" or "normal mode" to deactivate.
+---
 
-## Notes
+## Part 1 — Common (shared intent with Claude)
+
+These cover the same goals as Claude, realized through Codex's own machinery.
+
+### Caveman activation — SessionStart (startup|resume)
+
+**Trigger:** session start or resume matching `startup|resume`.
+
+Prints caveman mode activation instructions to stdout: drop
+articles/filler/pleasantries/hedging, use fragments, keep responses terse. Code,
+commits, and security output stays normal. The user can say "stop caveman" or
+"normal mode" to deactivate. (On Claude the same outcome comes from the `caveman`
+plugin instead of a hook.)
+
+### jdocmunch index check — SessionStart (startup|resume)
+
+**Trigger:** session start or resume matching `startup|resume`.
+
+Checks for the `docs/.jdm-indexed` marker in the current repo. If `docs/` exists
+but the marker is absent, prints a reminder to run `roborepo index docs docs/`.
+If the marker is present, confirms docs are indexed. This is duplicated
+near-identically on Claude — only the output protocol differs (plain text here,
+JSON `systemMessage` on Claude).
+
+---
+
+## Part 2 — Codex-specific
+
+### Enforcement lives in rules, not tool hooks
+
+The notable Codex-specific point is what is **absent**. Codex does not block
+`Grep`/`Glob`, minimize Bash output, or guard writes via tool hooks the way Claude
+does — those are PreToolUse hooks acting on Claude-only tools and protocols.
+
+jcodemunch enforcement in Codex instead relies on rules in
+`globals/codex/rules/default.rules` and the generated `globals/codex/AGENTS.md`,
+not tool-level hooks. See [jcodemunch.md](jcodemunch.md) for full details.
+
+### Available events
 
 Codex documents support for `SessionStart`, `PreToolUse`, `PermissionRequest`,
-`PostToolUse`, `PreCompact`, `PostCompact`, `UserPromptSubmit`,
-`SubagentStart`, `SubagentStop`, and `Stop` events. Matchers are not honored by
-every event; `UserPromptSubmit` and `Stop` ignore matcher values.
+`PostToolUse`, `PreCompact`, `PostCompact`, `UserPromptSubmit`, `SubagentStart`,
+`SubagentStop`, and `Stop` events. Matchers are not honored by every event;
+`UserPromptSubmit` and `Stop` ignore matcher values. Current repo config only uses
+`SessionStart`.
 
-Current repo config only uses `SessionStart`. jcodemunch enforcement in Codex
-still relies on rules in `globals/codex/rules/default.rules` and generated
-`globals/codex/AGENTS.md` rather than tool-level hooks. See
-[jcodemunch.md](jcodemunch.md) for full details.
+---
 
-## Skill Visibility
+## Reference notes
+
+### Skill visibility
 
 Codex hook payloads include useful session, prompt, tool, and stop data, but the
 documented event payloads do not expose a stable list of skills implicitly loaded
 for a turn. Use hooks for prompt/tool/stop guardrails, not as the source of truth
 for "which skills auto-loaded" until Codex exposes explicit skill-load metadata.
 
-## Session Permissions
+### Session permissions
 
-Agent permission policy is authored in `manifests/agent-permissions.json` and rendered with:
+Agent permission policy is authored in `manifests/agent-permissions.json` and
+rendered with:
 
 ```sh
 roborepo permissions
@@ -48,8 +94,14 @@ The manifest defines named profiles used by both Claude and Codex:
 | `workspace` | Workspace writes, shell network disabled, no approval prompts; blocked actions fail. |
 | `networked` | Workspace writes with sandbox network access; ask before escapes. |
 
-The renderer writes the generated permission block in `globals/codex/config.toml`, the generated shell prefix rules in `globals/codex/rules/default.rules`, and Claude `permissions.allow` / `permissions.deny` in `globals/claude/settings.json`.
+The renderer writes the generated permission block in `globals/codex/config.toml`,
+the generated shell prefix rules in `globals/codex/rules/default.rules`, and Claude
+`permissions.allow` / `permissions.deny` in `globals/claude/settings.json`.
 
-Shell command prefix policy is active through `~/.codex/rules`, which is a symlink to `globals/codex/rules`. Git remote movement is denied there with `git push` and `git pull` prefix rules.
+Shell command prefix policy is active through `~/.codex/rules`, which is a symlink to
+`globals/codex/rules`. Git remote movement is denied there with `git push` and
+`git pull` prefix rules.
 
-`~/.codex/config.toml` is different: it is an active local root config file, not a symlink. Existing machines need the root config merge/export workflow before new baseline session defaults appear in active Codex sessions.
+`~/.codex/config.toml` is different: it is an active local root config file, not a
+symlink. Existing machines need the root config merge/export workflow before new
+baseline session defaults appear in active Codex sessions.

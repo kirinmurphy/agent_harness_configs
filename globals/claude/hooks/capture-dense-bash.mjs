@@ -78,9 +78,13 @@ const record = {
 }
 
 try {
-  const sid = (input.session_id || 'nosession').replace(/[^A-Za-z0-9._-]/g, '_')
-  const dir = process.env.TMPDIR || os.tmpdir()
-  const logPath = path.join(dir, `claude-dense-bash-${sid}.jsonl`)
+  // Persist to a single stable file so dense-command patterns accumulate ACROSS sessions and
+  // survive reboots — the whole point is to mine the corpus later. (Previously this wrote a
+  // per-session file under $TMPDIR, which was wiped before it could ever be analyzed.)
+  // session_id is kept as a field on each record, so collapsing to one file loses nothing.
+  const logDir = path.join(os.homedir(), '.claude', 'logs')
+  fs.mkdirSync(logDir, { recursive: true })
+  const logPath = path.join(logDir, 'dense-bash.jsonl')
   fs.appendFileSync(logPath, JSON.stringify(record) + '\n')
 } catch {
   // swallow — observation must never break the tool call

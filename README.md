@@ -67,19 +67,33 @@ Lighter-weight behaviors that only generate messages in the conversation — no 
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | [Convention capture](docs/reference/services/convention-capture.md) | Agents surface newly confirmed conventions as inline recommendations during the chat. |
 
+### Hooks
+
+Hooks are shell commands the harness runs on its own when an event fires — a session
+starts, or a tool is about to run. They steer the agent without the agent having to
+remember to do anything. The defaults fall into two jobs:
+
+|                |                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| Session nudges | On session start, tell the agent what's available — caveman mode, jcodemunch/jdocmunch index state. |
+| Tool guards    | Before a tool runs, redirect or tidy it — block `Grep`/`Glob` (and source-file `grep`/`cat`/`find` in Bash) toward jcodemunch, trim noisy Bash output, flag writes into managed config dirs. |
+
+Most of this is Claude-side, where the hook system is richer; Codex runs a single
+session-start nudge and leans on its rules file for the rest. Full breakdown:
+[Claude Hooks](docs/reference/services/claude-hooks.md), [Codex Hooks](docs/reference/services/codex-hooks.md).
+
 ### Harness Specifics
 
 #### Codex
 
 - **Plugins:** GitHub
-- **[Hooks](docs/reference/services/codex-hooks.md):** startup/resume activates caveman mode
+- **[Hooks](docs/reference/services/codex-hooks.md) (unique):** caveman activation runs as a session hook here; jcodemunch enforcement lives in the rules file, not in tool hooks
 - **Rules:** pre-approved safe commands for tests, builds, Docker, and local doctor checks
 - **Model/features:** `gpt-5.5`, medium reasoning, hooks, JavaScript REPL, idle-sleep prevention
 
 #### Claude
 
-- **[Hooks](docs/reference/services/claude-hooks.md):** session hooks detect watcher status, auto-index docs, and remind agents to use
-  jcodemunch/jdocmunch; tool hooks reduce broad source reads and trim noisy Bash output
+- **[Hooks](docs/reference/services/claude-hooks.md) (unique):** caveman comes from the `caveman` plugin instead of a hook; tool-level guards (block `Grep`/`Glob`, trim Bash output, guard writes into managed dirs) exist only here
 - **Behavior flags:** thinking/away-summary stay quiet; dangerous-mode prompt skipped
 
 ## Maintaining the Harnesses
@@ -91,7 +105,6 @@ Harness source lives under `globals/`, with the data that drives the build/insta
 - `globals/claude/` — Claude global rules, hooks, commands, settings baseline, and skill links
 - `globals/codex/` — Codex global rules, hooks, settings baseline, and managed markers
 - `manifests/` — `.tsv`/`.json` tables and prompts that drive install, verify, and render
-- `local/skills/` — repo-only internal skills, never global or exported
 
 Every element (rules, skills, commands, hooks, MCP, permissions, root config) is authored once and
 fanned out to both harnesses. New to the setup? Start with

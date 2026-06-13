@@ -92,6 +92,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"$HOME/.claude/hooks/block-source-exploration.mjs\""
+          },
+          {
+            "type": "command",
             "command": "node \"$HOME/.claude/hooks/minimize-bash-output.mjs\""
           },
           {
@@ -106,15 +110,6 @@
           {
             "type": "command",
             "command": "echo '{\"continue\": false, \"stopReason\": \"Grep and Glob are blocked. Use jcodemunch tools instead: search_symbols, get_file_outline, find_references, or get_context_bundle.\"}'"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"REMINDER: Prefer jcodemunch tools (search_symbols, get_file_outline, find_references, get_context_bundle) over Read for code exploration. For documentation files (.md, .rst, etc.), prefer jdocmunch tools (search_sections, get_toc, get_section). Only use Read for targeted reads of known file locations or editing workflows.\"}}'"
           }
         ]
       },
