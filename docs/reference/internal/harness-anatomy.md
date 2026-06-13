@@ -72,7 +72,7 @@ model: [Skills And Slash Commands](skills-and-commands.md) and
 
 ## Slash commands
 
-**What they do:** named workflows the user starts on purpose (`/blog`, `/design-review`,
+**What they do:** named workflows the user starts on purpose (`/blog`, `/frontend-design`,
 `/technical-planning`).
 
 **Parity model:** authored once in `manifests/slash-commands.json`, rendered into both

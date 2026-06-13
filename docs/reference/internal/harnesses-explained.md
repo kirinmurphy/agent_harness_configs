@@ -210,13 +210,13 @@ links from the canonical source, so you never hand-maintain them. Add a skill wi
 
 ## 5. Slash commands — explicit named workflows
 
-**What it does:** a workflow the *user* starts on purpose by typing `/blog`, `/design-review`,
+**What it does:** a workflow the *user* starts on purpose by typing `/blog`, `/frontend-design`,
 `/technical-planning`.
 
 **Native shape, per harness:** both scan a `commands/` directory of Markdown files
 (`~/.claude/commands/`, `~/.codex/commands/`) — pleasantly symmetric for once.
 
-**Our default:** `/blog`, `/design-review`, `/technical-planning`.
+**Our default:** `/blog`, `/frontend-design`, `/technical-planning`.
 
 **Parity model:** authored once in `manifests/slash-commands.json`, rendered into both command
 dirs by `roborepo skill commands` (`--check` to verify).
