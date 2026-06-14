@@ -7,7 +7,7 @@ How roborepo gets its version-controlled config from the repo into a user's harn
 
 The repo holds the real files under `globals/`; the install scripts create **symlinks** in
 your home harness dirs that point back at them; and a single data file —
-`manifests/manifest.tsv` — is the **one list** every script reads to know what to link, verify,
+`manifests/platform/manifest.tsv` — is the **one list** every script reads to know what to link, verify,
 or clean up.
 
 ## Glossary
@@ -26,10 +26,10 @@ Grouped by the kind of thing each term names.
 
 | Term | Meaning |
 | --- | --- |
-| **manifest** | `manifests/manifest.tsv` — the single list of managed home↔repo paths. An inventory: *these things are managed, and how.* |
-| **source-files list** | `manifests/source-files.tsv` — separate checklist of repo files that must exist (asserted by doctor). Tracks repo health, not home symlinks. |
+| **manifest** | `manifests/platform/manifest.tsv` — the single list of managed home↔repo paths. An inventory: *these things are managed, and how.* |
+| **source-files list** | `manifests/platform/source-files.tsv` — separate checklist of repo files that must exist (asserted by doctor). Tracks repo health, not home symlinks. |
 | **Bash reader** | `scripts/lib/manifests-data.sh` — bash funcs (`manifest_rows`, `source_files`) that parse the data files so POSIX scripts do not hardcode the list. |
-| **PowerShell reader** | `scripts/install/install-windows.ps1` — parses `manifests/manifest.tsv` directly for Windows installs. |
+| **PowerShell reader** | `scripts/install/install-windows.ps1` — parses `manifests/platform/manifest.tsv` directly for Windows installs. |
 | **consumer** | A script that reads the manifest: `main.sh`, `install-claude.sh`, `install-codex.sh`, `install-windows.ps1`, `verify-install.sh`, `doctor.sh`, `sync-from-home.sh`. |
 
 ### Manifest row vocabulary (what a row says)
@@ -61,7 +61,7 @@ flowchart LR
   subgraph repo["repo: globals/"]
     src["globals/claude/CLAUDE.md<br/>(real file)"]
   end
-  subgraph manifest["manifests/manifest.tsv"]
+  subgraph manifest["manifests/platform/manifest.tsv"]
     row["row: claude | link |<br/>globals/claude/CLAUDE.md |<br/>CLAUDE.md | claude"]
   end
   subgraph home["harness home"]
@@ -84,7 +84,7 @@ forget another, and they drift. Now they all read one file:
 
 ```mermaid
 flowchart TD
-  tsv["manifests/manifest.tsv<br/>(single source of truth)"]
+  tsv["manifests/platform/manifest.tsv<br/>(single source of truth)"]
   reader["scripts/lib/manifests-data.sh<br/>manifest_rows()"]
   tsv --> reader
 

@@ -168,7 +168,7 @@ check_clean_target() {
   return 1
 }
 
-# Preflight every managed link target (from manifests/manifest.tsv) for the present harnesses.
+# Preflight every managed link target (from manifests/platform/manifest.tsv) for the present harnesses.
 # Claude uses the claude rows; Codex uses codex + agents rows (skills live under ~/.agents).
 # root_config and cleanup rows are not preflighted here — root config is mutable user state
 # handled by preflight_root_config below.

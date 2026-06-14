@@ -98,7 +98,7 @@ Everything else (the two symlink levels, the layer table) lives in
 interactive menu (arrow keys + numbered fallback via `selectMenu` in `cli/skill-lib.mjs`).
 Subcommands, grouped by category:
 
-- `skill export-to-local` / `skill symlink-local` (`cli/skills.mjs`) — the dual-harness skill tools
+- `skill export-to-local` / `skill symlink-repo` (`cli/skills.mjs`) — the dual-harness skill tools
   (export bundles + copies into `.claude/skills` + `.agents/skills`; local linking is purely
   in-repo `.agents/skills` → `.claude/skills` + `.codex/skills`, with prune). Read only the shared /
   client-local layer — never `local/skills/`.
@@ -121,7 +121,7 @@ ONE global command exists (`roborepo`), so the old per-command 3-place wiring is
 `install-global-commands.sh`, `doctor.sh`, `verify-install.sh` each reference only `roborepo`.
 MAINTAINER scripts (`render-rules.sh`, `link-skills.sh`, `test-*.sh`) stay OUT of `roborepo`.
 
-**Tests:** `scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill symlink-local/prune/
+**Tests:** `scripts/test/test-roborepo.sh` smoke-tests the subcommands (skill symlink-repo/prune/
 uninstall/conflict, export-to-local/override/firewall/self-pollution guard, run, `mcp add` dry-runs + real
 Codex/Claude writes against a throwaway harness root, lifecycle dispatch, menu fallback) against
 throwaway temp repos. Run it after touching `cli/main.mjs` or anything under `scripts/cli/`.

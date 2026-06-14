@@ -94,7 +94,7 @@ Repo files are portable baselines. Active global files are local copies or exist
 
 Implication: runtime trust, hook approvals, local profiles, and machine-specific state stay out of repo source. If both sides exist, the installer keeps the local file and prints merge guidance instead of replacing it.
 
-Agent permission defaults are authored in `manifests/agent-permissions.json` and rendered by `scripts/build/render-agent-permissions.mjs`.
+Agent permission defaults are authored in `manifests/inventory/agent-permissions.json` and rendered by `scripts/build/render-agent-permissions.mjs`.
 
 - `globals/codex/config.toml` receives the generated session profile block, such as `sandbox_mode`, `approval_policy`, and workspace network access.
 - `globals/codex/rules/default.rules` receives generated shell command prefix policy such as allowed local commands and denied Git remote commands.
@@ -208,7 +208,7 @@ list). For the dual-harness skill model it offers:
 
 - `skill export-to-local`: bundles shared skills into a `.zip` and copies them into a target repo's
   `.agents/skills` plus harness-specific skill folders.
-- `skill symlink-local`: treats the target repo's own `.agents/skills/<name>` as the canonical project
+- `skill symlink-repo`: treats the target repo's own `.agents/skills/<name>` as the canonical project
   skill source, then symlinks those skills into selected `.claude/skills` and/or `.codex/skills`
   folders. Existing `.claude` and `.codex` roots are used automatically; when run interactively and
   a root is missing, it asks whether to create/link that target. Noninteractive runs do not create

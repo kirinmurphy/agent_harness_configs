@@ -24,7 +24,7 @@ print_agent_sync_prompt() {
   sed \
     -e "s#{{HOME_PATH}}#${home_path}#g" \
     -e "s#{{DST}}#${dst}#g" \
-    "${repo_root}/manifests/prompts/sync-merge.md"
+    "${repo_root}/manifests/platform/prompts/sync-merge.md"
   echo "-----"
   echo ""
 }

@@ -3,12 +3,12 @@
 # install / verify / doctor / sync scripts. Source this file; do not execute. Requires
 # ${repo_root} to be set by the caller.
 #
-#   manifests/manifest.tsv      managed home<->repo paths   -> manifest_rows / manifest_path
-#   manifests/source-files.tsv  required-file checklist     -> source_files
-#   manifests/verify-content.tsv post-install content checks -> verify_content_rows
-#   manifests/rule-targets.tsv   generated rule targets      -> rule_target_rows
-#   manifests/shell-snippets.tsv shell source/prune catalog   -> shell_snippet_rows
-#   manifests/harnesses.tsv      harness presence metadata    -> harness_rows / harness_present
+#   manifests/platform/manifest.tsv       managed home<->repo paths   -> manifest_rows / manifest_path
+#   manifests/platform/source-files.tsv   required-file checklist     -> source_files
+#   manifests/platform/verify-content.tsv post-install content checks -> verify_content_rows
+#   manifests/platform/rule-targets.tsv   generated rule targets      -> rule_target_rows
+#   manifests/platform/shell-snippets.tsv shell source/prune catalog   -> shell_snippet_rows
+#   manifests/platform/harnesses.tsv      harness presence metadata    -> harness_rows / harness_present
 #
 # manifest_path
 #   Echo the absolute path to the manifest.
@@ -25,7 +25,7 @@
 # Home roots are resolved here so no other script hardcodes ~/.claude etc.
 
 manifest_path() {
-  echo "${repo_root}/manifests/manifest.tsv"
+  echo "${repo_root}/manifests/platform/manifest.tsv"
 }
 
 # Resolve a home_root token (claude|codex|agents) to an absolute dir.
@@ -62,7 +62,7 @@ manifest_has_flag() {
   [[ ",${flags}," == *",${flag},"* ]]
 }
 
-# Emit each repo-relative path from manifests/source-files.tsv, one per line. This is the
+# Emit each repo-relative path from manifests/platform/source-files.tsv, one per line. This is the
 # "packing checklist" of files the repo must contain (asserted by doctor). Comments and
 # blank lines are skipped.
 source_files() {
@@ -70,7 +70,7 @@ source_files() {
   while IFS= read -r line; do
     [[ -z "${line}" || "${line}" == \#* ]] && continue
     echo "${line}"
-  done < "${repo_root}/manifests/source-files.tsv"
+  done < "${repo_root}/manifests/platform/source-files.tsv"
 }
 
 verify_content_rows() {
@@ -79,7 +79,7 @@ verify_content_rows() {
     [[ -z "${home_root}" || "${home_root}" == \#* ]] && continue
     home_abs="$(_manifest_home_root "${home_root}")/${home_sub}"
     printf '%s\t%s\t%s\n' "${home_abs}" "${pattern}" "${label}"
-  done < "${repo_root}/manifests/verify-content.tsv"
+  done < "${repo_root}/manifests/platform/verify-content.tsv"
 }
 
 rule_target_rows() {
@@ -87,7 +87,7 @@ rule_target_rows() {
   while IFS=$'\t' read -r target source_dirs; do
     [[ -z "${target}" || "${target}" == \#* ]] && continue
     printf '%s\t%s\n' "${target}" "${source_dirs}"
-  done < "${repo_root}/manifests/rule-targets.tsv"
+  done < "${repo_root}/manifests/platform/rule-targets.tsv"
 }
 
 shell_snippet_rows() {
@@ -95,7 +95,7 @@ shell_snippet_rows() {
   while IFS=$'\t' read -r kind path; do
     [[ -z "${kind}" || "${kind}" == \#* ]] && continue
     printf '%s\t%s\n' "${kind}" "${path}"
-  done < "${repo_root}/manifests/shell-snippets.tsv"
+  done < "${repo_root}/manifests/platform/shell-snippets.tsv"
 }
 
 harness_rows() {
@@ -103,7 +103,7 @@ harness_rows() {
   while IFS=$'\t' read -r harness home_roots presence_roots display_name; do
     [[ -z "${harness}" || "${harness}" == \#* ]] && continue
     printf '%s\t%s\t%s\t%s\n' "${harness}" "${home_roots}" "${presence_roots}" "${display_name}"
-  done < "${repo_root}/manifests/harnesses.tsv"
+  done < "${repo_root}/manifests/platform/harnesses.tsv"
 }
 
 harness_present() {

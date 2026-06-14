@@ -1,0 +1,26 @@
+# manifests/inventory
+
+The **supplied catalog** — the config items roborepo ships and fans out to the harnesses.
+This is the place to *add things*. It is deliberately separate from `manifests/platform/`
+(the install/verify/render plumbing) so adding an item can never accidentally disturb how
+the installer wires `~/.claude` / `~/.codex`.
+
+## Files
+
+| File | What it holds | How to add an item |
+| --- | --- | --- |
+| `mcp-presets.json` | MCP server presets offered by `roborepo mcp add` | **Hand-edit.** No add command. `roborepo mcp add` *reads* a preset and writes it into live config; it never writes back here. |
+| `agent-permissions.json` | Agent permission profiles (readonly / interactive / …) | **Hand-edit.** No add command. The renderer (`roborepo permissions`) *reads* a profile and generates the `globals/*` blocks; it never writes back here. |
+| `slash-commands.json` | Slash commands rendered into both harnesses | **`roborepo skill new`** appends + sorts + writes this for you. (Plain JSON, so hand-editing also works.) |
+| `skill-invocation.json` | Per-skill risk / invocation policy | **`roborepo skill new`** appends + sorts + writes this for you. (Plain JSON, so hand-editing also works.) |
+
+## Two ways an item lands here
+
+- **CLI-written:** `slash-commands.json`, `skill-invocation.json` — added by
+  `roborepo skill new` (see `scripts/cli/skill-new-manifests.mjs`).
+- **Hand-edited:** `mcp-presets.json`, `agent-permissions.json` — no add command exists;
+  open the file and add the entry, then run the consumer (`roborepo mcp add` /
+  `roborepo permissions`) to use it.
+
+After editing any file here, run `roborepo doctor` (and `roborepo permissions --check` /
+`roborepo skill render-commands --check` for the rendered ones) to confirm nothing drifted.

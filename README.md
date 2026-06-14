@@ -104,7 +104,10 @@ Harness source lives under `globals/`, with the data that drives the build/insta
 - `globals/agents/skills/` — shared skill source, global and exportable
 - `globals/claude/` — Claude global rules, hooks, commands, settings baseline, and skill links
 - `globals/codex/` — Codex global rules, hooks, settings baseline, and managed markers
-- `manifests/` — `.tsv`/`.json` tables and prompts that drive install, verify, and render
+- `manifests/inventory/` — the supplied catalog you add items to: MCP presets, slash commands,
+  skill-invocation policy, and agent permission profiles
+- `manifests/platform/` — install/verify/render plumbing: the `.tsv` path tables, content checks,
+  the CLI usage catalog, and merge prompts
 
 Every element (rules, skills, commands, hooks, MCP, permissions, root config) is authored once and
 fanned out to both harnesses. New to the setup? Start with

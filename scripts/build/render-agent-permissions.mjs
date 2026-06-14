@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
-const manifestPath = path.join(repoRoot, "manifests", "agent-permissions.json");
+const manifestPath = path.join(repoRoot, "manifests", "inventory", "agent-permissions.json");
 const codexConfigPath = path.join(repoRoot, "globals", "codex", "config.toml");
 const codexRulesPath = path.join(repoRoot, "globals", "codex", "rules", "default.rules");
 const claudeSettingsPath = path.join(repoRoot, "globals", "claude", "settings.json");
@@ -60,7 +60,7 @@ function renderCodexPermissionBlock() {
   const sandboxMode = codexSandboxMode();
   const lines = [
     begin,
-    `# Source: manifests/agent-permissions.json profile ${profileName}`,
+    `# Source: manifests/inventory/agent-permissions.json profile ${profileName}`,
     `approval_policy = ${quoteToml(codexApprovalPolicy())}`,
     `sandbox_mode = ${quoteToml(sandboxMode)}`,
   ];

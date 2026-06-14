@@ -24,7 +24,7 @@ on any machine — without the manual cleanup.
 - **Checkout** — the working copy of this repo at some absolute path. May differ
   per machine and may move over its lifetime.
 - **Managed link** — a symlink under a harness home (`~/.claude`, `~/.codex`,
-  `~/.agents`) created by the installer, listed in `manifests/manifest.tsv`. Points
+  `~/.agents`) created by the installer, listed in `manifests/platform/manifest.tsv`. Points
   into the checkout.
 - **Bin link** — `~/.local/bin/roborepo`, the symlink that puts the command on
   `PATH`. Points at `<checkout>/bin/roborepo`.
@@ -35,7 +35,7 @@ on any machine — without the manual cleanup.
   `~/.roborepo/current -> <checkout>`. All managed links and the bin link point
   through this stable path instead of at the checkout directly.
 
-Source of truth for *what* is linked is `manifests/manifest.tsv`. Source of truth
+Source of truth for *what* is linked is `manifests/platform/manifest.tsv`. Source of truth
 for *where the checkout is* becomes the stable root link, with the recorded `repo`
 in install state as the authoritative fallback for detection and repair.
 

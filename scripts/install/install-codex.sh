@@ -37,7 +37,7 @@ harness_present codex || {
   exit 0
 }
 
-# Managed rows come from manifests/manifest.tsv: codex harness (AGENTS.md, hooks.json, rules,
+# Managed rows come from manifests/platform/manifest.tsv: codex harness (AGENTS.md, hooks.json, rules,
 # config.toml, plus cleanup of the retired ~/.codex/skills link) and agents harness (the
 # canonical ~/.agents/skills link -> globals/agents/skills).
 codex_rows() { manifest_rows codex; manifest_rows agents; }

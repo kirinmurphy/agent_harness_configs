@@ -82,7 +82,7 @@ check_active_file() {
   fi
 }
 
-# Managed links + root configs come from manifests/manifest.tsv (single source of truth,
+# Managed links + root configs come from manifests/platform/manifest.tsv (single source of truth,
 # shared with the installer/doctor/sync). link -> symlink check; root_config -> active
 # local file; cleanup rows are not verified here (they only ever get pruned, not created).
 while IFS=$'\t' read -r _harness kind src_rel home_abs _flags; do

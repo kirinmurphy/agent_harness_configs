@@ -30,7 +30,7 @@ Non-root harness targets include skills, hooks, commands, rules, managed marker 
 
 ## Permission Profile Selection
 
-Permission profiles are rendered from `manifests/agent-permissions.json` before install or update:
+Permission profiles are rendered from `manifests/inventory/agent-permissions.json` before install or update:
 
 ```sh
 ./scripts/install/main.sh --permissions interactive

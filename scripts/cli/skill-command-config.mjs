@@ -1,8 +1,8 @@
 import path from "node:path";
 import { repoRoot } from "./paths.mjs";
 
-export const SKILL_INVOCATION_MANIFEST_REL = "manifests/skill-invocation.json";
-export const SLASH_COMMANDS_MANIFEST_REL = "manifests/slash-commands.json";
+export const SKILL_INVOCATION_MANIFEST_REL = "manifests/inventory/skill-invocation.json";
+export const SLASH_COMMANDS_MANIFEST_REL = "manifests/inventory/slash-commands.json";
 
 export const SKILL_INVOCATION_MANIFEST = path.join(repoRoot, SKILL_INVOCATION_MANIFEST_REL);
 export const SLASH_COMMANDS_MANIFEST = path.join(repoRoot, SLASH_COMMANDS_MANIFEST_REL);

@@ -2,7 +2,7 @@
 
 ## Context
 
-`manifests/manifest.tsv` is now the single source of truth for managed home<->repo paths,
+`manifests/platform/manifest.tsv` is now the single source of truth for managed home<->repo paths,
 read by the bash scripts via `scripts/lib/manifests-data.sh` (`manifest_rows`) and by the
 Windows installer via its PowerShell TSV reader.
 
@@ -52,7 +52,7 @@ Rows flagged `nosync` are skipped before this mapping.
       prompts keep the terminal as stdin.
 - [x] parity proven — `test-install-collisions.sh` sync tests pass (keep/overwrite/agent
       choices), full suite green.
-- [x] Windows installer migrated — `install-windows.ps1` now parses `manifests/manifest.tsv`
+- [x] Windows installer migrated — `install-windows.ps1` now parses `manifests/platform/manifest.tsv`
       directly instead of hand-listing managed home paths.
 
 > Implementation note: the manifest loop MUST read on a non-stdin FD (`done 3< <(manifest_rows)`

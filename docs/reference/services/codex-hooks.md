@@ -74,7 +74,7 @@ for "which skills auto-loaded" until Codex exposes explicit skill-load metadata.
 
 ### Session permissions
 
-Agent permission policy is authored in `manifests/agent-permissions.json` and
+Agent permission policy is authored in `manifests/inventory/agent-permissions.json` and
 rendered with:
 
 ```sh

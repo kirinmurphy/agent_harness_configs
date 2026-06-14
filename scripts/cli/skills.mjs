@@ -42,7 +42,7 @@ async function resolveSkillInstallTargets(repo, { dryRun = false, uninstall = fa
   return selected.map((target) => target.root);
 }
 
-export async function skillLink(flags, commandName = "skill symlink-local") {
+export async function skillLink(flags, commandName = "skill symlink-repo") {
   for (const f of flags) {
     if (f === "--dry-run" || f === "--uninstall") continue;
     console.error(`unknown flag for "${commandName}": ${f}`);

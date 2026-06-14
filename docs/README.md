@@ -19,7 +19,7 @@ Use these when setting up, operating, or deciding what to do:
 
 Use these when changing or debugging how the harness is wired:
 
-- [How the Harnesses Work, and How We Build Parity](reference/internal/harnesses-explained.md)
+- [How the Harnesses Work, and Why Parity Takes the Shape It Does](reference/internal/harnesses-explained.md)
 - [Harness Anatomy and Parity](reference/internal/harness-anatomy.md)
 - [Architecture](reference/services/architecture.md)
 - [Claude Hooks](reference/services/claude-hooks.md)

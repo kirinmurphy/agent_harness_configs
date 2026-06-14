@@ -166,11 +166,11 @@ Use this order:
 
 Skill invocation policy lives in:
 
-- `manifests/skill-invocation.json`
+- `manifests/inventory/skill-invocation.json`
 
 Slash command exposure lives in:
 
-- `manifests/slash-commands.json`
+- `manifests/inventory/slash-commands.json`
 
 The renderer writes harness-specific command files:
 
@@ -181,8 +181,8 @@ Generated files should not be edited directly. Edit the manifest or the shared
 source file, then run:
 
 ```sh
-roborepo skill commands
-roborepo skill commands --check
+roborepo skill render-commands
+roborepo skill render-commands --check
 ```
 
 For new entries, prefer the scaffold:

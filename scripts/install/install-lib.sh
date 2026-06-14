@@ -499,7 +499,7 @@ print_agent_merge_prompt() {
     -e "s#{{HOME_PATH}}#${home_path}#g" \
     -e "s#{{MODE}}#${mode}#g" \
     -e "s#{{HARNESS}}#${harness}#g" \
-    "${repo_root}/manifests/prompts/install-root-config-merge.md"
+    "${repo_root}/manifests/platform/prompts/install-root-config-merge.md"
   echo "-----"
   echo ""
 }

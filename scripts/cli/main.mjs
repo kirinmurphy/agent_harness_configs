@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // roborepo CLI orchestrator. User-facing usage/menu text and repo script targets live in
-// manifests/cli-commands.json; command implementations live in sibling modules.
+// manifests/platform/cli-commands.json; command implementations live in sibling modules.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -13,7 +13,7 @@ import { indexCode, indexDocs, watchCode, runCmd } from "./index.mjs";
 import { mcpAdd } from "./mcp.mjs";
 
 const argv = process.argv.slice(2);
-const cliCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, "manifests", "cli-commands.json"), "utf8"));
+const cliCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, "manifests", "platform", "cli-commands.json"), "utf8"));
 
 // --------------------------------------------------------------------------- help
 
@@ -63,13 +63,13 @@ async function dispatch(args) {
     case "skill":
       if (sub === "export-to-local") return skillExport(new Set(rest), `skill ${sub}`);
       if (sub === "new") return skillNew(rest);
-      if (sub === "symlink-local") {
+      if (sub === "symlink-repo") {
         return skillLink(flags, `skill ${sub}`);
       }
-      if (sub === "symlink-global") {
-        return runRepoCommand(cliCatalog.repoScripts["skill symlink-global"], rest);
+      if (sub === "symlink-globals") {
+        return runRepoCommand(cliCatalog.repoScripts["skill symlink-globals"], rest);
       }
-      if (sub === "commands") return runRepoCommand(cliCatalog.repoScripts["skill commands"], rest);
+      if (sub === "render-commands") return runRepoCommand(cliCatalog.repoScripts["skill render-commands"], rest);
       console.error(`unknown: roborepo skill ${sub ?? ""}`.trim());
       return usageError();
 

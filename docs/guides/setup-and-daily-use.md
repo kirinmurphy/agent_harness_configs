@@ -86,7 +86,7 @@ Agent permission defaults start in one manifest:
 roborepo permissions --profile interactive
 ```
 
-Profiles live in `manifests/agent-permissions.json`. The renderer updates the generated permission block in `globals/codex/config.toml`, the shell prefix rules in `globals/codex/rules/default.rules`, and Claude `permissions.allow` / `permissions.deny` in `globals/claude/settings.json`. Existing `~/.codex/config.toml` and `~/.claude/settings.json` files are local root config, so merge/export is required before a newly rendered session profile affects an already set up machine. `~/.codex/rules` is symlinked, so generated command rules are live immediately.
+Profiles live in `manifests/inventory/agent-permissions.json`. The renderer updates the generated permission block in `globals/codex/config.toml`, the shell prefix rules in `globals/codex/rules/default.rules`, and Claude `permissions.allow` / `permissions.deny` in `globals/claude/settings.json`. Existing `~/.codex/config.toml` and `~/.claude/settings.json` files are local root config, so merge/export is required before a newly rendered session profile affects an already set up machine. `~/.codex/rules` is symlinked, so generated command rules are live immediately.
 
 During install or update, choose a profile with:
 
@@ -108,7 +108,7 @@ Profile scope:
 
 | Scope | How to set it | What changes |
 | --- | --- | --- |
-| This repo baseline | `roborepo permissions --profile <name>` | Re-renders tracked `globals/*` files from `manifests/agent-permissions.json`. |
+| This repo baseline | `roborepo permissions --profile <name>` | Re-renders tracked `globals/*` files from `manifests/inventory/agent-permissions.json`. |
 | One install/update run | `./scripts/install/main.sh --permissions <name>` or `roborepo update --permissions <name>` | Renders the chosen profile before export/link checks. |
 | Existing active root config | Merge/export root config after rendering | Required because `~/.claude/settings.json` and `~/.codex/config.toml` are local active files, not symlinks. |
 

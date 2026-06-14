@@ -1,57 +1,100 @@
-# How the Harnesses Work, and How We Build Parity
+# How the Harnesses Work, and Why Parity Takes the Shape It Does
 
-This is the teaching doc. It assumes you know neither Claude Code nor Codex deeply, and walks
-through what a "harness" is, what each kind of configuration does **natively on each harness**, what
-**defaults** this repo ships, and finally the repeatable **pattern** we use to wrap both harnesses
-so a single edit stays in parity across them.
+This is the teaching doc. It assumes you know neither Claude Code nor Codex deeply. It explains what
+a "harness" is, how the same behavior is expressed _differently_ on each one, and why we reach for a
+different parity mechanism for each kind of configuration — from "do almost nothing" to "give up on
+automation entirely, on purpose."
 
-If you already know all that and just want "which command changes element X," use the
-[Harness Anatomy](harness-anatomy.md) reference table instead. This doc is the why and how behind it.
+This doc is the **why**. It does not list the commands you run — that is the job of the
+[Harness Anatomy](harness-anatomy.md) reference table, which has one row per element with its source
+location and its exact `roborepo` command. Read this first for the concepts; go there to actually
+change something.
 
 ## What a harness is
 
-A *harness* is the program that runs an AI coding agent on your machine — it loads instructions,
+A _harness_ is the program that runs an AI coding agent on your machine — it loads instructions,
 exposes tools, runs the model, and reacts to events. This repo configures two of them:
 
 - **Claude Code** — reads its config from `~/.claude/`.
 - **Codex** — reads its config from `~/.codex/` (and skills from `~/.agents/`).
 
-They do the same *kind* of thing but disagree on file names, file formats, and which directory they
+They do the same _kind_ of thing but disagree on file names, file formats, and which directory they
 scan. That disagreement is the entire reason this repo exists: we want to write a behavior **once**
 and have both harnesses pick it up. The repo is the source of truth; both harness home directories
 are downstream of it (mostly via symlinks — see [How It Works](../services/architecture.md) for the
 filesystem mechanics).
 
-The configuration splits into a handful of element types. We'll take each one in turn: what it does,
-how each harness expects it natively, and what we ship as the default.
+## The shape of the problem
+
+Every piece of harness configuration is the same story told twice — once in Claude's dialect, once in
+Codex's. How _far apart_ the two tellings are decides how much work it takes to keep them in sync.
+Two harnesses can disagree on any of four things:
+
+- **Name** — `CLAUDE.md` vs `AGENTS.md` for the same always-on rules file.
+- **Format** — JSON for Claude, TOML for Codex.
+- **Location** — which directory the harness scans.
+- **Semantics** — the deeper one: not just where the config lives but what it _means_. A hook that
+  prints JSON the harness obeys is a different thing from a hook that prints text the harness shows.
+
+When two harnesses differ only on name or location, bridging them is cheap. When they differ on
+semantics, no amount of file shuffling will help — the behavior has to be expressed twice, by hand.
+
+So the rest of this doc walks the configuration elements in order of **how much machinery it takes to
+keep them in parity** — from the case where the harnesses already agree, up to the case where we
+decide parity isn't even the goal. Each step adds exactly as much mechanism as the divergence
+demands, and no more.
+
+Here is the whole story on one page, scored against the four axes. The more boxes that differ — and
+especially if **semantics** differs — the more (or different) machinery parity needs:
+
+| Element | Name | Format | Location | Semantics | → Resolution |
+| --- | :---: | :---: | :---: | :---: | --- |
+| Slash commands | ✅ | ✅ | ❌ | ✅ | Stamp a copy |
+| Global rules | ❌ | ✅ | ❌ | ✅ | Generator |
+| Permissions | ❌ | ❌ | ❌ | ✅ | Generator (two output shapes) |
+| Skills | ✅ | ✅ | ❌ | ✅ | Symlink |
+| MCP servers | ❌ | ❌ | ❌ | ✅ | One front-door command |
+| Hooks | ❌ | ❌ | ❌ | **❌** | Author twice, by hand |
+| Root config | ❌ | ❌ | ❌ | ❌ | No parity, on purpose |
+
+✅ = the harnesses agree on this axis, ❌ = they differ. Note the jump at hooks: every other element
+agrees on **semantics** (a rule means the same thing on both sides, only the wrapping differs), so a
+generator or a link can bridge it. Hooks are the first where the _meaning_ itself diverges — which is
+exactly why automation stops there. Root config differs on everything too, but for the opposite
+reason: there, difference is the point.
+
+The rest of the doc walks these rows top to bottom, one section each.
 
 ---
 
-## 1. Global rules — the always-on instructions
+## Step 1 — When they already agree: slash commands
 
-**What it does:** a single instruction file the harness loads at the start of every session. It
-sets the agent's standing behavior — tone, exploration habits, how it verifies work.
+A _slash command_ is a workflow the **user** starts on purpose by typing `/blog` or
+`/technical-planning`. It's the easiest case because both harnesses happen to agree on almost
+everything: both scan a `commands/` directory of Markdown files, same format, same idea. The only
+gap is location (`~/.claude/commands/` vs `~/.codex/commands/`).
 
-**Native shape, per harness:**
+Because the gap is so small, parity barely needs a mechanism. We keep one list of commands and stamp
+a copy into each directory. There's nothing to reconcile — the two outputs are the same file in two
+places.
 
-- Claude reads `~/.claude/CLAUDE.md`.
-- Codex reads `~/.codex/AGENTS.md`.
+> Takeaway: when harnesses already agree on format and meaning, parity is almost free.
 
-Same idea, two filenames. Both are plain Markdown.
+---
 
-**Our default:** caveman mode on by default, jcodemunch/jdocmunch for exploration, minimal
-verification, session-capture flagging. But we do **not** write these two files by hand — they are
-*generated*. The real source is small fragments under `globals/rules/shared/`:
+## Step 2 — Bridging a cosmetic gap: global rules
 
-```text
-globals/rules/shared/00-communication.md
-globals/rules/shared/10-exploration.md
-globals/rules/shared/20-verification.md
-globals/rules/shared/30-session-capture.md
-globals/rules/shared/40-temp-files.md
-```
+_Global rules_ are the always-on instructions a harness loads at the very start of every session —
+the agent's standing behavior, like tone, how it explores code, how it verifies its work. Claude
+reads them from `CLAUDE.md`; Codex reads them from `AGENTS.md`.
 
-A fragment is just the behavior, harness-agnostic:
+The only real difference is the **name**. Both are plain Markdown saying the same thing. But we still
+don't write the two files by hand — and the reason is a lesson that recurs everywhere below: _the
+behavior is the source of truth, not the file._
+
+The real source is a set of small, harness-agnostic fragments — one per behavior (communication,
+exploration, verification, and so on). A fragment is just the rule, with no idea which harness it's
+bound for:
 
 ```markdown
 ## Communication
@@ -61,9 +104,8 @@ Use caveman full by default. Terse, no filler, fragments OK.
 Switch to normal mode only when the user explicitly says `normal mode` or `stop caveman`.
 ```
 
-The renderer concatenates the shared fragments (plus any `globals/rules/claude/` or
-`globals/rules/codex/` harness-only fragments) into each target file and stamps a header so nobody
-edits the output by mistake:
+A renderer concatenates the fragments into each target file and stamps a do-not-edit header so nobody
+hand-edits the output:
 
 ```markdown
 # Generated Harness Rules
@@ -72,248 +114,159 @@ Generated from `globals/rules/shared/` and harness-specific `globals/rules/<harn
 Do not edit this file directly; edit rule fragments and run `./scripts/build/render-rules.sh`.
 ```
 
-So: **one fragment edit → both `CLAUDE.md` and `AGENTS.md` regenerate identically.** That is parity
-by generation. Run `roborepo rules` to regenerate, `roborepo rules --check` to verify nothing
-drifted.
+One fragment edit regenerates **both** files identically. That is parity by generation, and it costs
+us exactly one small generator to bridge a difference that is only skin-deep.
+
+> Takeaway: even a trivial difference is worth a generator, because it makes "the behavior" — not the
+> per-harness file — the thing you edit.
 
 ---
 
-## 2. Hooks — reacting to events
+## Step 3 — Bridging a structural gap: permissions
 
-**What it does:** shell commands the harness runs when something happens — a session starts, a tool
-is about to run. Hooks can print a message into the session or block a tool.
+_Permissions_ are the allow/deny lists that say what the agent may do without stopping to ask —
+which shell commands, which tools, which external calls — plus session defaults like sandboxing.
 
-This is the element where the two harnesses diverge the most, so it's the clearest illustration of
-why parity takes work.
+Here the harnesses diverge harder. It's no longer just a name:
 
-**Native shape — Claude.** Hooks live inside `~/.claude/settings.json` under a `hooks` key, organized
-by event name, each with a `matcher` and a list of commands. A hook influences the session by
-printing JSON to stdout:
+- Claude expresses permissions as a JSON array of tool matchers inside `settings.json`.
+- Codex expresses them as a TOML session profile _plus_ a separate command-policy rules file.
 
-```jsonc
-// globals/claude/settings.json (trimmed)
-"hooks": {
-  "PreToolUse": [
-    {
-      "matcher": "Grep|Glob",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "echo '{\"continue\": false, \"stopReason\": \"Grep and Glob are blocked. Use jcodemunch tools instead.\"}'"
-        }
-      ]
-    }
-  ]
-}
+Different **format** and different **structure** — an array of strings versus a profile-and-rules
+pair. Yet the principle from Step 2 carries straight over: author the intent once, in a neutral data
+file, then _render_ it into each harness's native shape. The renderer owns a clearly marked block in
+each output and leaves the rest of the file alone:
+
+```toml
+# BEGIN GENERATED AGENT PERMISSIONS
+# Source: manifests/inventory/agent-permissions.json profile interactive
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+# END GENERATED AGENT PERMISSIONS
 ```
 
-**Native shape — Codex.** Hooks live in a *separate* file, `~/.codex/hooks.json`, with a similar
-event/matcher structure but its own conventions — e.g. a `statusMessage` field, and output is read
-as plain text rather than the JSON-control protocol Claude uses:
+The mechanism is the same as global rules — one source, a renderer per target — even though the two
+outputs look nothing alike. That's the point: a bigger structural gap doesn't need a _different kind_
+of solution, just a renderer that knows two output shapes instead of one.
 
-```jsonc
-// globals/codex/hooks.json (trimmed)
-"hooks": {
-  "SessionStart": [
-    {
-      "matcher": "startup|resume",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "echo 'CAVEMAN MODE ACTIVE. ...'",
-          "statusMessage": "Activating Caveman"
-        }
-      ]
-    }
-  ]
-}
-```
-
-**Our default:** caveman activation on session start, a jcodemunch/jdocmunch availability nudge, and
-(Claude only) blocking `Grep`/`Glob` and trimming noisy Bash output.
-
-**The parity catch:** there is **no shared generator for hooks.** The file formats and the
-output protocols differ enough that a behavior wanted on both harnesses is authored *twice* — once
-in `settings.json`, once in `hooks.json`. When you change a hook, edit both, then run
-`roborepo update` to push it to this machine. This is the deliberate exception to the
-author-once rule, and a good thing to keep in mind as the candidate most likely to fall out of sync.
+> Takeaway: format and structure can differ wildly and a single source-plus-renderer still wins,
+> as long as the _meaning_ is the same on both sides.
 
 ---
 
-## 3. Permissions — what the agent may do without asking
+## Step 4 — When the files are identical but live apart: skills
 
-**What it does:** the allow/deny lists for shell commands, tools, and MCP calls, plus session
-defaults like sandboxing and approval policy.
+A _skill_ is a bundle of instructions the agent loads only when a task matches it (`react`,
+`code-style`, and so on). Each skill is a folder with a `SKILL.md`.
 
-**Native shape, per harness:**
+Skills are interesting because the content is **byte-for-byte identical** across harnesses — the only
+thing that differs is **location**: Claude scans one directory, Codex scans another. When the files
+are the same and only the path differs, generating a copy would be wasteful and would invite the two
+copies to drift. So instead of rendering, we **symlink**: one canonical skill folder, with each
+harness's expected directory pointed at it.
 
-- Claude: a `permissions` object in `settings.json` with `allow` and `deny` arrays of matchers.
+This is the first time the mechanism _changes_ rather than just scaling up. Rules and permissions
+needed a renderer because the outputs genuinely differ. Skills don't — so a link, not a generator, is
+the honest tool.
+
+> Takeaway: match the mechanism to the gap. A location-only difference wants a symlink, not a
+> renderer — same parity goal, lighter tool.
+
+---
+
+## Step 5 — When rendering doesn't fit: MCP servers
+
+An _MCP server_ is an external tool the agent can call — `jcodemunch` for code search, `jdocmunch`
+for docs. Registering one isn't editing a file you can re-render at will; it's an _action_ that mutates
+each harness's tool registry, and on Claude it also requires adding matching permission entries before
+the agent will call the tool without prompting.
+
+There's no clean single source file to render from, because the thing being kept in parity is a
+_registration_, not a document. So parity moves from a render step to a **single front-door
+command**: one command registers the server with both harnesses and adds the Claude permissions in the
+same motion. The guarantee is the same — do it once, both sides agree — but it's enforced
+imperatively, by making the easy path the correct path, rather than declaratively by a generator.
+
+> Takeaway: when the thing isn't a file, parity-by-rendering stops fitting. A single command that
+> touches both harnesses at once keeps the "author once" promise without a source-of-truth document.
+
+---
+
+## Step 6 — When automation gives up: hooks
+
+A _hook_ is a shell command the harness runs when something happens — a session starts, a tool is
+about to run. Hooks can print a message into the session or block a tool outright. This is the
+element where the two harnesses diverge the **most**, and the first one where we stop trying to
+automate parity at all.
+
+The divergence is on every axis at once — name, format, _and semantics_:
+
+- **Claude** wires hooks inside `settings.json`, and a hook influences the session by printing a
+  JSON control object the harness _obeys_:
 
   ```jsonc
-  // globals/claude/settings.json (trimmed)
-  "permissions": {
-    "allow": [
-      "Read", "Write", "Edit",
-      "Bash(npm test:*)",
-      "Bash(roborepo doctor:*)",
-      "mcp__jcodemunch__search_symbols"
-    ]
-  }
+  {"continue": false, "stopReason": "Grep and Glob are blocked. Use jcodemunch tools instead."}
   ```
 
-- Codex: a session profile in `config.toml` plus a command-prefix policy in `rules/default.rules`.
+- **Codex** declares hooks in a _separate_ `hooks.json`, with its own fields (like `statusMessage`),
+  and reads a hook's output as **plain text to show**, not a control protocol to obey.
 
-  ```toml
-  # globals/codex/config.toml (trimmed)
-  # BEGIN GENERATED AGENT PERMISSIONS
-  # Source: manifests/agent-permissions.json profile interactive
-  approval_policy = "on-request"
-  sandbox_mode = "workspace-write"
+That last difference is the killer. It's not that the files are shaped differently — we solved
+shaped-differently back in Step 3. It's that the _meaning_ of a hook's output is different: one
+harness interprets it, the other displays it. There is no neutral source that renders cleanly into
+both, because there is no shared notion of what a hook even _emits_.
 
-  [sandbox_workspace_write]
-  network_access = false
-  # END GENERATED AGENT PERMISSIONS
-  ```
+So we don't render. A hook wanted on both harnesses is authored **twice** — once in each harness's
+own terms. This is the deliberate exception to the author-once rule, and the element most likely to
+fall out of sync. Honest duplication beats a generator that would have to paper over a genuine
+semantic difference.
 
-Completely different shapes — an array of tool matchers vs. a TOML profile + a rules file.
-
-**Our default:** read/write/edit and common test/build commands pre-approved; network access off in
-Codex's workspace sandbox; Git remote pushes denied.
-
-**Parity model:** authored once in `manifests/agent-permissions.json`, then *rendered* into each
-harness's native shape (note the `BEGIN/END GENERATED` markers above — the renderer owns that block
-and leaves the rest of the file alone). Run `roborepo permissions` to render,
-`roborepo permissions --check` to verify.
+> Takeaway: when the harnesses disagree on _meaning_, not just shape, no generator can bridge them.
+> Duplicating by hand and knowing it is more honest than a leaky abstraction.
 
 ---
 
-## 4. Skills — on-demand capabilities
+## Step 7 — When parity isn't the goal: root config
 
-**What it does:** a bundle of instructions the agent loads only when a task matches it — e.g.
-`react`, `code-style`, `test-harness`. Each skill is a folder with a `SKILL.md`.
+_Root config_ is the mutable, machine-local layer — model choice, reasoning effort, trust settings,
+hook approvals, enabled plugins. Claude keeps it in `settings.json`, Codex in `config.toml`.
 
-**Native shape, per harness:** the divergence here is *which directory each scans.*
+This is the one element where we **don't** force parity, and it's not because it's too hard — it's
+because parity would be _wrong_. These settings are legitimately per-machine. Forcing every machine
+to the same model or the same trust state would defeat the purpose.
 
-- Codex scans `~/.agents/skills` **exclusively**.
-- Claude scans `~/.claude/skills`.
+So root config inverts the whole pattern. The repo keeps a _baseline_, but the active home file is a
+local copy the user is free to diverge. On install, if a local file already exists, the installer
+keeps it and prints merge guidance rather than clobbering machine-specific trust and approvals.
 
-**Our default:** a set of shared advisory coding skills, plus repo-only internal skills.
-
-**Parity model:** one canonical source, `globals/agents/skills/<name>/`. Codex gets it for free
-(`~/.agents/skills` links straight to it). Claude needs a per-skill symlink under
-`globals/claude/skills/` pointing back at the canonical folder — `link-skills.sh` derives those
-links from the canonical source, so you never hand-maintain them. Add a skill with
-`roborepo skill new`; after a manual add/remove run `roborepo skill symlink-global`. Full model:
-[Skills And Slash Commands](skills-and-commands.md).
+> Takeaway: parity is a means, not an end. When per-machine difference is the _correct_ behavior, the
+> right amount of parity machinery is none.
 
 ---
 
-## 5. Slash commands — explicit named workflows
+## The pattern underneath
 
-**What it does:** a workflow the *user* starts on purpose by typing `/blog`, `/frontend-design`,
-`/technical-planning`.
+Read top to bottom, the seven steps trace a single decision: **spend exactly as much parity machinery
+as the divergence demands, and not a drop more.**
 
-**Native shape, per harness:** both scan a `commands/` directory of Markdown files
-(`~/.claude/commands/`, `~/.codex/commands/`) — pleasantly symmetric for once.
+| The harnesses differ on… | Right tool | Element |
+| --- | --- | --- |
+| Almost nothing | Stamp a copy | Slash commands |
+| Name only | A generator | Global rules |
+| Format and structure | A generator (two output shapes) | Permissions |
+| Location only | A symlink | Skills |
+| It's an action, not a file | One front-door command | MCP servers |
+| Meaning itself | Author twice, by hand | Hooks |
+| Nothing _should_ match | No parity at all | Root config |
 
-**Our default:** `/blog`, `/frontend-design`, `/technical-planning`.
+The throughline isn't "automate everything." It's: the per-harness files are build artifacts, not
+source, _wherever a clean source exists_ — and where one doesn't (hooks) or shouldn't (root config),
+say so out loud instead of forcing it. The two exceptions are exceptions precisely because their
+semantics or their mutability make a shared generator a worse fit than honest duplication.
 
-**Parity model:** authored once in `manifests/slash-commands.json`, rendered into both command
-dirs by `roborepo skill commands` (`--check` to verify).
-
----
-
-## 6. MCP servers — external tools
-
-**What it does:** registers an external tool server the agent can call — `jcodemunch-mcp` for code
-search, `jdocmunch-mcp` for docs.
-
-**Native shape, per harness:** each harness keeps its own MCP registry (Codex in `config.toml`
-under `[mcp_servers.*]`, Claude in its own config), and Claude additionally needs matching
-*permission* entries before it will call the tools without prompting.
-
-**Our default:** jcodemunch and jdocmunch registered on both.
-
-**Parity model:** one command, `roborepo mcp add <name-or-url>`, registers the server with **both**
-harnesses and adds the Claude permissions in the same step — parity by a single front-door command
-rather than by a render step.
-
----
-
-## 7. Root config — the mutable, machine-local layer
-
-**What it does:** settings that are legitimately *per-machine* — model choice, reasoning effort,
-trust, hook approvals, enabled plugins.
-
-**Native shape, per harness:**
-
-- Claude: `~/.claude/settings.json`
-- Codex: `~/.codex/config.toml`, e.g.:
-
-  ```toml
-  model = "gpt-5.5"
-  model_reasoning_effort = "medium"
-
-  [features]
-  js_repl = true
-  prevent_idle_sleep = true
-  hooks = true
-  ```
-
-**The key difference from everything above:** root config is the one element we do **not** symlink
-and do **not** force into parity. The repo keeps a *baseline*, but the active home file is a local
-copy the user may diverge. On install, if a local file already exists, the installer keeps it and
-prints merge guidance rather than clobbering machine-specific trust and approvals. `roborepo update`
-exports the baseline when safe; `roborepo backfill` pulls intentional local edits back into the
-repo. Merge options are detailed in [How It Works → Root Config](../services/architecture.md#root-config-export).
-
----
-
-## The parity recipe
-
-Step back from the individual elements and a single pattern repeats for everything except hooks
-(authored twice) and root config (deliberately divergent). If you ever add a **new** parity-managed
-element, copy this shape:
-
-1. **Author once, harness-agnostic.** Put the real content in one place — a fragment dir
-   (`globals/rules/shared/`) or a data file (`manifests/agent-permissions.json`,
-   `manifests/slash-commands.json`). Never the per-harness output.
-
-2. **A manifest says where it fans out.** A small table lists the targets. For rules it's the
-   rule-target rows; each row is `target<TAB>source-dirs`.
-
-3. **A renderer turns source → each native shape**, and stamps a do-not-edit header so the output is
-   obviously generated. The rules renderer is the canonical example — read source rows, concat,
-   write each target:
-
-   ```bash
-   # scripts/build/render-rules.sh (core loop, trimmed)
-   while IFS=$'\t' read -r target source_dirs_csv; do
-     IFS=',' read -ra source_dirs <<< "${source_dirs_csv}"
-     render_target "${target}" "${source_dirs[@]}"   # writes globals/{claude,codex} output
-   done < <(rule_target_rows)
-   ```
-
-4. **The same renderer runs in `--check` mode** to detect drift, by rendering to a temp file and
-   comparing:
-
-   ```bash
-   if [[ "${mode}" == "--check" ]]; then
-     cmp -s "${tmp}" "${repo_root}/${target}" \
-       && echo "ok: ${target} current" \
-       || { echo "fail: ${target} drifted" >&2; diff -u "${repo_root}/${target}" "${tmp}" >&2; }
-   fi
-   ```
-
-5. **Wire the `--check` into `doctor`** so a stale generated file is caught automatically. Every
-   render command (`rules`, `permissions`, `skill commands`, `skill symlink-global`) exposes
-   `--check`, and `roborepo doctor` runs them all.
-
-That's the whole philosophy: **the per-harness files are build artifacts, not source.** You edit one
-input; a renderer (or a single front-door command like `mcp add`) produces both native forms; a
-`--check` mode proves they're current. The two exceptions — hooks authored in both files, and root
-config left intentionally local — are exceptions precisely because their native shapes or their
-mutability make a shared generator a worse fit than honest duplication.
-
-For the lookup table of every element and its command, see [Harness Anatomy](harness-anatomy.md).
-For the filesystem/symlink mechanics underneath, see [How It Works](../services/architecture.md).
+For the lookup table of every element, its source location, and the exact command to change it, see
+[Harness Anatomy](harness-anatomy.md). For the filesystem and symlink mechanics underneath, see
+[How It Works](../services/architecture.md).

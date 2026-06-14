@@ -353,7 +353,7 @@ read-only skills lightweight.
    visibility.
 5. Add a shared invocation manifest only after the compatibility shape is known.
 6. Add a slash-command generator for commands declared in
-   `manifests/slash-commands.json`.
+   `manifests/inventory/slash-commands.json`.
 7. Split persistent modes from one-shot actions where a skill currently does both.
 8. Convert only high-risk or truly persistent workflows to manual commands.
 
@@ -364,11 +364,11 @@ Do these before making more behavior changes:
 1. Add an automated skill audit command that generates the current inventory from
    actual skill files and flags dynamic shell, broad tool grants, and missing
    harness metadata.
-2. Add `manifests/skill-invocation.json` as the source of truth for skill risk
+2. Add `manifests/inventory/skill-invocation.json` as the source of truth for skill risk
    tier and desired invocation behavior.
 3. Add a checker that validates Claude and Codex settings against that manifest,
    including manual-only policy when used.
-4. Add `manifests/slash-commands.json` plus a small renderer that turns command
+4. Add `manifests/inventory/slash-commands.json` plus a small renderer that turns command
    entries into harness-specific slash-command files.
 
 This gives the repo a control plane before converting more skills to commands or
@@ -397,7 +397,7 @@ itself.
 ## Open Decisions
 
 - Can either harness expose loaded-skill metadata to hooks or status output?
-- Should command docs link directly to `manifests/slash-commands.json`, or
+- Should command docs link directly to `manifests/inventory/slash-commands.json`, or
   describe only the generated outputs?
 - Which medium-risk skills should be split into helper + mode?
 - Which skills should get generated skill-backed commands while remaining
@@ -409,7 +409,7 @@ itself.
 - Every shared skill has an explicit risk and invocation classification.
 - Medium-risk skill descriptions include clear skip conditions.
 - High-risk workflows cannot auto-load silently.
-- Generated slash commands match `manifests/slash-commands.json`. Skill-backed
+- Generated slash commands match `manifests/inventory/slash-commands.json`. Skill-backed
   commands do not duplicate skill bodies; standalone commands have explicit
   source files.
 - Trigger tests cover expected invocation and accidental near misses.

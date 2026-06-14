@@ -29,9 +29,9 @@
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `roborepo skill new`                      | Scaffolds a shared skill or slash command and updates manifests, generated links, commands, and README.                       |
 | `roborepo skill export-to-local`          | Copies this repo's shared skills into the current target repo and leaves a shareable zip bundle.                              |
-| `roborepo skill symlink-local`            | Symlinks a target repo's `.agents/skills` into existing `.claude/skills` and/or `.codex/skills` folders.                      |
-| `roborepo skill symlink-global [--check]` | Symlinks this repo's shared skill source into global harness folders after adding or removing `globals/agents/skills/<name>`. |
-| `roborepo skill commands [--check]`       | Renders generated slash commands from `manifests/slash-commands.json`, or verifies them with `--check`.                       |
+| `roborepo skill symlink-repo`            | Symlinks a target repo's `.agents/skills` into existing `.claude/skills` and/or `.codex/skills` folders.                      |
+| `roborepo skill symlink-globals [--check]` | Symlinks this repo's shared skill source into global harness folders after adding or removing `globals/agents/skills/<name>`. |
+| `roborepo skill render-commands [--check]`       | Renders generated slash commands from `manifests/inventory/slash-commands.json`, or verifies them with `--check`.                       |
 
 ## MCP Setup
 

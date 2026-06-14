@@ -7,7 +7,7 @@ set -euo pipefail
 # ~/.local/bin/roborepo command point at the checkout's old absolute path, so they dangle and
 # `roborepo` drops off PATH. (See docs/plans/portable-install-relocation.md.)
 #
-# What it does: for each managed link in manifests/manifest.tsv, reclaim a stale link (one that
+# What it does: for each managed link in manifests/platform/manifest.tsv, reclaim a stale link (one that
 # is dangling, or targets the recorded prior checkout) and recreate it against the CURRENT
 # checkout, then re-link the bin command and rewrite the recorded root. Relink only — mutable
 # root config (settings.json / config.toml) is user-owned and left untouched.
